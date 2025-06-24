@@ -93,6 +93,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('📡 Data channel opened');
             };
             
+            dataChannel.onmessage = (event) => {
+                console.log('📡 Data channel message:', event.data);
+                try {
+                    const data = JSON.parse(event.data);
+                    handleDataChannelMessage(data);
+                } catch (error) {
+                    console.error('Error parsing data channel message:', error);
+                }
+            };
+            
             dataChannel.onclose = () => {
                 console.log('📡 Data channel closed');
             };
@@ -120,33 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('📺 Remote audio element added to DOM');
             };
 
-            // Handle data channel
-            peerConnection.ondatachannel = (event) => {
-                const dataChannel = event.channel;
-                console.log('📡 Data channel received:', dataChannel.label);
-                
-                dataChannel.onopen = () => {
-                    console.log('📡 Data channel opened');
-                };
-                
-                dataChannel.onmessage = (event) => {
-                    console.log('📡 Data channel message:', event.data);
-                    try {
-                        const data = JSON.parse(event.data);
-                        handleDataChannelMessage(data);
-                    } catch (error) {
-                        console.error('Error parsing data channel message:', error);
-                    }
-                };
-                
-                dataChannel.onerror = (error) => {
-                    console.error('📡 Data channel error:', error);
-                };
-                
-                dataChannel.onclose = () => {
-                    console.log('📡 Data channel closed');
-                };
-            };
 
             // Create and send offer
             console.log('📝 Creating WebRTC offer...');
@@ -211,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         switch (data.type) {
             case 'transcription':
-                updateTranscription(data.text);
+                updateTranscription(data.text, true);
                 break;
             case 'llm_response':
                 updateLLMInsight(data.text);
