@@ -1,0 +1,7 @@
+# Project Rules
+
+## Python Environment Management
+- Always use `uv` for virtual environment management, not `pip`
+- Use `uv venv` to create virtual environments
+- Use `uv pip install` for package installation
+- Use `uv run` to execute Python scripts in the virtual environment
