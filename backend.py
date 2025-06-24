@@ -8,6 +8,7 @@
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -20,10 +21,12 @@ from fastapi.responses import FileResponse
 from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.frames.frames import Frame, TextFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.assemblyai.stt import AssemblyAISTTService
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.base_transport import TransportParams
@@ -34,6 +37,41 @@ from pipecat.transports.network.webrtc_connection import (
 )
 
 load_dotenv(override=True)
+
+
+# Global reference to store data channel for sending messages
+data_channel_ref = None
+
+
+async def send_data_channel_message(message_type: str, text: str):
+    """Send message via WebRTC data channel"""
+    global data_channel_ref
+    try:
+        if data_channel_ref:
+            message = json.dumps({"type": message_type, "text": text})
+            data_channel_ref.send(message)
+            logger.info(f"📡 Sent {message_type}: {text[:50]}...")
+        else:
+            logger.warning("📡 Data channel not available")
+    except Exception as e:
+        logger.error(f"Failed to send data channel message: {e}")
+
+
+class DataChannelProcessor(FrameProcessor):
+    """Custom processor to capture frames and send via data channel"""
+    
+    def __init__(self, message_type: str):
+        super().__init__()
+        self.message_type = message_type
+    
+    async def process_frame(self, frame: Frame, direction: FrameDirection):
+        await super().process_frame(frame, direction)
+        
+        if isinstance(frame, TextFrame):
+            await send_data_channel_message(self.message_type, frame.text)
+        
+        await self.push_frame(frame, direction)
+
 
 app = FastAPI()
 
@@ -85,6 +123,24 @@ async def offer(request: dict[str, Any], background_tasks: BackgroundTasks):
 
 
 async def run_bot(webrtc_connection: SmallWebRTCConnection):
+    global data_channel_ref
+    logger.info("🤖 Starting bot pipeline...")
+    
+    # Set up data channel handler
+    def handle_datachannel(channel):
+        global data_channel_ref
+        data_channel_ref = channel
+        logger.info(f"📡 Data channel established: {channel.label}")
+        
+        def on_message(message):
+            logger.info(f"📡 Received message: {message}")
+        
+        channel.on("message", on_message)
+    
+    # Access the underlying peer connection to set up data channel handler
+    if hasattr(webrtc_connection, '_pc'):
+        webrtc_connection._pc.on("datachannel", handle_datachannel)
+    
     pipecat_transport = SmallWebRTCTransport(
         webrtc_connection=webrtc_connection,
         params=TransportParams(
@@ -94,11 +150,13 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
             audio_out_10ms_chunks=2,
         ),
     )
+    logger.info("🔧 WebRTC transport configured")
 
     assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY")
     if not assemblyai_api_key:
         raise ValueError("ASSEMBLYAI_API_KEY environment variable is required")
     stt = AssemblyAISTTService(api_key=assemblyai_api_key)
+    logger.info("🎙️ AssemblyAI STT service configured")
 
     openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
     if not openrouter_api_key:
@@ -108,6 +166,7 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
         base_url="https://openrouter.ai/api/v1",
         model="anthropic/claude-3.5-sonnet",
     )
+    logger.info("🧠 OpenAI LLM service configured")
 
     context = OpenAILLMContext(
         [
@@ -124,17 +183,26 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
         ],
     )
     context_aggregator = llm.create_context_aggregator(context)
+    logger.info("📝 LLM context configured")
 
+    # Create data channel processors
+    stt_processor = DataChannelProcessor("transcription")
+    llm_processor = DataChannelProcessor("llm_response")
+    
+    # Create pipeline with data channel processors
     pipeline = Pipeline(
         [
             pipecat_transport.input(),
             stt,
+            stt_processor,
             context_aggregator.user(),
             llm,
+            llm_processor,
             pipecat_transport.output(),
             context_aggregator.assistant(),
         ]
     )
+    logger.info("🔄 Pipeline created with data channel processors")
 
     task = PipelineTask(
         pipeline,
@@ -143,18 +211,20 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
             enable_usage_metrics=True,
         ),
     )
+    logger.info("📋 Pipeline task configured")
 
     @pipecat_transport.event_handler("on_client_connected")
     async def on_client_connected(transport: SmallWebRTCTransport, client: Any):
-        logger.info("Pipecat Client connected")
+        logger.info("✅ Pipecat Client connected - sending initial context")
         await task.queue_frames([context_aggregator.user().get_context_frame()])
 
     @pipecat_transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport: SmallWebRTCTransport, client: Any):
-        logger.info("Pipecat Client disconnected")
+        logger.info("❌ Pipecat Client disconnected - cancelling task")
         await task.cancel()
 
     runner = PipelineRunner(handle_sigint=False)
+    logger.info("🚀 Starting pipeline runner...")
 
     await runner.run(task)
 

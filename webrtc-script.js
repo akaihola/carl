@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const transcriptionTicker = document.getElementById('transcription-ticker');
     const llmInsightsContainer = document.getElementById('llm-insights-container');
 
-    let websocket = null;
     let peerConnection = null;
     let localStream = null;
     let isConnected = false;
@@ -20,9 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
             transcriptionTicker.textContent = '';
             llmInsightsContainer.textContent = '';
 
-            // Connect to Pipecat backend via WebSocket
-            await connectToBackend();
-            
             // Setup WebRTC for audio streaming
             await setupWebRTC();
             
@@ -33,71 +29,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function connectToBackend() {
-        return new Promise((resolve, reject) => {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-            
-            websocket = new WebSocket(wsUrl);
-            
-            websocket.onopen = () => {
-                console.log('Connected to Pipecat backend');
-                isConnected = true;
-                resolve();
-            };
-            
-            websocket.onmessage = handleBackendMessage;
-            
-            websocket.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                reject(error);
-            };
-            
-            websocket.onclose = () => {
-                console.log('WebSocket connection closed');
-                isConnected = false;
-            };
-        });
-    }
-
-    function handleBackendMessage(event) {
+    async function sendOfferToBackend(offer) {
         try {
-            const data = JSON.parse(event.data);
+            const response = await fetch('/api/offer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sdp: offer.sdp,
+                    type: offer.type
+                })
+            });
             
-            switch (data.type) {
-                case 'connection':
-                    console.log('Backend connection status:', data.status);
-                    displayStatus(data.message);
-                    break;
-                    
-                case 'transcription':
-                    updateTranscription(data.text, data.is_final);
-                    break;
-                    
-                case 'llm_insight':
-                    updateLLMInsight(data.text);
-                    break;
-                    
-                case 'webrtc_answer':
-                    handleWebRTCAnswer(data.answer);
-                    break;
-                    
-                case 'error':
-                    console.error('Backend error:', data.message);
-                    displayError(data.message);
-                    break;
-                    
-                default:
-                    console.log('Unknown message type:', data.type);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            
+            const answer = await response.json();
+            return answer;
         } catch (error) {
-            console.error('Error parsing backend message:', error);
+            console.error('Error sending offer to backend:', error);
+            throw error;
         }
     }
 
     async function setupWebRTC() {
         try {
             // Get user media (microphone)
+            console.log('🎤 Requesting microphone access...');
             localStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     sampleRate: 16000,
@@ -107,8 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     autoGainControl: true
                 }
             });
+            console.log('✓ Microphone access granted:', localStream.getTracks().length, 'tracks');
 
             // Create peer connection
+            console.log('🔗 Creating WebRTC peer connection...');
             peerConnection = new RTCPeerConnection({
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' }
@@ -117,46 +79,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Add local stream to peer connection
             localStream.getTracks().forEach(track => {
+                console.log('📤 Adding track to peer connection:', track.kind, track.enabled);
                 peerConnection.addTrack(track, localStream);
             });
 
+            // Create data channel for receiving transcription and LLM responses
+            console.log('📡 Creating data channel...');
+            const dataChannel = peerConnection.createDataChannel('data', {
+                ordered: true
+            });
+            
+            dataChannel.onopen = () => {
+                console.log('📡 Data channel opened');
+            };
+            
+            dataChannel.onclose = () => {
+                console.log('📡 Data channel closed');
+            };
+            
+            dataChannel.onerror = (error) => {
+                console.error('📡 Data channel error:', error);
+            };
+
             // Handle ICE candidates
             peerConnection.onicecandidate = (event) => {
-                if (event.candidate && websocket && isConnected) {
-                    websocket.send(JSON.stringify({
-                        type: 'ice_candidate',
-                        candidate: event.candidate
-                    }));
+                if (event.candidate) {
+                    console.log('ICE candidate:', event.candidate);
                 }
             };
 
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                console.log('📺 Received remote stream:', event.streams[0]);
+                console.log('📺 Remote stream tracks:', event.streams[0].getTracks().map(t => t.kind));
+                const remoteAudio = document.createElement('audio');
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.autoplay = true;
+                remoteAudio.volume = 1.0;
+                document.body.appendChild(remoteAudio);
+                console.log('📺 Remote audio element added to DOM');
+            };
+
+            // Handle data channel
+            peerConnection.ondatachannel = (event) => {
+                const dataChannel = event.channel;
+                console.log('📡 Data channel received:', dataChannel.label);
+                
+                dataChannel.onopen = () => {
+                    console.log('📡 Data channel opened');
+                };
+                
+                dataChannel.onmessage = (event) => {
+                    console.log('📡 Data channel message:', event.data);
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleDataChannelMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing data channel message:', error);
+                    }
+                };
+                
+                dataChannel.onerror = (error) => {
+                    console.error('📡 Data channel error:', error);
+                };
+                
+                dataChannel.onclose = () => {
+                    console.log('📡 Data channel closed');
+                };
+            };
+
             // Create and send offer
+            console.log('📝 Creating WebRTC offer...');
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
+            console.log('📝 Local description set, sending offer to backend...');
             
-            if (websocket && isConnected) {
-                websocket.send(JSON.stringify({
-                    type: 'webrtc_offer',
-                    offer: offer
-                }));
+            const answer = await sendOfferToBackend(offer);
+            console.log('📝 Received answer from backend:', answer ? 'SUCCESS' : 'FAILED');
+            
+            if (answer && answer.sdp) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log('✅ WebRTC connection established');
+                isConnected = true;
+                displayStatus('Voice assistant connected via WebRTC');
             }
 
-            displayStatus('Audio streaming connected');
-            
         } catch (error) {
             console.error('Error setting up WebRTC:', error);
             throw error;
-        }
-    }
-
-    async function handleWebRTCAnswer(answer) {
-        try {
-            if (peerConnection) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                console.log('WebRTC answer handled successfully');
-            }
-        } catch (error) {
-            console.error('Error handling WebRTC answer:', error);
         }
     }
 
@@ -196,6 +206,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // You could add a status display element to show connection status
     }
 
+    function handleDataChannelMessage(data) {
+        console.log('📡 Processing message:', data);
+        
+        switch (data.type) {
+            case 'transcription':
+                updateTranscription(data.text);
+                break;
+            case 'llm_response':
+                updateLLMInsight(data.text);
+                break;
+            case 'status':
+                console.log('📡 Status update:', data.message);
+                break;
+            default:
+                console.warn('📡 Unknown message type:', data.type);
+        }
+    }
+
     function displayError(message) {
         console.error('Error:', message);
         // Show error in the insights container
@@ -216,12 +244,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
-        }
-        
-        // Close WebSocket connection
-        if (websocket) {
-            websocket.close();
-            websocket = null;
         }
         
         isConnected = false;
