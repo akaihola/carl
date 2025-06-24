@@ -3,41 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>In-Person Conversation Assistant</title>
+    <title>Pipecat Voice Assistant</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Conversation Assistant</h1>
-
-        <div class="api-keys">
-            <div class="api-key-group">
-                <label for="assemblyai-api-key">AssemblyAI API Key:</label>
-                <input type="password" id="assemblyai-api-key">
-                <p class="warning">Your AssemblyAI API key is stored locally in your browser and is only sent directly to AssemblyAI. It is never sent to our servers. Do not use production or highly sensitive keys.</p>
-            </div>
-            <div class="api-key-group">
-                <label for="llm-api-key">LLM API Key:</label>
-                <input type="password" id="llm-api-key">
-                <p class="warning">Your LLM API key is stored locally in your browser and is only sent directly to the LLM provider (e.g., OpenAI/Google). It is never sent to our servers. Do not use production or highly sensitive keys.</p>
-            </div>
+        <h1>Pipecat Voice Assistant</h1>
+        
+        <div class="status-section">
+            <p class="info">
+                🎤 This voice assistant uses Pipecat for real-time speech processing with AI insights.
+                <br>
+                API keys are securely managed on the backend server.
+            </p>
         </div>
 
         <div class="controls">
-            <button id="start-button">Start Transcription</button>
-            <button id="stop-button" disabled>Stop Transcription</button>
+            <button id="start-button">Start Voice Assistant</button>
+            <button id="stop-button" disabled>Stop Voice Assistant</button>
         </div>
 
         <div id="llm-insights-container">
-            <!-- LLM insights will be displayed here -->
+            <h3>AI Insights</h3>
+            <div class="insights-content">
+                <!-- LLM insights will be displayed here -->
+            </div>
         </div>
 
         <div id="transcription-container">
+            <h3>Live Transcription</h3>
             <div id="transcription-ticker">
                 <!-- Real-time transcription will appear here -->
             </div>
         </div>
 
     </div>
-    <script src="script.js"></script>
+    <script src="webrtc-script.js"></script>
 </body>

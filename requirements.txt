@@ -1,0 +1,8 @@
+pipecat-ai[assemblyai,openai,webrtc,silero]
+fastapi
+onnxruntime
+uvicorn[standard]
+python-dotenv
+aiofiles
+aiortc
+opencv-python-headless

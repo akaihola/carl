@@ -1,0 +1,4 @@
+# Force opencv-python-headless instead of opencv-python
+pipecat-ai==0.0.71
+opencv-python-headless
+opencv-python==0.0.0  # This will prevent opencv-python from being installed

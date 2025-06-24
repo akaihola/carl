@@ -7,55 +7,58 @@ body {
 }
 
 .container {
-    max-width: 600px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 20px;
     text-align: center;
 }
 
 h1 {
-    font-size: 2em;
-    margin-bottom: 20px;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    color: #2c3e50;
 }
 
-.api-keys {
-    margin-bottom: 20px;
+h3 {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    color: #34495e;
     text-align: left;
 }
 
-.api-key-group {
-    margin-bottom: 15px;
+.status-section {
+    margin-bottom: 30px;
+    padding: 15px;
+    background-color: #e8f4fd;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
 }
 
-.api-key-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
+.info {
+    font-size: 0.95em;
+    color: #2c3e50;
+    margin: 0;
+    line-height: 1.5;
 }
 
-.api-key-group input {
-    width: 100%;
-    padding: 8px;
-    box-sizing: border-box;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.warning {
-    font-size: 0.8em;
-    color: #606770;
-    margin-top: 5px;
+.controls {
+    margin-bottom: 30px;
 }
 
 .controls button {
-    font-size: 1em;
-    padding: 10px 20px;
-    margin: 5px;
+    font-size: 1.1em;
+    padding: 12px 24px;
+    margin: 8px;
     cursor: pointer;
     border: none;
-    border-radius: 5px;
+    border-radius: 6px;
     background-color: #007bff;
     color: white;
+    transition: background-color 0.3s ease;
+}
+
+.controls button:hover:not(:disabled) {
+    background-color: #0056b3;
 }
 
 .controls button:disabled {
@@ -68,12 +71,34 @@ h1 {
     padding: 20px;
     background-color: #fff;
     border-radius: 8px;
-    min-height: 100px;
-    font-size: 1.5em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    min-height: 120px;
     border: 1px solid #ddd;
+    text-align: left;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.insights-content {
+    font-size: 1.1em;
+    line-height: 1.6;
+    color: #2c3e50;
+    min-height: 80px;
+    padding: 10px 0;
+}
+
+.current-insight {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 3px solid #28a745;
+    margin-top: 10px;
+}
+
+.error {
+    color: #dc3545;
+    background-color: #f8d7da;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #f5c6cb;
 }
 
 #transcription-container {
@@ -81,13 +106,60 @@ h1 {
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: #333;
+    background-color: #2c3e50;
     color: white;
     overflow: hidden;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+}
+
+#transcription-container h3 {
+    color: white;
+    margin: 0;
+    padding: 10px 20px 5px;
+    font-size: 1em;
+    background-color: #34495e;
 }
 
 #transcription-ticker {
-    /* News ticker styles will go here */
-    padding: 15px;
+    padding: 15px 20px;
     white-space: nowrap;
+    overflow-x: auto;
+    font-size: 1.1em;
+    line-height: 1.4;
+    background-color: #2c3e50;
+    min-height: 40px;
+}
+
+#transcription-ticker::-webkit-scrollbar {
+    height: 6px;
+}
+
+#transcription-ticker::-webkit-scrollbar-track {
+    background: #34495e;
+}
+
+#transcription-ticker::-webkit-scrollbar-thumb {
+    background: #7f8c8d;
+    border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 2em;
+    }
+    
+    .controls button {
+        font-size: 1em;
+        padding: 10px 20px;
+        margin: 5px;
+    }
+    
+    #transcription-ticker {
+        font-size: 1em;
+        padding: 12px 15px;
+    }
 }
