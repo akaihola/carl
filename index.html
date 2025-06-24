@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>In-Person Conversation Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Conversation Assistant</h1>
+
+        <div class="api-keys">
+            <div class="api-key-group">
+                <label for="assemblyai-api-key">AssemblyAI API Key:</label>
+                <input type="password" id="assemblyai-api-key">
+                <p class="warning">Your AssemblyAI API key is stored locally in your browser and is only sent directly to AssemblyAI. It is never sent to our servers. Do not use production or highly sensitive keys.</p>
+            </div>
+            <div class="api-key-group">
+                <label for="llm-api-key">LLM API Key:</label>
+                <input type="password" id="llm-api-key">
+                <p class="warning">Your LLM API key is stored locally in your browser and is only sent directly to the LLM provider (e.g., OpenAI/Google). It is never sent to our servers. Do not use production or highly sensitive keys.</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="start-button">Start Transcription</button>
+            <button id="stop-button" disabled>Stop Transcription</button>
+        </div>
+
+        <div id="llm-insights-container">
+            <!-- LLM insights will be displayed here -->
+        </div>
+
+        <div id="transcription-container">
+            <div id="transcription-ticker">
+                <!-- Real-time transcription will appear here -->
+            </div>
+        </div>
+
+    </div>
+    <script src="script.js"></script>
+</body>
