@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from typing import Any, cast
 
 import uvicorn
+from aiortc import RTCDataChannel
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.responses import FileResponse
@@ -40,7 +41,7 @@ load_dotenv(override=True)
 
 
 # Global reference to store data channel for sending messages
-data_channel_ref = None
+data_channel_ref: RTCDataChannel | None = None
 
 
 async def send_data_channel_message(message_type: str, text: str):
@@ -59,22 +60,23 @@ async def send_data_channel_message(message_type: str, text: str):
 
 class DataChannelProcessor(FrameProcessor):
     """Custom processor to capture frames and send via data channel"""
-    
+
+    message_type: str
+
     def __init__(self, message_type: str):
         super().__init__()
         self.message_type = message_type
-    
+
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
-        
+
         if isinstance(frame, TextFrame):
             await send_data_channel_message(self.message_type, frame.text)
-        
+
         await self.push_frame(frame, direction)
 
 
 app = FastAPI()
-
 pcs_map: dict[str, SmallWebRTCConnection] = {}
 
 ice_servers = [
@@ -125,27 +127,29 @@ async def offer(request: dict[str, Any], background_tasks: BackgroundTasks):
 async def run_bot(webrtc_connection: SmallWebRTCConnection):
     global data_channel_ref
     logger.info("🤖 Starting bot pipeline...")
-    
+
     # Set up data channel handler
-    def handle_datachannel(channel):
+    def handle_datachannel(channel: RTCDataChannel):
         global data_channel_ref
         data_channel_ref = channel
         logger.info(f"📡 Data channel established: {channel.label}")
-        
-        def on_message(message):
+
+        def on_message(message: str):
             logger.info(f"📡 Received message: {message}")
-        
+
         channel.on("message", on_message)
-    
+
     # Access the underlying peer connection to set up data channel handler
-    if hasattr(webrtc_connection, '_pc'):
+    if hasattr(webrtc_connection, "_pc"):
         webrtc_connection._pc.on("datachannel", handle_datachannel)
-    
+
     pipecat_transport = SmallWebRTCTransport(
         webrtc_connection=webrtc_connection,
         params=TransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
+            video_in_enabled=False,
+            video_out_enabled=False,
             vad_analyzer=SileroVADAnalyzer(),
             audio_out_10ms_chunks=2,
         ),
@@ -188,7 +192,7 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
     # Create data channel processors
     stt_processor = DataChannelProcessor("transcription")
     llm_processor = DataChannelProcessor("llm_response")
-    
+
     # Create pipeline with data channel processors
     pipeline = Pipeline(
         [
@@ -267,9 +271,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logger.remove(0)
-    if args.verbose:
+    if args.verbose == 1:
+        logger.add(sys.stderr, level="DEBUG")
+    elif (args.verbose or 0) >= 2:
         logger.add(sys.stderr, level="TRACE")
     else:
-        logger.add(sys.stderr, level="DEBUG")
+        logger.add(sys.stderr, level="INFO")
 
     uvicorn.run(app, host=args.host, port=args.port)
