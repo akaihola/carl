@@ -5,6 +5,7 @@
 # pyright: reportUnusedParameter=false
 # pyright: reportAny=false
 # pyright: reportUnusedCallResult=false
+# pyright: reportUnknownMemberType=false
 
 import argparse
 import asyncio
@@ -12,7 +13,7 @@ import json
 import os
 import sys
 from contextlib import asynccontextmanager
-from typing import Any, cast
+from typing import Any, cast, override
 
 import uvicorn
 from aiortc import RTCDataChannel
@@ -67,6 +68,7 @@ class DataChannelProcessor(FrameProcessor):
         super().__init__()
         self.message_type = message_type
 
+    @override
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
 
@@ -140,8 +142,8 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
         channel.on("message", on_message)
 
     # Access the underlying peer connection to set up data channel handler
-    if hasattr(webrtc_connection, "_pc"):
-        webrtc_connection._pc.on("datachannel", handle_datachannel)
+    if webrtc_connection.pc:
+        webrtc_connection.pc.on("datachannel", handle_datachannel)
 
     pipecat_transport = SmallWebRTCTransport(
         webrtc_connection=webrtc_connection,
