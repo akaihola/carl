@@ -55,22 +55,24 @@
             // 1. Initialize Audio (16kHz, Mono, PCM)
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
-                    channelCount: 1,
-                    sampleRate: 16000
+                    channelCount: 1
                 }});
 
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                // Use native sample rate, then resample to 16kHz
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const source = audioContext.createMediaStreamSource(mediaStream);
+                const nativeSampleRate = audioContext.sampleRate;
 
                 // Use ScriptProcessor (deprecated but simplest for plain JS single-file)
-                // Buffer size 4096 = ~256ms of audio at 16kHz
                 audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
 
                 audioProcessor.onaudioprocess = (e) => {
                     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
                     const inputData = e.inputBuffer.getChannelData(0);
-                    const pcmData = floatTo16BitPCM(inputData);
+                    // Resample from native rate to 16kHz
+                    const resampled = resampleTo16kHz(inputData, nativeSampleRate);
+                    const pcmData = floatTo16BitPCM(resampled);
                     const base64Audio = arrayBufferToBase64(pcmData);
 
                     sendAudioMessage(base64Audio);
@@ -165,6 +167,27 @@
         }
 
         // --- Helpers ---
+
+        // Resample audio from native sample rate to 16kHz using linear interpolation
+        function resampleTo16kHz(float32Array, fromSampleRate) {
+            if (fromSampleRate === 16000) return float32Array;
+
+            const ratio = fromSampleRate / 16000;
+            const newLength = Math.floor(float32Array.length / ratio);
+            const result = new Float32Array(newLength);
+
+            for (let i = 0; i < newLength; i++) {
+                const srcIndex = i * ratio;
+                const srcIndexFloor = Math.floor(srcIndex);
+                const srcIndexCeil = Math.min(srcIndexFloor + 1, float32Array.length - 1);
+                const fraction = srcIndex - srcIndexFloor;
+
+                // Linear interpolation
+                result[i] = float32Array[srcIndexFloor] * (1 - fraction) + float32Array[srcIndexCeil] * fraction;
+            }
+
+            return result;
+        }
 
         function updateStatus(text) {
             document.getElementById('status').textContent = text;
