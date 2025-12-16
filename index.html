@@ -12,24 +12,29 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             padding: clamp(16px, 5vw, 20px);
-            max-width: 800px;
-            margin: 0 auto;
+            margin: 0;
             font-size: clamp(16px, 4vw, 16px);
             line-height: 1.5;
             background: #fafafa;
+            min-height: 100vh;
         }
 
-        .header {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            align-items: start;
-            margin-bottom: clamp(15px, 4vw, 20px);
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
             gap: clamp(8px, 2vw, 15px);
+            position: sticky;
+            top: 0;
+            background: #fafafa;
+            padding: 8px 0;
+            z-index: 100;
+            margin: -8px 0 clamp(15px, 4vw, 20px) 0;
         }
 
         h1 {
             font-size: clamp(18px, 5vw, 32px);
-            margin: 0;
+            margin: 0 0 clamp(15px, 4vw, 20px) 0;
             line-height: 1.2;
         }
 
@@ -129,16 +134,19 @@
         }
 
         #log {
+            line-height: 1.4;
+        }
+
+        .response {
+            margin-bottom: 1em;
+            word-wrap: break-word;
+        }
+
+        .response.measuring {
+            position: absolute;
+            visibility: hidden;
             white-space: pre-wrap;
-            background: #fff;
-            padding: clamp(10px, 3vw, 16px);
-            height: clamp(200px, 60vh, 400px);
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            margin-top: clamp(10px, 3vw, 20px);
-            border-radius: 8px;
-            font-size: clamp(14px, 3vw, 14px);
-            font-family: 'Courier New', monospace;
+            width: calc(100vw - 2 * clamp(16px, 5vw, 20px));
         }
 
         .controls {
@@ -146,6 +154,10 @@
             display: flex;
             gap: clamp(8px, 2vw, 10px);
             flex-wrap: wrap;
+        }
+
+        .controls.hidden {
+            display: none;
         }
 
         #apiKeySection {
@@ -190,35 +202,23 @@
             background: #1e40af;
         }
 
-        .status {
-            color: #666;
-            font-size: 0.95em;
-            margin-left: clamp(8px, 2vw, 10px);
-            white-space: nowrap;
-        }
-
         @media (max-width: 640px) {
             #apiKeySection {
                 flex-direction: column;
-                width: 100%:
+                width: 100%;
             }
 
             input[type="password"] {
                 width: 100%;
             }
 
-            button {
+            .controls button {
                 width: 100%;
             }
 
             .controls {
                 flex-direction: column;
                 gap: clamp(8px, 2vw, 12px);
-            }
-
-            .status {
-                margin-left: 0;
-                text-align: center;
             }
 
             .menu-content {
@@ -229,14 +229,16 @@
 </head>
 <body>
 
-    <div class="header">
-        <h1>Gemini Live API (Client-to-Server)</h1>
+    <div class="toolbar" id="toolbar">
+        <button id="connectBtn" onclick="toggleConnection()">Connect & Start</button>
         <button id="menuBtn" onclick="toggleMenu()">
             <span></span>
             <span></span>
             <span></span>
         </button>
     </div>
+
+    <h1>Gemini Live API (Client-to-Server)</h1>
 
     <div id="menu" onclick="closeMenuOnBackdrop(event)">
         <div class="menu-content">
@@ -248,17 +250,15 @@
         </div>
     </div>
 
-    <div class="controls">
+    <div class="controls" id="controls">
         <div id="apiKeySection">
             <input type="password" id="apiKey" placeholder="Enter API Key">
             <button id="submitApiKeyBtn" onclick="submitApiKey()">Submit API Key</button>
             <button id="clearApiKeyBtn" onclick="clearApiKey()" style="display: none;">Clear Key</button>
         </div>
-        <button id="connectBtn" onclick="toggleConnection()" style="display: none;">Connect & Start</button>
-        <span id="status" class="status">Disconnected</span>
     </div>
 
-    <div id="log">Responses will appear here...</div>
+    <div id="log"></div>
 
     <script>
         let ws = null;
@@ -266,6 +266,8 @@
         let mediaStream = null;
         let audioProcessor = null;
         let currentApiKey = null;
+        let currentResponseEl = null;
+        let currentResponseText = '';
 
         // Configuration
         const MODEL = "models/gemini-2.0-flash-exp";
@@ -306,12 +308,14 @@
         });
 
         function showApiKeyInput() {
+            document.getElementById('controls').classList.remove('hidden');
             document.getElementById('apiKeySection').style.display = 'flex';
             document.getElementById('connectBtn').style.display = 'none';
             document.getElementById('clearApiKeyBtn').style.display = 'none';
         }
 
         function showConnectButton() {
+            document.getElementById('controls').classList.add('hidden');
             document.getElementById('apiKeySection').style.display = 'none';
             document.getElementById('connectBtn').style.display = 'inline-block';
             document.getElementById('clearApiKeyBtn').style.display = 'inline-block';
@@ -324,7 +328,6 @@
                 return;
             }
 
-            // Save to localStorage
             localStorage.setItem(API_KEY_STORAGE_KEY, key);
             currentApiKey = key;
             document.getElementById('apiKey').value = '';
@@ -336,6 +339,60 @@
                 localStorage.removeItem(API_KEY_STORAGE_KEY);
                 currentApiKey = null;
                 showApiKeyInput();
+            }
+        }
+
+
+        // Bisect to find the optimal font size that fills the viewport height
+        function findOptimalFontSize(text) {
+            const viewportHeight = window.innerHeight;
+            const padding = parseFloat(getComputedStyle(document.body).paddingTop) * 2;
+            const toolbarHeight = document.getElementById('toolbar').offsetHeight;
+            const availableHeight = viewportHeight - padding - toolbarHeight - 20; // 20px margin
+
+            // Create a measuring element
+            const measureEl = document.createElement('div');
+            measureEl.className = 'response measuring';
+            measureEl.textContent = text;
+            document.body.appendChild(measureEl);
+
+            let minSize = 12;
+            let maxSize = 200;
+            let optimalSize = minSize;
+
+            // Binary search for optimal font size
+            while (maxSize - minSize > 1) {
+                const midSize = Math.floor((minSize + maxSize) / 2);
+                measureEl.style.fontSize = midSize + 'px';
+
+                if (measureEl.offsetHeight <= availableHeight) {
+                    optimalSize = midSize;
+                    minSize = midSize;
+                } else {
+                    maxSize = midSize;
+                }
+            }
+
+            document.body.removeChild(measureEl);
+            return optimalSize;
+        }
+
+        function startNewResponse() {
+            currentResponseText = '';
+            currentResponseEl = document.createElement('div');
+            currentResponseEl.className = 'response';
+            currentResponseEl.style.visibility = 'hidden';
+            document.getElementById('log').appendChild(currentResponseEl);
+        }
+
+        function finalizeResponse() {
+            if (currentResponseEl && currentResponseText) {
+                const fontSize = findOptimalFontSize(currentResponseText);
+                currentResponseEl.style.fontSize = fontSize + 'px';
+                currentResponseEl.textContent = currentResponseText;
+                currentResponseEl.style.visibility = 'visible';
+                currentResponseEl = null;
+                currentResponseText = '';
             }
         }
 
@@ -353,27 +410,22 @@
 
             if (!key) { alert("Please enter an API Key"); return; }
 
-            updateStatus("Connecting...");
-
             // 1. Initialize Audio (16kHz, Mono, PCM)
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
                     channelCount: 1
                 }});
 
-                // Use native sample rate, then resample to 16kHz
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioContext = new AudioContext();
                 const source = audioContext.createMediaStreamSource(mediaStream);
                 const nativeSampleRate = audioContext.sampleRate;
 
-                // Use ScriptProcessor (deprecated but simplest for plain JS single-file)
                 audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
 
                 audioProcessor.onaudioprocess = (e) => {
                     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
                     const inputData = e.inputBuffer.getChannelData(0);
-                    // Resample from native rate to 16kHz
                     const resampled = resampleTo16kHz(inputData, nativeSampleRate);
                     const pcmData = floatTo16BitPCM(resampled);
                     const base64Audio = arrayBufferToBase64(pcmData);
@@ -382,7 +434,7 @@
                 };
 
                 source.connect(audioProcessor);
-                audioProcessor.connect(audioContext.destination); // Connect to dest to keep it alive
+                audioProcessor.connect(audioContext.destination);
             } catch (err) {
                 console.error(err);
                 alert("Microphone error: " + err.message);
@@ -394,15 +446,13 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                updateStatus("Connected");
                 document.getElementById('connectBtn').textContent = "Disconnect";
 
-                // 3. Send Setup Message
                 const setupMessage = {
                     setup: {
                         model: MODEL,
                         generation_config: {
-                            response_modalities: ["TEXT"] // Explicitly ask for Text
+                            response_modalities: ["TEXT"]
                         },
                         system_instruction: {
                             parts: [{ text: prompt }]
@@ -414,7 +464,6 @@
 
             ws.onmessage = async (event) => {
                 try {
-                    // Convert Blob to text if needed
                     let data = event.data;
                     if (data instanceof Blob) {
                         data = await data.text();
@@ -422,14 +471,21 @@
 
                     const response = JSON.parse(data);
 
-                    // Parse server content (Text)
                     if (response.serverContent && response.serverContent.modelTurn) {
                         const parts = response.serverContent.modelTurn.parts;
                         for (const part of parts) {
                             if (part.text) {
-                                appendLog(part.text);
+                                if (!currentResponseEl) {
+                                    startNewResponse();
+                                }
+                                currentResponseText += part.text;
                             }
                         }
+                    }
+
+                    // Check if turn is complete
+                    if (response.serverContent && response.serverContent.turnComplete) {
+                        finalizeResponse();
                     }
                 } catch (err) {
                     console.error("Failed to parse message:", event.data);
@@ -439,9 +495,7 @@
 
             ws.onerror = (err) => {
                 console.error("WebSocket Error:", err);
-                updateStatus("Error (See Console)");
 
-                // Check if error is likely due to invalid API key
                 const errorStr = err.toString().toLowerCase();
                 if (errorStr.includes('401') || errorStr.includes('unauthorized') || errorStr.includes('invalid')) {
                     localStorage.removeItem(API_KEY_STORAGE_KEY);
@@ -454,14 +508,13 @@
             };
 
             ws.onclose = () => {
-                if (document.getElementById('status').textContent !== "Disconnected") {
-                   disconnect();
+                if (ws) {
+                    disconnect();
                 }
             };
         }
 
         function disconnect() {
-            updateStatus("Disconnected");
             document.getElementById('connectBtn').textContent = "Connect & Start";
 
             if (ws) {
@@ -476,6 +529,9 @@
                 audioContext.close();
                 audioContext = null;
             }
+
+            // Finalize any pending response
+            finalizeResponse();
         }
 
         function sendAudioMessage(base64Audio) {
@@ -492,7 +548,6 @@
 
         // --- Helpers ---
 
-        // Resample audio from native sample rate to 16kHz using linear interpolation
         function resampleTo16kHz(float32Array, fromSampleRate) {
             if (fromSampleRate === 16000) return float32Array;
 
@@ -506,36 +561,22 @@
                 const srcIndexCeil = Math.min(srcIndexFloor + 1, float32Array.length - 1);
                 const fraction = srcIndex - srcIndexFloor;
 
-                // Linear interpolation
                 result[i] = float32Array[srcIndexFloor] * (1 - fraction) + float32Array[srcIndexCeil] * fraction;
             }
 
             return result;
         }
 
-        function updateStatus(text) {
-            document.getElementById('status').textContent = text;
-        }
-
-        function appendLog(text) {
-            const log = document.getElementById('log');
-            log.textContent += text;
-            log.scrollTop = log.scrollHeight;
-        }
-
-        // Convert Float32Array (browser audio) to Int16Array (PCM)
         function floatTo16BitPCM(float32Array) {
             const buffer = new ArrayBuffer(float32Array.length * 2);
             const view = new DataView(buffer);
             for (let i = 0; i < float32Array.length; i++) {
                 let s = Math.max(-1, Math.min(1, float32Array[i]));
-                // Convert -1.0...1.0 to -32768...32767
-                view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true); // true = little-endian
+                view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
             }
             return buffer;
         }
 
-        // Convert ArrayBuffer to Base64 string
         function arrayBufferToBase64(buffer) {
             let binary = '';
             const bytes = new Uint8Array(buffer);
