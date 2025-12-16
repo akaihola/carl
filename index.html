@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gemini Live API - Minimal Client</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        #log { white-space: pre-wrap; background: #f4f4f4; padding: 10px; height: 300px; overflow-y: auto; border: 1px solid #ddd; margin-top: 10px; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        input, textarea, button { padding: 8px; }
+        textarea { width: 100%; height: 60px; margin-bottom: 10px; }
+        .status { color: #666; font-size: 0.9em; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Gemini Live API (Client-to-Server)</h1>
+
+    <div class="controls">
+        <input type="password" id="apiKey" placeholder="Enter API Key" style="width: 200px;">
+        <button id="connectBtn" onclick="toggleConnection()">Connect & Start</button>
+        <span id="status" class="status">Disconnected</span>
+    </div>
+
+    <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a helpful assistant. Keep responses concise.</textarea>
+
+    <div id="log">Responses will appear here...</div>
+
+    <script>
+        let ws = null;
+        let audioContext = null;
+        let mediaStream = null;
+        let audioProcessor = null;
+
+        // Configuration
+        const MODEL = "models/gemini-2.0-flash-exp";
+        const HOST = "generativelanguage.googleapis.com";
+        const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
+
+        async function toggleConnection() {
+            if (ws) {
+                disconnect();
+            } else {
+                await connect();
+            }
+        }
+
+        async function connect() {
+            const key = document.getElementById('apiKey').value;
+            const prompt = document.getElementById('systemPrompt').value;
+
+            if (!key) { alert("Please enter an API Key"); return; }
+
+            updateStatus("Connecting...");
+
+            // 1. Initialize Audio (16kHz, Mono, PCM)
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
+                    channelCount: 1,
+                    sampleRate: 16000
+                }});
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+
+                // Use ScriptProcessor (deprecated but simplest for plain JS single-file)
+                // Buffer size 4096 = ~256ms of audio at 16kHz
+                audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                audioProcessor.onaudioprocess = (e) => {
+                    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmData = floatTo16BitPCM(inputData);
+                    const base64Audio = arrayBufferToBase64(pcmData);
+
+                    sendAudioMessage(base64Audio);
+                };
+
+                source.connect(audioProcessor);
+                audioProcessor.connect(audioContext.destination); // Connect to dest to keep it alive
+            } catch (err) {
+                console.error(err);
+                alert("Microphone error: " + err.message);
+                return;
+            }
+
+            // 2. Initialize WebSocket
+            const url = `${WS_URL}?key=${key}`;
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                updateStatus("Connected");
+                document.getElementById('connectBtn').textContent = "Disconnect";
+
+                // 3. Send Setup Message
+                const setupMessage = {
+                    setup: {
+                        model: MODEL,
+                        generation_config: {
+                            response_modalities: ["TEXT"] // Explicitly ask for Text
+                        },
+                        system_instruction: {
+                            parts: [{ text: prompt }]
+                        }
+                    }
+                };
+                ws.send(JSON.stringify(setupMessage));
+            };
+
+            ws.onmessage = (event) => {
+                const response = JSON.parse(event.data);
+
+                // Parse server content (Text)
+                if (response.serverContent && response.serverContent.modelTurn) {
+                    const parts = response.serverContent.modelTurn.parts;
+                    for (const part of parts) {
+                        if (part.text) {
+                            appendLog(part.text);
+                        }
+                    }
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket Error:", err);
+                updateStatus("Error (See Console)");
+                disconnect();
+            };
+
+            ws.onclose = () => {
+                if (document.getElementById('status').textContent !== "Disconnected") {
+                   disconnect();
+                }
+            };
+        }
+
+        function disconnect() {
+            updateStatus("Disconnected");
+            document.getElementById('connectBtn').textContent = "Connect & Start";
+
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+        }
+
+        function sendAudioMessage(base64Audio) {
+            const audioMessage = {
+                realtime_input: {
+                    media_chunks: [{
+                        mime_type: "audio/pcm",
+                        data: base64Audio
+                    }]
+                }
+            };
+            ws.send(JSON.stringify(audioMessage));
+        }
+
+        // --- Helpers ---
+
+        function updateStatus(text) {
+            document.getElementById('status').textContent = text;
+        }
+
+        function appendLog(text) {
+            const log = document.getElementById('log');
+            log.textContent += text;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Convert Float32Array (browser audio) to Int16Array (PCM)
+        function floatTo16BitPCM(float32Array) {
+            const buffer = new ArrayBuffer(float32Array.length * 2);
+            const view = new DataView(buffer);
+            for (let i = 0; i < float32Array.length; i++) {
+                let s = Math.max(-1, Math.min(1, float32Array[i]));
+                // Convert -1.0...1.0 to -32768...32767
+                view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true); // true = little-endian
+            }
+            return buffer;
+        }
+
+        // Convert ArrayBuffer to Base64 string
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+    </script>
+</body>
+</html>
