@@ -109,17 +109,28 @@
                 ws.send(JSON.stringify(setupMessage));
             };
 
-            ws.onmessage = (event) => {
-                const response = JSON.parse(event.data);
+            ws.onmessage = async (event) => {
+                try {
+                    // Convert Blob to text if needed
+                    let data = event.data;
+                    if (data instanceof Blob) {
+                        data = await data.text();
+                    }
 
-                // Parse server content (Text)
-                if (response.serverContent && response.serverContent.modelTurn) {
-                    const parts = response.serverContent.modelTurn.parts;
-                    for (const part of parts) {
-                        if (part.text) {
-                            appendLog(part.text);
+                    const response = JSON.parse(data);
+
+                    // Parse server content (Text)
+                    if (response.serverContent && response.serverContent.modelTurn) {
+                        const parts = response.serverContent.modelTurn.parts;
+                        for (const part of parts) {
+                            if (part.text) {
+                                appendLog(part.text);
+                            }
                         }
                     }
+                } catch (err) {
+                    console.error("Failed to parse message:", event.data);
+                    console.error("Parse error:", err);
                 }
             };
 
