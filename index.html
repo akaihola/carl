@@ -1,40 +1,430 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini Live API - Minimal Client</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-        #log { white-space: pre-wrap; background: #f4f4f4; padding: 10px; height: 300px; overflow-y: auto; border: 1px solid #ddd; margin-top: 10px; }
-        .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
-        input, textarea, button { padding: 8px; }
-        textarea { width: 100%; height: 60px; margin-bottom: 10px; }
-        .status { color: #666; font-size: 0.9em; margin-left: 10px; }
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: clamp(16px, 5vw, 20px);
+            margin: 0;
+            font-size: clamp(16px, 4vw, 16px);
+            line-height: 1.5;
+            background: #fafafa;
+            min-height: 100vh;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: clamp(8px, 2vw, 15px);
+            position: sticky;
+            top: 0;
+            background: #fafafa;
+            padding: 8px 0;
+            z-index: 100;
+            margin: -8px 0 clamp(15px, 4vw, 20px) 0;
+        }
+
+        h1 {
+            font-size: clamp(18px, 5vw, 32px);
+            margin: 0 0 clamp(15px, 4vw, 20px) 0;
+            line-height: 1.2;
+        }
+
+        #menuBtn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        #menuBtn span {
+            width: 25px;
+            height: 3px;
+            background: #333;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        #menuBtn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(8px, 8px);
+        }
+
+        #menuBtn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        #menuBtn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -7px);
+        }
+
+        #menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #menu.open {
+            display: flex;
+        }
+
+        .menu-content {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            overflow-y: auto;
+            padding: clamp(20px, 5vw, 30px);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .menu-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5em;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #systemPrompt {
+            width: 100%;
+            height: clamp(120px, 40vh, 200px);
+            margin-bottom: clamp(15px, 4vw, 20px);
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        #log {
+            line-height: 1.4;
+        }
+
+        .response {
+            margin-bottom: 1em;
+            word-wrap: break-word;
+        }
+
+        .response.measuring {
+            position: absolute;
+            visibility: hidden;
+            white-space: pre-wrap;
+            width: calc(100vw - 2 * clamp(16px, 5vw, 20px));
+        }
+
+        .controls {
+            margin-bottom: clamp(15px, 4vw, 20px);
+            display: flex;
+            gap: clamp(8px, 2vw, 10px);
+            flex-wrap: wrap;
+        }
+
+        .controls.hidden {
+            display: none;
+        }
+
+        #apiKeySection {
+            display: flex;
+            gap: clamp(8px, 2vw, 10px);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input, textarea, button {
+            padding: clamp(8px, 2vw, 12px);
+            font-size: inherit;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        input {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        input[type="password"] {
+            min-width: 160px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        button:active {
+            background: #1e40af;
+        }
+
+        @media (max-width: 640px) {
+            #apiKeySection {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            input[type="password"] {
+                width: 100%;
+            }
+
+            .controls button {
+                width: 100%;
+            }
+
+            .controls {
+                flex-direction: column;
+                gap: clamp(8px, 2vw, 12px);
+            }
+
+            .menu-content {
+                max-width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <h1>Gemini Live API (Client-to-Server)</h1>
-
-    <div class="controls">
-        <input type="password" id="apiKey" placeholder="Enter API Key" style="width: 200px;">
+    <div class="toolbar" id="toolbar">
         <button id="connectBtn" onclick="toggleConnection()">Connect & Start</button>
-        <span id="status" class="status">Disconnected</span>
+        <button id="menuBtn" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
     </div>
 
-    <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a helpful assistant. Keep responses concise.</textarea>
+    <h1>Gemini Live API (Client-to-Server)</h1>
 
-    <div id="log">Responses will appear here...</div>
+    <div id="menu" onclick="closeMenuOnBackdrop(event)">
+        <div class="menu-content">
+            <div class="menu-header">
+                <span>Settings</span>
+                <button class="menu-close" onclick="closeMenu()">✕</button>
+            </div>
+            <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a helpful assistant. Keep responses concise.</textarea>
+        </div>
+    </div>
+
+    <div class="controls" id="controls">
+        <div id="apiKeySection">
+            <input type="password" id="apiKey" placeholder="Enter API Key">
+            <button id="submitApiKeyBtn" onclick="submitApiKey()">Submit API Key</button>
+            <button id="clearApiKeyBtn" onclick="clearApiKey()" style="display: none;">Clear Key</button>
+        </div>
+    </div>
+
+    <div id="log"></div>
 
     <script>
         let ws = null;
         let audioContext = null;
         let mediaStream = null;
         let audioProcessor = null;
+        let currentApiKey = null;
+        let currentResponseEl = null;
+        let currentResponseText = '';
+        let userHasScrolledUp = false;
 
         // Configuration
         const MODEL = "models/gemini-2.0-flash-exp";
         const HOST = "generativelanguage.googleapis.com";
         const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
+        const API_KEY_STORAGE_KEY = "gemini_api_key";
+
+        // Menu functions
+        function toggleMenu() {
+            const menu = document.getElementById('menu');
+            const menuBtn = document.getElementById('menuBtn');
+            menu.classList.toggle('open');
+            menuBtn.classList.toggle('active');
+        }
+
+        function closeMenu() {
+            const menu = document.getElementById('menu');
+            const menuBtn = document.getElementById('menuBtn');
+            menu.classList.remove('open');
+            menuBtn.classList.remove('active');
+        }
+
+        function closeMenuOnBackdrop(event) {
+            if (event.target.id === 'menu') {
+                closeMenu();
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+            if (savedKey) {
+                currentApiKey = savedKey;
+                showConnectButton();
+            } else {
+                showApiKeyInput();
+            }
+
+            // Track user scroll behavior
+            window.addEventListener('scroll', () => {
+                const atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 10);
+                userHasScrolledUp = !atBottom;
+            });
+
+            // Catch Enter key globally to send text message (only when not focused on inputs/buttons)
+            document.addEventListener('keydown', (e) => {
+                console.log('keydown:', e.key, 'activeElement:', document.activeElement?.tagName, document.activeElement?.id);
+                if (e.key === 'Enter' && ws && ws.readyState === WebSocket.OPEN) {
+                    const activeEl = document.activeElement;
+                    const isInputFocused = activeEl && (
+                        activeEl.tagName === 'INPUT' ||
+                        activeEl.tagName === 'TEXTAREA' ||
+                        activeEl.tagName === 'BUTTON'
+                    );
+                    console.log('Enter pressed, isInputFocused:', isInputFocused);
+                    if (!isInputFocused) {
+                        e.preventDefault();
+                        sendTextMessage('Tell me something funny again.');
+                    }
+                }
+            });
+        });
+
+        function showApiKeyInput() {
+            document.getElementById('controls').classList.remove('hidden');
+            document.getElementById('apiKeySection').style.display = 'flex';
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('clearApiKeyBtn').style.display = 'none';
+        }
+
+        function showConnectButton() {
+            document.getElementById('controls').classList.add('hidden');
+            document.getElementById('apiKeySection').style.display = 'none';
+            document.getElementById('connectBtn').style.display = 'inline-block';
+            document.getElementById('clearApiKeyBtn').style.display = 'inline-block';
+        }
+
+        async function submitApiKey() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (!key) {
+                alert("Please enter an API Key");
+                return;
+            }
+
+            localStorage.setItem(API_KEY_STORAGE_KEY, key);
+            currentApiKey = key;
+            document.getElementById('apiKey').value = '';
+            showConnectButton();
+        }
+
+        function clearApiKey() {
+            if (confirm("Are you sure you want to clear the saved API key?")) {
+                localStorage.removeItem(API_KEY_STORAGE_KEY);
+                currentApiKey = null;
+                showApiKeyInput();
+            }
+        }
+
+
+        // Bisect to find the optimal font size that fills the viewport height
+        function findOptimalFontSize(text) {
+            const viewportHeight = window.innerHeight;
+            const padding = parseFloat(getComputedStyle(document.body).paddingTop) * 2;
+            const toolbarHeight = document.getElementById('toolbar').offsetHeight;
+            const availableHeight = viewportHeight - padding - toolbarHeight - 20; // 20px margin
+
+            // Create a measuring element
+            const measureEl = document.createElement('div');
+            measureEl.className = 'response measuring';
+            measureEl.textContent = text;
+            document.body.appendChild(measureEl);
+
+            let minSize = 12;
+            let maxSize = 200;
+            let optimalSize = minSize;
+
+            // Binary search for optimal font size
+            while (maxSize - minSize > 1) {
+                const midSize = Math.floor((minSize + maxSize) / 2);
+                measureEl.style.fontSize = midSize + 'px';
+
+                if (measureEl.offsetHeight <= availableHeight) {
+                    optimalSize = midSize;
+                    minSize = midSize;
+                } else {
+                    maxSize = midSize;
+                }
+            }
+
+            document.body.removeChild(measureEl);
+            return optimalSize;
+        }
+
+        function startNewResponse() {
+            currentResponseText = '';
+            currentResponseEl = document.createElement('div');
+            currentResponseEl.className = 'response';
+            currentResponseEl.style.visibility = 'hidden';
+            document.getElementById('log').appendChild(currentResponseEl);
+        }
+
+        function finalizeResponse() {
+            if (currentResponseEl && currentResponseText) {
+                const fontSize = findOptimalFontSize(currentResponseText);
+                currentResponseEl.style.fontSize = fontSize + 'px';
+                currentResponseEl.textContent = currentResponseText;
+                currentResponseEl.style.visibility = 'visible';
+                currentResponseEl = null;
+                currentResponseText = '';
+
+                // Auto-scroll to bottom unless user has scrolled up
+                if (!userHasScrolledUp) {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }
+            }
+        }
 
         async function toggleConnection() {
             if (ws) {
@@ -42,15 +432,14 @@
             } else {
                 await connect();
             }
+            document.getElementById('connectBtn').blur();
         }
 
         async function connect() {
-            const key = document.getElementById('apiKey').value;
+            const key = currentApiKey;
             const prompt = document.getElementById('systemPrompt').value;
 
             if (!key) { alert("Please enter an API Key"); return; }
-
-            updateStatus("Connecting...");
 
             // 1. Initialize Audio (16kHz, Mono, PCM)
             try {
@@ -58,19 +447,16 @@
                     channelCount: 1
                 }});
 
-                // Use native sample rate, then resample to 16kHz
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioContext = new AudioContext();
                 const source = audioContext.createMediaStreamSource(mediaStream);
                 const nativeSampleRate = audioContext.sampleRate;
 
-                // Use ScriptProcessor (deprecated but simplest for plain JS single-file)
                 audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
 
                 audioProcessor.onaudioprocess = (e) => {
                     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
                     const inputData = e.inputBuffer.getChannelData(0);
-                    // Resample from native rate to 16kHz
                     const resampled = resampleTo16kHz(inputData, nativeSampleRate);
                     const pcmData = floatTo16BitPCM(resampled);
                     const base64Audio = arrayBufferToBase64(pcmData);
@@ -79,7 +465,7 @@
                 };
 
                 source.connect(audioProcessor);
-                audioProcessor.connect(audioContext.destination); // Connect to dest to keep it alive
+                audioProcessor.connect(audioContext.destination);
             } catch (err) {
                 console.error(err);
                 alert("Microphone error: " + err.message);
@@ -91,15 +477,13 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                updateStatus("Connected");
                 document.getElementById('connectBtn').textContent = "Disconnect";
 
-                // 3. Send Setup Message
                 const setupMessage = {
                     setup: {
                         model: MODEL,
                         generation_config: {
-                            response_modalities: ["TEXT"] // Explicitly ask for Text
+                            response_modalities: ["TEXT"]
                         },
                         system_instruction: {
                             parts: [{ text: prompt }]
@@ -111,7 +495,6 @@
 
             ws.onmessage = async (event) => {
                 try {
-                    // Convert Blob to text if needed
                     let data = event.data;
                     if (data instanceof Blob) {
                         data = await data.text();
@@ -119,14 +502,21 @@
 
                     const response = JSON.parse(data);
 
-                    // Parse server content (Text)
                     if (response.serverContent && response.serverContent.modelTurn) {
                         const parts = response.serverContent.modelTurn.parts;
                         for (const part of parts) {
                             if (part.text) {
-                                appendLog(part.text);
+                                if (!currentResponseEl) {
+                                    startNewResponse();
+                                }
+                                currentResponseText += part.text;
                             }
                         }
+                    }
+
+                    // Check if turn is complete
+                    if (response.serverContent && response.serverContent.turnComplete) {
+                        finalizeResponse();
                     }
                 } catch (err) {
                     console.error("Failed to parse message:", event.data);
@@ -136,19 +526,26 @@
 
             ws.onerror = (err) => {
                 console.error("WebSocket Error:", err);
-                updateStatus("Error (See Console)");
+
+                const errorStr = err.toString().toLowerCase();
+                if (errorStr.includes('401') || errorStr.includes('unauthorized') || errorStr.includes('invalid')) {
+                    localStorage.removeItem(API_KEY_STORAGE_KEY);
+                    currentApiKey = null;
+                    showApiKeyInput();
+                    alert("API key appears to be invalid. Please enter a new one.");
+                }
+
                 disconnect();
             };
 
             ws.onclose = () => {
-                if (document.getElementById('status').textContent !== "Disconnected") {
-                   disconnect();
+                if (ws) {
+                    disconnect();
                 }
             };
         }
 
         function disconnect() {
-            updateStatus("Disconnected");
             document.getElementById('connectBtn').textContent = "Connect & Start";
 
             if (ws) {
@@ -163,6 +560,9 @@
                 audioContext.close();
                 audioContext = null;
             }
+
+            // Finalize any pending response
+            finalizeResponse();
         }
 
         function sendAudioMessage(base64Audio) {
@@ -177,9 +577,30 @@
             ws.send(JSON.stringify(audioMessage));
         }
 
+        function sendTextMessage(text) {
+            console.log('sendTextMessage called with:', text);
+            console.log('ws:', ws, 'readyState:', ws?.readyState);
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.log('Not connected, aborting sendTextMessage');
+                alert("Not connected to the server");
+                return;
+            }
+
+            console.log('Sending text message to WebSocket');
+            const textMessage = {
+                client_content: {
+                    turns: [{
+                        role: "user",
+                        parts: [{ text: text }]
+                    }],
+                    turn_complete: true
+                }
+            };
+            ws.send(JSON.stringify(textMessage));
+        }
+
         // --- Helpers ---
 
-        // Resample audio from native sample rate to 16kHz using linear interpolation
         function resampleTo16kHz(float32Array, fromSampleRate) {
             if (fromSampleRate === 16000) return float32Array;
 
@@ -193,36 +614,22 @@
                 const srcIndexCeil = Math.min(srcIndexFloor + 1, float32Array.length - 1);
                 const fraction = srcIndex - srcIndexFloor;
 
-                // Linear interpolation
                 result[i] = float32Array[srcIndexFloor] * (1 - fraction) + float32Array[srcIndexCeil] * fraction;
             }
 
             return result;
         }
 
-        function updateStatus(text) {
-            document.getElementById('status').textContent = text;
-        }
-
-        function appendLog(text) {
-            const log = document.getElementById('log');
-            log.textContent += text;
-            log.scrollTop = log.scrollHeight;
-        }
-
-        // Convert Float32Array (browser audio) to Int16Array (PCM)
         function floatTo16BitPCM(float32Array) {
             const buffer = new ArrayBuffer(float32Array.length * 2);
             const view = new DataView(buffer);
             for (let i = 0; i < float32Array.length; i++) {
                 let s = Math.max(-1, Math.min(1, float32Array[i]));
-                // Convert -1.0...1.0 to -32768...32767
-                view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true); // true = little-endian
+                view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
             }
             return buffer;
         }
 
-        // Convert ArrayBuffer to Base64 string
         function arrayBufferToBase64(buffer) {
             let binary = '';
             const bytes = new Uint8Array(buffer);
