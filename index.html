@@ -19,9 +19,113 @@
             background: #fafafa;
         }
 
+        .header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: start;
+            margin-bottom: clamp(15px, 4vw, 20px);
+            gap: clamp(8px, 2vw, 15px);
+        }
+
         h1 {
-            font-size: clamp(24px, 7vw, 32px);
-            margin-top: 0;
+            font-size: clamp(18px, 5vw, 32px);
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        #menuBtn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        #menuBtn span {
+            width: 25px;
+            height: 3px;
+            background: #333;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        #menuBtn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(8px, 8px);
+        }
+
+        #menuBtn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        #menuBtn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -7px);
+        }
+
+        #menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        #menu.open {
+            display: flex;
+        }
+
+        .menu-content {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
+            overflow-y: auto;
+            padding: clamp(20px, 5vw, 30px);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .menu-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5em;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #systemPrompt {
+            width: 100%;
+            height: clamp(120px, 40vh, 200px);
+            margin-bottom: clamp(15px, 4vw, 20px);
+            resize: vertical;
+            font-family: 'Courier New', monospace;
         }
 
         #log {
@@ -86,14 +190,6 @@
             background: #1e40af;
         }
 
-        textarea {
-            width: 100%;
-            height: clamp(60px, 20vh, 100px);
-            margin-bottom: clamp(10px, 3vw, 15px);
-            resize: vertical;
-            font-family: 'Courier New', monospace;
-        }
-
         .status {
             color: #666;
             font-size: 0.95em;
@@ -104,7 +200,7 @@
         @media (max-width: 640px) {
             #apiKeySection {
                 flex-direction: column;
-                width: 100%;
+                width: 100%:
             }
 
             input[type="password"] {
@@ -124,12 +220,33 @@
                 margin-left: 0;
                 text-align: center;
             }
+
+            .menu-content {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
 <body>
 
-    <h1>Gemini Live API (Client-to-Server)</h1>
+    <div class="header">
+        <h1>Gemini Live API (Client-to-Server)</h1>
+        <button id="menuBtn" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+
+    <div id="menu" onclick="closeMenuOnBackdrop(event)">
+        <div class="menu-content">
+            <div class="menu-header">
+                <span>Settings</span>
+                <button class="menu-close" onclick="closeMenu()">✕</button>
+            </div>
+            <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a helpful assistant. Keep responses concise.</textarea>
+        </div>
+    </div>
 
     <div class="controls">
         <div id="apiKeySection">
@@ -140,8 +257,6 @@
         <button id="connectBtn" onclick="toggleConnection()" style="display: none;">Connect & Start</button>
         <span id="status" class="status">Disconnected</span>
     </div>
-
-    <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a helpful assistant. Keep responses concise.</textarea>
 
     <div id="log">Responses will appear here...</div>
 
@@ -157,6 +272,27 @@
         const HOST = "generativelanguage.googleapis.com";
         const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
         const API_KEY_STORAGE_KEY = "gemini_api_key";
+
+        // Menu functions
+        function toggleMenu() {
+            const menu = document.getElementById('menu');
+            const menuBtn = document.getElementById('menuBtn');
+            menu.classList.toggle('open');
+            menuBtn.classList.toggle('active');
+        }
+
+        function closeMenu() {
+            const menu = document.getElementById('menu');
+            const menuBtn = document.getElementById('menuBtn');
+            menu.classList.remove('open');
+            menuBtn.classList.remove('active');
+        }
+
+        function closeMenuOnBackdrop(event) {
+            if (event.target.id === 'menu') {
+                closeMenu();
+            }
+        }
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', () => {
