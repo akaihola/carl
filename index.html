@@ -16,8 +16,12 @@
     <h1>Gemini Live API (Client-to-Server)</h1>
 
     <div class="controls">
-        <input type="password" id="apiKey" placeholder="Enter API Key" style="width: 200px;">
-        <button id="connectBtn" onclick="toggleConnection()">Connect & Start</button>
+        <div id="apiKeySection" style="display: flex; gap: 10px; align-items: center;">
+            <input type="password" id="apiKey" placeholder="Enter API Key" style="width: 200px;">
+            <button id="submitApiKeyBtn" onclick="submitApiKey()">Submit API Key</button>
+            <button id="clearApiKeyBtn" onclick="clearApiKey()" style="display: none;">Clear Key</button>
+        </div>
+        <button id="connectBtn" onclick="toggleConnection()" style="display: none;">Connect & Start</button>
         <span id="status" class="status">Disconnected</span>
     </div>
 
@@ -30,11 +34,58 @@
         let audioContext = null;
         let mediaStream = null;
         let audioProcessor = null;
+        let currentApiKey = null;
 
         // Configuration
         const MODEL = "models/gemini-2.0-flash-exp";
         const HOST = "generativelanguage.googleapis.com";
         const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
+        const API_KEY_STORAGE_KEY = "gemini_api_key";
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+            if (savedKey) {
+                currentApiKey = savedKey;
+                showConnectButton();
+            } else {
+                showApiKeyInput();
+            }
+        });
+
+        function showApiKeyInput() {
+            document.getElementById('apiKeySection').style.display = 'flex';
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('clearApiKeyBtn').style.display = 'none';
+        }
+
+        function showConnectButton() {
+            document.getElementById('apiKeySection').style.display = 'none';
+            document.getElementById('connectBtn').style.display = 'inline-block';
+            document.getElementById('clearApiKeyBtn').style.display = 'inline-block';
+        }
+
+        async function submitApiKey() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (!key) {
+                alert("Please enter an API Key");
+                return;
+            }
+
+            // Save to localStorage
+            localStorage.setItem(API_KEY_STORAGE_KEY, key);
+            currentApiKey = key;
+            document.getElementById('apiKey').value = '';
+            showConnectButton();
+        }
+
+        function clearApiKey() {
+            if (confirm("Are you sure you want to clear the saved API key?")) {
+                localStorage.removeItem(API_KEY_STORAGE_KEY);
+                currentApiKey = null;
+                showApiKeyInput();
+            }
+        }
 
         async function toggleConnection() {
             if (ws) {
@@ -45,7 +96,7 @@
         }
 
         async function connect() {
-            const key = document.getElementById('apiKey').value;
+            const key = currentApiKey;
             const prompt = document.getElementById('systemPrompt').value;
 
             if (!key) { alert("Please enter an API Key"); return; }
@@ -137,6 +188,16 @@
             ws.onerror = (err) => {
                 console.error("WebSocket Error:", err);
                 updateStatus("Error (See Console)");
+
+                // Check if error is likely due to invalid API key
+                const errorStr = err.toString().toLowerCase();
+                if (errorStr.includes('401') || errorStr.includes('unauthorized') || errorStr.includes('invalid')) {
+                    localStorage.removeItem(API_KEY_STORAGE_KEY);
+                    currentApiKey = null;
+                    showApiKeyInput();
+                    alert("API key appears to be invalid. Please enter a new one.");
+                }
+
                 disconnect();
             };
 
