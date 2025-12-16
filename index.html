@@ -268,6 +268,7 @@
         let currentApiKey = null;
         let currentResponseEl = null;
         let currentResponseText = '';
+        let userHasScrolledUp = false;
 
         // Configuration
         const MODEL = "models/gemini-2.0-flash-exp";
@@ -305,6 +306,30 @@
             } else {
                 showApiKeyInput();
             }
+
+            // Track user scroll behavior
+            window.addEventListener('scroll', () => {
+                const atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 10);
+                userHasScrolledUp = !atBottom;
+            });
+
+            // Catch Enter key globally to send text message (only when not focused on inputs/buttons)
+            document.addEventListener('keydown', (e) => {
+                console.log('keydown:', e.key, 'activeElement:', document.activeElement?.tagName, document.activeElement?.id);
+                if (e.key === 'Enter' && ws && ws.readyState === WebSocket.OPEN) {
+                    const activeEl = document.activeElement;
+                    const isInputFocused = activeEl && (
+                        activeEl.tagName === 'INPUT' ||
+                        activeEl.tagName === 'TEXTAREA' ||
+                        activeEl.tagName === 'BUTTON'
+                    );
+                    console.log('Enter pressed, isInputFocused:', isInputFocused);
+                    if (!isInputFocused) {
+                        e.preventDefault();
+                        sendTextMessage('Tell me something funny again.');
+                    }
+                }
+            });
         });
 
         function showApiKeyInput() {
@@ -393,6 +418,11 @@
                 currentResponseEl.style.visibility = 'visible';
                 currentResponseEl = null;
                 currentResponseText = '';
+
+                // Auto-scroll to bottom unless user has scrolled up
+                if (!userHasScrolledUp) {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }
             }
         }
 
@@ -402,6 +432,7 @@
             } else {
                 await connect();
             }
+            document.getElementById('connectBtn').blur();
         }
 
         async function connect() {
@@ -544,6 +575,28 @@
                 }
             };
             ws.send(JSON.stringify(audioMessage));
+        }
+
+        function sendTextMessage(text) {
+            console.log('sendTextMessage called with:', text);
+            console.log('ws:', ws, 'readyState:', ws?.readyState);
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.log('Not connected, aborting sendTextMessage');
+                alert("Not connected to the server");
+                return;
+            }
+
+            console.log('Sending text message to WebSocket');
+            const textMessage = {
+                client_content: {
+                    turns: [{
+                        role: "user",
+                        parts: [{ text: text }]
+                    }],
+                    turn_complete: true
+                }
+            };
+            ws.send(JSON.stringify(textMessage));
         }
 
         // --- Helpers ---
