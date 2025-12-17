@@ -12,6 +12,17 @@ let outputAudioContext = null;
 let audioQueue = [];
 let isPlayingAudio = false;
 
+// Voice Activity Detection
+let analyser = null;
+let smoothedVolume = 0;
+const VAD_THRESHOLD = 0.05;      // Minimum RMS volume to consider as speech
+const VAD_SMOOTHING = 0.9;       // Smoothing factor (0-1), higher = slower release
+const VAD_HOLD_TIME = 300;       // Keep sending for this many ms after speech stops
+let lastSpeechTime = 0;
+let silencePacketCount = 0;
+let silenceStartTime = 0;
+let lastSilenceLogTime = 0;
+
 // Configuration
 const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 const HOST = "generativelanguage.googleapis.com";
@@ -205,11 +216,21 @@ async function connect() {
         const nativeSampleRate = audioContext.sampleRate;
         console.log('AudioContext created, native sample rate:', nativeSampleRate);
 
+        // Set up AnalyserNode for voice activity detection
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;  // Small FFT for fast response
+        source.connect(analyser);
+
         audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
 
         audioProcessor.onaudioprocess = (e) => {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                console.log('Audio available but WebSocket not open - ws:', !!ws, 'readyState:', ws?.readyState);
+                return;
+            }
+
+            // Voice Activity Detection using RMS volume
+            const isSpeaking = detectVoiceActivity();
+            if (!isSpeaking) {
                 return;
             }
 
@@ -218,7 +239,6 @@ async function connect() {
             const pcmData = floatTo16BitPCM(resampled);
             const base64Audio = arrayBufferToBase64(pcmData);
 
-            console.log('Sending audio chunk, size:', base64Audio.length);
             sendAudioMessage(base64Audio);
         };
 
@@ -367,6 +387,14 @@ function disconnect() {
     audioQueue = [];
     isPlayingAudio = false;
 
+    // Reset VAD state
+    analyser = null;
+    smoothedVolume = 0;
+    lastSpeechTime = 0;
+    silencePacketCount = 0;
+    silenceStartTime = 0;
+    lastSilenceLogTime = 0;
+
     // Finalize any pending response
     finalizeResponse();
 }
@@ -416,7 +444,6 @@ async function playNextAudioChunk() {
 }
 
 function sendAudioMessage(base64Audio) {
-    console.log('sendAudioMessage called, audioSize:', base64Audio.length, 'wsReadyState:', ws?.readyState);
     const audioMessage = {
         realtime_input: {
             media_chunks: [{
@@ -427,7 +454,7 @@ function sendAudioMessage(base64Audio) {
     };
     try {
         ws.send(JSON.stringify(audioMessage));
-        console.log('Audio message sent');
+        console.log('Audio sent:', { size: base64Audio.length, volume: smoothedVolume.toFixed(4), wsReady: ws?.readyState === WebSocket.OPEN });
     } catch (err) {
         console.error('Error sending audio message:', err);
     }
@@ -456,6 +483,70 @@ function sendTextMessage(text) {
 }
 
 // --- Helpers ---
+
+// Voice Activity Detection using RMS volume from AnalyserNode
+// Based on cwilso/volume-meter approach
+function detectVoiceActivity() {
+    if (!analyser) return true;  // If no analyser, allow all audio
+
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Float32Array(bufferLength);
+    analyser.getFloatTimeDomainData(dataArray);
+
+    // Calculate RMS (root mean square) volume
+    let sum = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sum / bufferLength);
+
+    // Apply smoothing: fast attack, slow release
+    if (rms > smoothedVolume) {
+        smoothedVolume = rms;  // Fast attack
+    } else {
+        smoothedVolume = smoothedVolume * VAD_SMOOTHING + rms * (1 - VAD_SMOOTHING);  // Slow release
+    }
+
+    const now = performance.now();
+    const isBelowThreshold = smoothedVolume <= VAD_THRESHOLD;
+
+    // Check if volume exceeds threshold
+    if (smoothedVolume > VAD_THRESHOLD) {
+        // Speech detected - log silence stats if we were silent
+        if (silencePacketCount > 0) {
+            const silenceDuration = now - silenceStartTime;
+            console.log(`Speech resumed after ${silencePacketCount} silent packets (${silenceDuration.toFixed(0)}ms)`);
+            silencePacketCount = 0;
+            silenceStartTime = 0;
+            lastSilenceLogTime = 0;
+        }
+        lastSpeechTime = now;
+        return true;
+    }
+
+    // Below threshold - track silence
+    if (isBelowThreshold) {
+        if (silencePacketCount === 0) {
+            silenceStartTime = now;
+            lastSilenceLogTime = now;
+        }
+        silencePacketCount++;
+
+        // Log every 5 seconds during extended silence
+        if (now - lastSilenceLogTime >= 5000) {
+            const silenceDuration = now - silenceStartTime;
+            console.log(`Silence: ${silencePacketCount} packets (${silenceDuration.toFixed(0)}ms)`);
+            lastSilenceLogTime = now;
+        }
+    }
+
+    // Keep sending for a short time after speech stops (hold time)
+    if (now - lastSpeechTime < VAD_HOLD_TIME) {
+        return true;
+    }
+
+    return false;
+}
 
 function resampleTo16kHz(float32Array, fromSampleRate) {
     if (fromSampleRate === 16000) return float32Array;
