@@ -299,6 +299,10 @@ async function connect() {
                 const parts = response.serverContent.modelTurn.parts;
                 console.log('Model turn received with', parts.length, 'parts');
                 for (const part of parts) {
+                    // Skip thought parts (internal reasoning)
+                    if (part.thought) {
+                        continue;
+                    }
                     // Handle audio data
                     if (part.inlineData && part.inlineData.mimeType === 'audio/pcm') {
                         console.log('Received audio chunk');
