@@ -122,6 +122,7 @@ function clearApiKey() {
 
 
 // Bisect to find the optimal font size that fills the viewport height
+// without breaking words mid-letter (only breaks at whitespace/punctuation)
 function findOptimalFontSize(text) {
     const viewportHeight = window.innerHeight;
     const padding = parseFloat(getComputedStyle(document.body).paddingTop) * 2;
@@ -139,11 +140,16 @@ function findOptimalFontSize(text) {
     let optimalSize = minSize;
 
     // Binary search for optimal font size
+    // The measuring element uses word-break: keep-all to prevent mid-word breaks
+    // If text overflows horizontally, the font is too large for longest word
     while (maxSize - minSize > 1) {
         const midSize = Math.floor((minSize + maxSize) / 2);
         measureEl.style.fontSize = midSize + 'px';
 
-        if (measureEl.offsetHeight <= availableHeight) {
+        const fitsHeight = measureEl.offsetHeight <= availableHeight;
+        const fitsWidth = measureEl.scrollWidth <= measureEl.clientWidth;
+
+        if (fitsHeight && fitsWidth) {
             optimalSize = midSize;
             minSize = midSize;
         } else {
