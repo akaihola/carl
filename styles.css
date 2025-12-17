@@ -1,0 +1,220 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: clamp(16px, 5vw, 20px);
+    margin: 0;
+    font-size: clamp(16px, 4vw, 16px);
+    line-height: 1.5;
+    background: #fafafa;
+    min-height: 100vh;
+}
+
+.toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: clamp(8px, 2vw, 15px);
+    position: sticky;
+    top: 0;
+    background: #fafafa;
+    padding: 8px 0;
+    z-index: 100;
+    margin: -8px 0 clamp(15px, 4vw, 20px) 0;
+}
+
+h1 {
+    font-size: clamp(18px, 5vw, 32px);
+    margin: 0 0 clamp(15px, 4vw, 20px) 0;
+    line-height: 1.2;
+}
+
+#menuBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+#menuBtn span {
+    width: 25px;
+    height: 3px;
+    background: #333;
+    border-radius: 2px;
+    transition: all 0.3s;
+}
+
+#menuBtn.active span:nth-child(1) {
+    transform: rotate(45deg) translate(8px, 8px);
+}
+
+#menuBtn.active span:nth-child(2) {
+    opacity: 0;
+}
+
+#menuBtn.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
+}
+
+#menu {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+#menu.open {
+    display: flex;
+}
+
+.menu-content {
+    background: white;
+    width: 100%;
+    max-width: 400px;
+    height: 100vh;
+    overflow-y: auto;
+    padding: clamp(20px, 5vw, 30px);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+.menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.menu-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5em;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#systemPrompt {
+    width: 100%;
+    height: clamp(120px, 40vh, 200px);
+    margin-bottom: clamp(15px, 4vw, 20px);
+    resize: vertical;
+    font-family: 'Courier New', monospace;
+}
+
+#log {
+    line-height: 1.4;
+}
+
+.response {
+    margin-bottom: 1em;
+    word-wrap: break-word;
+}
+
+.response.measuring {
+    position: absolute;
+    visibility: hidden;
+    white-space: pre-wrap;
+    width: calc(100vw - 2 * clamp(16px, 5vw, 20px));
+}
+
+.controls {
+    margin-bottom: clamp(15px, 4vw, 20px);
+    display: flex;
+    gap: clamp(8px, 2vw, 10px);
+    flex-wrap: wrap;
+}
+
+.controls.hidden {
+    display: none;
+}
+
+#apiKeySection {
+    display: flex;
+    gap: clamp(8px, 2vw, 10px);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+input, textarea, button {
+    padding: clamp(8px, 2vw, 12px);
+    font-size: inherit;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-family: inherit;
+}
+
+input {
+    flex: 1;
+    min-width: 150px;
+}
+
+input[type="password"] {
+    min-width: 160px;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+button:active {
+    background: #1e40af;
+}
+
+@media (max-width: 640px) {
+    #apiKeySection {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    input[type="password"] {
+        width: 100%;
+    }
+
+    .controls button {
+        width: 100%;
+    }
+
+    .controls {
+        flex-direction: column;
+        gap: clamp(8px, 2vw, 12px);
+    }
+
+    .menu-content {
+        max-width: 100%;
+    }
+}
