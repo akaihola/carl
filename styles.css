@@ -132,8 +132,9 @@ h1 {
 
 .response {
     margin-bottom: 1em;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
 }
 
 .response.measuring {
