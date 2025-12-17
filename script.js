@@ -165,16 +165,15 @@ function startNewResponse() {
     currentResponseText = '';
     currentResponseEl = document.createElement('div');
     currentResponseEl.className = 'response';
-    currentResponseEl.style.visibility = 'hidden';
+    currentResponseEl.style.visibility = 'visible';
     document.getElementById('log').appendChild(currentResponseEl);
 }
 
 function finalizeResponse() {
     if (currentResponseEl && currentResponseText) {
+        // Final font size optimization for complete text
         const fontSize = findOptimalFontSize(currentResponseText);
         currentResponseEl.style.fontSize = fontSize + 'px';
-        currentResponseEl.textContent = currentResponseText;
-        currentResponseEl.style.visibility = 'visible';
         currentResponseEl = null;
         currentResponseText = '';
 
@@ -333,6 +332,16 @@ async function connect() {
                         startNewResponse();
                     }
                     currentResponseText += transcription;
+                    currentResponseEl.textContent = currentResponseText;
+
+                    // Recalculate font size for current text
+                    const fontSize = findOptimalFontSize(currentResponseText);
+                    currentResponseEl.style.fontSize = fontSize + 'px';
+
+                    // Auto-scroll during streaming
+                    if (!userHasScrolledUp) {
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    }
                 }
             }
 
