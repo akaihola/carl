@@ -6,6 +6,8 @@ let currentApiKey = null;
 let currentResponseEl = null;
 let currentResponseText = '';
 let userHasScrolledUp = false;
+let isProgrammaticScrolling = false;
+let scrollEndTimeout = null;
 
 // Structured response handling (confidence protocol)
 let pendingStructuredResponse = '';
@@ -38,6 +40,101 @@ const GEMINI_REST_URL = `https://${HOST}/v1beta`;
 const API_KEY_STORAGE_KEY = "gemini_api_key";
 const STRUCTURED_RESPONSE_MARKER = '§';
 
+// Location context
+let cachedLocationContext = null;
+
+async function getLocationContext() {
+    if (cachedLocationContext) return cachedLocationContext;
+
+    try {
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000
+            });
+        });
+
+        const { latitude, longitude } = position.coords;
+        const now = new Date();
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const timestamp = now.toLocaleString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short'
+        });
+
+        let locationDetails = { country: '', state: '', city: '', address: '' };
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+                { headers: { 'User-Agent': 'Carl AI Assistant' } }
+            );
+            const data = await response.json();
+            const addr = data.address || {};
+            locationDetails = {
+                country: addr.country || '',
+                state: addr.state || addr.region || '',
+                city: addr.city || addr.town || addr.village || addr.municipality || '',
+                address: data.display_name || ''
+            };
+        } catch (e) {
+            console.warn('[LOCATION] Reverse geocoding failed:', e);
+        }
+
+        cachedLocationContext = `CURRENT CONTEXT:
+Timestamp: ${timestamp}
+Timezone: ${timezone}
+Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
+Country: ${locationDetails.country}
+State/Province: ${locationDetails.state}
+City: ${locationDetails.city}
+Address: ${locationDetails.address}
+
+`;
+        console.log('[LOCATION] Context acquired:', cachedLocationContext);
+        return cachedLocationContext;
+    } catch (e) {
+        console.warn('[LOCATION] Geolocation failed:', e);
+        const now = new Date();
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const timestamp = now.toLocaleString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short'
+        });
+        cachedLocationContext = `CURRENT CONTEXT:
+Timestamp: ${timestamp}
+Timezone: ${timezone}
+Location: Not available (permission denied or unavailable)
+
+`;
+        return cachedLocationContext;
+    }
+}
+
+// Scroll helper that tracks programmatic scrolling
+function scrollToBottom() {
+    if (userHasScrolledUp) return;
+    requestAnimationFrame(() => {
+        isProgrammaticScrolling = true;
+        clearTimeout(scrollEndTimeout);
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        // Fallback timeout in case scrollend doesn't fire (already at bottom)
+        scrollEndTimeout = setTimeout(() => { isProgrammaticScrolling = false; }, 1000);
+    });
+}
+
 // Menu functions
 function toggleMenu() {
     const menu = document.getElementById('menu');
@@ -69,10 +166,17 @@ window.addEventListener('DOMContentLoaded', () => {
         showApiKeyInput();
     }
 
-    // Track user scroll behavior
+    // Track user scroll behavior (ignore programmatic scrolls)
     window.addEventListener('scroll', () => {
-        const atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 10);
+        if (isProgrammaticScrolling) return;
+        const atBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 10);
         userHasScrolledUp = !atBottom;
+    });
+
+    // Clear programmatic scroll flag when scroll animation completes
+    window.addEventListener('scrollend', () => {
+        isProgrammaticScrolling = false;
+        clearTimeout(scrollEndTimeout);
     });
 
     // Catch Enter key globally to send text message (only when not focused on inputs/buttons)
@@ -189,11 +293,7 @@ function finalizeResponse() {
         currentResponseText = '';
 
         // Auto-scroll to bottom unless user has scrolled up
-        if (!userHasScrolledUp) {
-            requestAnimationFrame(() => {
-                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-            });
-        }
+        scrollToBottom();
     }
 
     // Reset structured response state
@@ -253,7 +353,11 @@ async function verifyWithGeminiPro(question) {
             parts: [{
                 text: 'Answer the question directly and concisely. Provide accurate, factual information.'
             }]
-        }
+        },
+        tools: [
+            { googleSearch: {} },
+            { codeExecution: {} }
+        ]
     };
 
     console.log(`[VERIFICATION_MODEL] Sending question: "${question}"`);
@@ -294,6 +398,13 @@ async function verifyWithGeminiPro(question) {
                     try {
                         const data = JSON.parse(jsonStr);
                         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+
+                        if (groundingMetadata) {
+                            console.log('[VERIFICATION] Grounded answer with:', groundingMetadata);
+                            currentResponseEl.classList.add('grounded');
+                        }
+
                         if (text) {
                             const preview = text.substring(0, 100).replace(/\n/g, ' ');
                             console.log(`[VERIFICATION_MODEL] Received response: ${preview}${text.length > 100 ? '...' : ''}`);
@@ -305,12 +416,7 @@ async function verifyWithGeminiPro(question) {
                             currentResponseEl.style.fontSize = fontSize + 'px';
 
                             // Auto-scroll during streaming
-                            if (!userHasScrolledUp) {
-                                // Use requestAnimationFrame to ensure DOM is updated before scrolling
-                                requestAnimationFrame(() => {
-                                    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-                                });
-                            }
+                            scrollToBottom();
                         }
                     } catch (e) {
                         // Ignore parse errors for partial chunks
@@ -389,11 +495,7 @@ function processTranscription(text) {
     const fontSize = findOptimalFontSize(currentResponseText);
     currentResponseEl.style.fontSize = fontSize + 'px';
 
-    if (!userHasScrolledUp) {
-        requestAnimationFrame(() => {
-            window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-        });
-    }
+    scrollToBottom();
 }
 
 // Handle a complete structured response
@@ -472,13 +574,17 @@ async function toggleConnection() {
 async function connect() {
     console.log('connect() called');
     const key = currentApiKey;
-    const prompt = document.getElementById('systemPrompt').value;
+    const basePrompt = document.getElementById('systemPrompt').value;
 
     if (!key) {
         console.error('No API key available');
         alert("Please enter an API Key");
         return;
     }
+
+    // Get location context and prepend to system prompt
+    const locationContext = await getLocationContext();
+    const prompt = locationContext + basePrompt;
     console.log('API key available, initializing audio...');
 
     // 1. Initialize Audio (16kHz, Mono, PCM)

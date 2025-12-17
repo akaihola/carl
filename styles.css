@@ -144,6 +144,11 @@ h1 {
     background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
 }
 
+.response.verified.grounded {
+    border-left-color: #0891b2;
+    background: linear-gradient(90deg, rgba(8, 145, 178, 0.05) 0%, transparent 100%);
+}
+
 .response.measuring {
     position: absolute;
     visibility: hidden;
