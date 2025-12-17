@@ -7,6 +7,11 @@ let currentResponseEl = null;
 let currentResponseText = '';
 let userHasScrolledUp = false;
 
+// Structured response handling (confidence protocol)
+let pendingStructuredResponse = '';
+let isParsingStructured = false;
+let structuredBraceDepth = 0;
+
 // Audio output
 let outputAudioContext = null;
 let audioQueue = [];
@@ -26,9 +31,12 @@ let lastAudioLogTime = 0;        // Track last time we logged audio above thresh
 
 // Configuration
 const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+const VERIFICATION_MODEL = "models/gemini-2.5-pro";
 const HOST = "generativelanguage.googleapis.com";
 const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
+const GEMINI_REST_URL = `https://${HOST}/v1beta`;
 const API_KEY_STORAGE_KEY = "gemini_api_key";
+const STRUCTURED_RESPONSE_MARKER = '§';
 
 // Menu functions
 function toggleMenu() {
@@ -182,8 +190,270 @@ function finalizeResponse() {
 
         // Auto-scroll to bottom unless user has scrolled up
         if (!userHasScrolledUp) {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            requestAnimationFrame(() => {
+                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+            });
         }
+    }
+
+    // Reset structured response state
+    pendingStructuredResponse = '';
+    isParsingStructured = false;
+    structuredBraceDepth = 0;
+}
+
+// Parse structured response JSON from the § marker format
+// Returns { question, answer, confidence } or null if not a valid structured response
+function parseStructuredResponse(text) {
+    if (!text.startsWith(STRUCTURED_RESPONSE_MARKER)) {
+        return null;
+    }
+
+    const jsonStart = text.indexOf('{');
+    const jsonEnd = text.lastIndexOf('}');
+
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+        return null;
+    }
+
+    try {
+        const jsonStr = text.substring(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonStr);
+
+        // Empty structured response means nothing meaningful to contribute
+        if (Object.keys(parsed).length === 0) {
+            return { empty: true };
+        }
+
+        return {
+            question: parsed.q || '',
+            answer: parsed.a || '',
+            confidence: parsed.c || 0,
+            empty: false
+        };
+    } catch (e) {
+        console.error('Failed to parse structured response:', e);
+        return null;
+    }
+}
+
+// Call VERIFICATION_MODEL API for verification with streaming
+async function verifyWithGeminiPro(question) {
+    const url = `${GEMINI_REST_URL}/${VERIFICATION_MODEL}:streamGenerateContent?key=${currentApiKey}&alt=sse`;
+
+    const requestBody = {
+        contents: [{
+            role: 'user',
+            parts: [{ text: question }]
+        }],
+        generationConfig: {
+            maxOutputTokens: 1024
+        },
+        systemInstruction: {
+            parts: [{
+                text: 'Answer the question directly and concisely. Provide accurate, factual information.'
+            }]
+        }
+    };
+
+    console.log(`[VERIFICATION_MODEL] Sending question: "${question}"`);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            throw new Error(`VERIFICATION_MODEL API error: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        // Start a new response element for the verification
+        startNewResponse();
+        currentResponseEl.classList.add('verified');
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                console.log(`[VERIFICATION_MODEL] Stream complete, total length: ${currentResponseText.length}`);
+                break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const jsonStr = line.slice(6);
+                    if (jsonStr === '[DONE]') continue;
+
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (text) {
+                            const preview = text.substring(0, 100).replace(/\n/g, ' ');
+                            console.log(`[VERIFICATION_MODEL] Received response: ${preview}${text.length > 100 ? '...' : ''}`);
+                            currentResponseText += text;
+                            currentResponseEl.textContent = currentResponseText;
+
+                            // Recalculate font size
+                            const fontSize = findOptimalFontSize(currentResponseText);
+                            currentResponseEl.style.fontSize = fontSize + 'px';
+
+                            // Auto-scroll during streaming
+                            if (!userHasScrolledUp) {
+                                // Use requestAnimationFrame to ensure DOM is updated before scrolling
+                                requestAnimationFrame(() => {
+                                    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore parse errors for partial chunks
+                    }
+                }
+            }
+        }
+
+        finalizeResponse();
+    } catch (error) {
+        console.error('[VERIFICATION_MODEL] Verification failed:', error);
+        // Fall back to displaying an error
+        if (!currentResponseEl) startNewResponse();
+        currentResponseText = `[Verification failed: ${error.message}]`;
+        currentResponseEl.textContent = currentResponseText;
+        finalizeResponse();
+    }
+}
+
+// Process incoming transcription text, handling structured responses
+function processTranscription(text) {
+    // Check if this is the start of a structured response
+    if (!isParsingStructured && text.includes(STRUCTURED_RESPONSE_MARKER)) {
+        const markerIndex = text.indexOf(STRUCTURED_RESPONSE_MARKER);
+
+        // Display any text before the marker normally
+        const beforeMarker = text.substring(0, markerIndex);
+        if (beforeMarker.trim()) {
+            if (!currentResponseEl) startNewResponse();
+            currentResponseText += beforeMarker;
+            currentResponseEl.textContent = currentResponseText;
+            const fontSize = findOptimalFontSize(currentResponseText);
+            currentResponseEl.style.fontSize = fontSize + 'px';
+        }
+
+        // Start parsing structured response
+        isParsingStructured = true;
+        pendingStructuredResponse = text.substring(markerIndex);
+        structuredBraceDepth = 0;
+
+        // Count braces to know when JSON is complete
+        for (const char of pendingStructuredResponse) {
+            if (char === '{') structuredBraceDepth++;
+            if (char === '}') structuredBraceDepth--;
+        }
+
+        // Check if we have a complete structured response
+        if (structuredBraceDepth === 0 && pendingStructuredResponse.includes('}')) {
+            handleCompleteStructuredResponse();
+        }
+
+        return;
+    }
+
+    // Continue parsing a structured response
+    if (isParsingStructured) {
+        pendingStructuredResponse += text;
+
+        for (const char of text) {
+            if (char === '{') structuredBraceDepth++;
+            if (char === '}') structuredBraceDepth--;
+        }
+
+        // Check if JSON is complete
+        if (structuredBraceDepth === 0 && pendingStructuredResponse.includes('}')) {
+            handleCompleteStructuredResponse();
+        }
+
+        return;
+    }
+
+    // Normal text - display directly
+    if (!currentResponseEl) startNewResponse();
+    currentResponseText += text;
+    currentResponseEl.textContent = currentResponseText;
+    const fontSize = findOptimalFontSize(currentResponseText);
+    currentResponseEl.style.fontSize = fontSize + 'px';
+
+    if (!userHasScrolledUp) {
+        requestAnimationFrame(() => {
+            window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        });
+    }
+}
+
+// Handle a complete structured response
+function handleCompleteStructuredResponse() {
+    // Find where the JSON ends
+    let braceCount = 0;
+    let jsonEndIndex = -1;
+
+    for (let i = 0; i < pendingStructuredResponse.length; i++) {
+        if (pendingStructuredResponse[i] === '{') braceCount++;
+        if (pendingStructuredResponse[i] === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+                jsonEndIndex = i;
+                break;
+            }
+        }
+    }
+
+    const structuredPart = pendingStructuredResponse.substring(0, jsonEndIndex + 1);
+    const afterStructured = pendingStructuredResponse.substring(jsonEndIndex + 1);
+
+    console.log(`[MODEL] Complete structured response: ${structuredPart}`);
+    if (afterStructured.trim()) {
+        console.log(`[MODEL] Text after structured response: "${afterStructured.trim()}"`);
+    }
+
+    const parsed = parseStructuredResponse(structuredPart);
+
+    // Reset parsing state
+    isParsingStructured = false;
+    pendingStructuredResponse = '';
+    structuredBraceDepth = 0;
+
+    if (parsed && !parsed.empty && parsed.question) {
+        // Stop audio playback for the uncertain response
+        audioQueue = [];
+        isPlayingAudio = false;
+
+        // Finalize any current response before starting verification
+        if (currentResponseEl) {
+            finalizeResponse();
+        }
+
+        // Log the LLM's own answer for debugging
+        console.log(`[MODEL] Uncertain (${parsed.confidence}%): "${parsed.question}" - MODEL answer: "${parsed.answer}"`);
+        console.log(`[MODEL] Delegating to VERIFICATION_MODEL...`);
+
+        // Call Gemini Pro for verification
+        verifyWithGeminiPro(parsed.question);
+    } else if (parsed && parsed.empty) {
+        // Empty structured response - nothing meaningful, continue normally
+        console.log('[MODEL] Empty structured response - no verification needed');
+    }
+
+    // Process any text after the structured response
+    if (afterStructured.trim()) {
+        console.log(`[MODEL] Processing remaining text after structured response`);
+        // Small delay to let verification response start first
+        setTimeout(() => processTranscription(afterStructured), 100);
     }
 }
 
@@ -307,17 +577,26 @@ async function connect() {
                     // Log text parts with type indicator
                     if (part.text) {
                         const type = part.thought ? 'thought' : 'response';
-                        const preview = part.text.substring(0, 100).replace(/\n/g, ' ');
-                        console.log(`Received ${type}: ${preview}${part.text.length > 100 ? '...' : ''}`);
+                        if (part.thought) {
+                            // Log full thought without truncation
+                            console.log(`[MODEL] Received ${type}:\n${part.text}`);
+                        } else {
+                            // Log preview of response
+                            const preview = part.text.substring(0, 100).replace(/\n/g, ' ');
+                            console.log(`[MODEL] Received ${type}: ${preview}${part.text.length > 100 ? '...' : ''}`);
+                        }
                     }
                     // Skip thought parts (internal reasoning)
                     if (part.thought) {
                         continue;
                     }
-                    // Handle audio data
+                    // Handle audio data (skip if parsing structured response)
                     if (part.inlineData && part.inlineData.mimeType === 'audio/pcm') {
-                        console.log('Received audio chunk');
-                        queueAudioForPlayback(part.inlineData.data);
+                        if (!isParsingStructured) {
+                            queueAudioForPlayback(part.inlineData.data);
+                        } else {
+                            console.log('[MODEL] Skipping audio chunk (parsing structured response)');
+                        }
                     }
                     // Handle text (for non-audio models)
                     if (part.text) {
@@ -332,29 +611,16 @@ async function connect() {
             // Handle audio transcription
             if (response.serverContent && response.serverContent.outputTranscription) {
                 const transcription = response.serverContent.outputTranscription.text;
-                console.log('Received transcription:', transcription);
+                console.log(`[MODEL] Received transcription: ${transcription}`);
                 if (transcription) {
-                    if (!currentResponseEl) {
-                        startNewResponse();
-                    }
-                    currentResponseText += transcription;
-                    currentResponseEl.textContent = currentResponseText;
-
-                    // Recalculate font size for current text (CSS transition smooths the change)
-                    const fontSize = findOptimalFontSize(currentResponseText);
-                    console.log(`Streaming update: text length=${currentResponseText.length}, applying font size ${fontSize}px`);
-                    currentResponseEl.style.fontSize = fontSize + 'px';
-
-                    // Auto-scroll during streaming
-                    if (!userHasScrolledUp) {
-                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                    }
+                    // Process through structured response handler
+                    processTranscription(transcription);
                 }
             }
 
             // Check if turn is complete
             if (response.serverContent && response.serverContent.turnComplete) {
-                console.log('Turn complete');
+                console.log('[MODEL] Turn complete');
                 finalizeResponse();
             }
         } catch (err) {
