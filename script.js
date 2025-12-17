@@ -334,7 +334,7 @@ async function connect() {
                     currentResponseText += transcription;
                     currentResponseEl.textContent = currentResponseText;
 
-                    // Recalculate font size for current text
+                    // Recalculate font size for current text (CSS transition smooths the change)
                     const fontSize = findOptimalFontSize(currentResponseText);
                     currentResponseEl.style.fontSize = fontSize + 'px';
 

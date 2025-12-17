@@ -135,6 +135,7 @@ h1 {
     overflow-wrap: normal;
     word-break: normal;
     hyphens: none;
+    transition: font-size 0.3s ease-out;
 }
 
 .response.measuring {
