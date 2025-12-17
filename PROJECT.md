@@ -89,13 +89,23 @@ Carl is a web-based application designed for personal use that:
 ```
 carl/
 ├── index.html              # HTML structure + system prompts
-├── script.js               # Main application logic (894 lines)
 ├── styles.css              # CSS styling and layout (150+ lines)
 ├── AGENTS.md               # Project development guidelines
 ├── README.md               # Brief project description
 ├── PROJECT.md              # This file
 ├── .env                    # API keys (not committed)
 ├── silero_vad.onnx         # Silero voice activity detection model
+├── script.js               # Deprecated: original monolithic script
+├── js/                     # Modular application (1173 lines total)
+│   ├── helpers.js          # Shared utilities (audio conversion, formatting)
+│   ├── config.js           # Application constants and configuration
+│   ├── state.js            # Centralized state management
+│   ├── ui.js               # DOM manipulation and UI helpers
+│   ├── location.js         # Geolocation and context acquisition
+│   ├── audio.js            # Audio I/O and Voice Activity Detection
+│   ├── response.js         # Response rendering and verification
+│   ├── connection.js       # WebSocket connection management
+│   └── main.js             # Entry point and initialization
 └── .claude/                # Claude Code configuration
     └── settings.local.json
 ```
@@ -108,40 +118,108 @@ carl/
 - System prompt configuration area (editable textarea)
 - System instructions for both primary and verification models
 - API key input and management controls
+- Loads modular JavaScript files in dependency order
 
-### script.js
-**Key Functions:**
-- `toggleConnection()`: WebSocket connection management
-- `connect()`: Establishes WebSocket connection with location context
-- `getLocationContext()`: Retrieves and caches geolocation + reverse geocoding
-- `sendAudioFrame()`: Binary frame transmission to WebSocket
-- `processTranscription()`: Handles structured response detection and parsing
-- `verifyWithGeminiPro()`: REST API call to verification model with tool support
-- `findOptimalFontSize()`: Binary search for responsive font sizing
-- `handleCompleteStructuredResponse()`: Processes confidence-based verification trigger
+### Modular JavaScript Architecture (`js/` directory)
 
-**Global State:**
-- `ws`: WebSocket connection
-- `audioContext`, `mediaStream`, `audioProcessor`: Web Audio API objects
-- `currentResponseEl`, `currentResponseText`: Current response display state
-- `userHasScrolledUp`: Scroll position tracking
-- `pendingStructuredResponse`, `isParsingStructured`: Structured response handling
-- `analyser`, `smoothedVolume`: Voice activity detection state
-- `outputAudioContext`, `audioQueue`: Audio playback management
-- `cachedLocationContext`: Cached location context string
+The application has been refactored from a monolithic `script.js` into a modular architecture using a global `Carl` namespace. This design works with `file:///` URLs (avoiding ES modules' CORS limitations).
 
-**Configuration Constants:**
-```javascript
-const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
-const VERIFICATION_MODEL = "models/gemini-2.5-pro"
-const HOST = "generativelanguage.googleapis.com"
-const WS_URL = `wss://${HOST}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`
-const GEMINI_REST_URL = `https://${HOST}/v1beta`
-const STRUCTURED_RESPONSE_MARKER = '§'
-const VAD_THRESHOLD = 0.05
-const VAD_SMOOTHING = 0.9
-const VAD_HOLD_TIME = 300
-```
+#### `config.js` (38 lines)
+- **Purpose**: Centralized configuration constants
+- **Exports**: `Carl.config`
+- **Key Constants**:
+  - API endpoints (MODEL, VERIFICATION_MODEL, WS_URL, REST_URL)
+  - Feature markers (STRUCTURED_RESPONSE_MARKER = '§')
+  - VAD thresholds (VAD_THRESHOLD, VAD_SMOOTHING, VAD_HOLD_TIME)
+  - Audio settings (sample rates, buffer sizes)
+  - Logging intervals
+
+#### `state.js` (81 lines)
+- **Purpose**: Centralized state management
+- **Exports**: `Carl.state`
+- **State Categories**:
+  - WebSocket and audio contexts
+  - API authentication
+  - Response rendering
+  - Structured response parsing
+  - Audio playback queue
+  - Voice Activity Detection tracking
+  - Location context cache
+- **Helper Methods**:
+  - `resetStructuredState()`, `resetVadState()`, `resetSilenceTracking()`
+  - `clearAudioQueue()`, `isConnected()`
+
+#### `helpers.js` (70 lines)
+- **Purpose**: Shared utility functions (de-duplicated)
+- **Exports**: `Carl.helpers`
+- **Functions**:
+  - `formatTimestamp()` - Consolidated from two locations
+  - `resampleTo16kHz()` - Audio resampling
+  - `floatTo16BitPCM()`, `arrayBufferToBase64()`, `base64ToArrayBuffer()` - Audio encoding
+
+#### `ui.js` (97 lines)
+- **Purpose**: DOM manipulation and UI state
+- **Exports**: `Carl.ui`
+- **Responsibilities**:
+  - Element caching (menu, controls, buttons, inputs)
+  - Menu toggling and backdrop handling
+  - API key UI state management
+  - Scroll management with programmatic scroll tracking
+  - Connection button state
+
+#### `location.js` (70 lines)
+- **Purpose**: Geolocation context acquisition
+- **Exports**: `Carl.location`
+- **Async Function**: `getContext()` - Retrieves location with reverse geocoding
+- **Features**:
+  - Geolocation API integration
+  - OpenStreetMap Nominatim reverse geocoding
+  - Timezone detection
+  - Fallback handling for permission denial
+
+#### `audio.js` (204 lines)
+- **Purpose**: Audio input/output and Voice Activity Detection
+- **Exports**: `Carl.audio`
+- **Functions**:
+  - `initInput()` - Microphone setup and audio processing pipeline
+  - `detectVoiceActivity()` - RMS-based VAD with smoothing
+  - `sendAudioMessage()` - WebSocket audio transmission
+  - `queueForPlayback()`, `playNextChunk()` - Audio output queue
+  - `cleanup()` - Resource cleanup on disconnect
+
+#### `response.js` (312 lines)
+- **Purpose**: Response rendering and structured response handling
+- **Exports**: `Carl.response`
+- **Functions**:
+  - `findOptimalFontSize()` - Binary search for responsive sizing (consolidated)
+  - `startNew()`, `updateText()`, `finalize()` - Response lifecycle
+  - `parseStructured()` - JSON parsing from § marker format
+  - `processTranscription()` - Handles structured response detection
+  - `handleCompleteStructured()` - Verification trigger logic
+  - `verifyWithGeminiPro()` - REST API call to verification model
+
+#### `connection.js` (211 lines)
+- **Purpose**: WebSocket connection lifecycle
+- **Exports**: `Carl.connection`
+- **Functions**:
+  - `toggle()` - Connection state toggling
+  - `connect()` - WebSocket setup with handlers (onopen, onmessage, onerror, onclose)
+  - `disconnect()` - Cleanup and resource release
+  - `sendTextMessage()` - Text message transmission
+
+#### `main.js` (90 lines)
+- **Purpose**: Entry point and initialization
+- **Exports**: `Carl.init()`, `Carl.apiKey`
+- **Responsibilities**:
+  - Global event handler registration (DOMContentLoaded, scroll, keydown)
+  - UI initialization
+  - API key management (submit, clear, localStorage)
+  - Global function bindings for HTML onclick handlers
+
+#### `script.js` (991 lines - Deprecated)
+- Original monolithic implementation kept for reference
+- No longer loaded by index.html
+- Can be removed once modular version is stable
 
 ### styles.css
 **Key Classes:**
@@ -262,6 +340,7 @@ Both system prompts are editable in the UI settings panel:
 - Target: Firefox 145+, Chromium 143+ (November 2025 and later)
 - No legacy support or polyfills needed
 - Leverages cutting-edge CSS and browser APIs
+- Works with `file:///` URLs (no CORS issues with script loading)
 
 ### Code Philosophy
 - Minimal dependencies (no frameworks)
@@ -269,6 +348,16 @@ Both system prompts are editable in the UI settings panel:
 - CSS-first for styling and interactions
 - Self-documenting code without excessive comments
 - Semantic HTML and native browser APIs
+- Single responsibility per module
+- De-duplicated shared logic in helpers
+
+### Modular Architecture Benefits
+- **Single Responsibility**: Each module handles one domain (audio, UI, response, connection, etc.)
+- **De-duplication**: Shared logic consolidated (timestamp formatting, font size calculation, brace counting)
+- **Maintainability**: Easier to locate and modify functionality
+- **Testability**: Individual modules can be tested independently
+- **Scalability**: New features can be added as new modules or extensions
+- **file:/// Compatibility**: No ES modules CORS issues when opening locally
 
 ### Error Handling
 - Graceful fallbacks for API failures
