@@ -147,6 +147,7 @@ h1 {
     overflow-wrap: normal;
     word-break: normal;
     hyphens: none;
+    transition: none !important;
 }
 
 .controls {

@@ -159,6 +159,7 @@ function findOptimalFontSize(text) {
     }
 
     document.body.removeChild(measureEl);
+    console.log(`Font size calculation: text length=${text.length}, viewport=${viewportHeight}px, available=${availableHeight}px, optimal=${optimalSize}px`);
     return optimalSize;
 }
 
@@ -174,6 +175,7 @@ function finalizeResponse() {
     if (currentResponseEl && currentResponseText) {
         // Final font size optimization for complete text
         const fontSize = findOptimalFontSize(currentResponseText);
+        console.log(`Finalizing response: applying font size ${fontSize}px`);
         currentResponseEl.style.fontSize = fontSize + 'px';
         currentResponseEl = null;
         currentResponseText = '';
@@ -340,6 +342,7 @@ async function connect() {
 
                     // Recalculate font size for current text (CSS transition smooths the change)
                     const fontSize = findOptimalFontSize(currentResponseText);
+                    console.log(`Streaming update: text length=${currentResponseText.length}, applying font size ${fontSize}px`);
                     currentResponseEl.style.fontSize = fontSize + 'px';
 
                     // Auto-scroll during streaming
