@@ -85,6 +85,7 @@ Carl.audio = {
         if (state.silencePacketCount === 0) {
             state.silenceStartTime = now;
             state.lastSilenceLogTime = now;
+            state.lastSilenceSendTime = now;  // Reset silence send timer when silence starts
         }
         state.silencePacketCount++;
 
@@ -95,12 +96,62 @@ Carl.audio = {
             state.lastSilenceLogTime = now;
         }
 
+        // Send periodic silence frames to keep Gemini API engaged
+        if (now - state.lastSilenceSendTime >= config.SEND_SILENCE_INTERVAL) {
+            this.sendSilenceFrame();
+            state.lastSilenceSendTime = now;
+        }
+
         // Keep sending for a short time after speech stops (hold time)
         if (now - state.lastSpeechTime < config.VAD_HOLD_TIME) {
             return true;
         }
 
         return false;
+    },
+
+    // Generate and send a silence frame (PCM data with zeros)
+    generateSilenceFrame() {
+        const { config, helpers } = Carl;
+
+        // Calculate sample count for the silence frame duration
+        const sampleCount = Math.floor((config.INPUT_SAMPLE_RATE * config.SILENCE_FRAME_DURATION_MS) / 1000);
+
+        // Create float32 array of zeros (silence in float format)
+        const silenceData = new Float32Array(sampleCount);
+
+        // Convert to 16-bit PCM
+        const pcmData = helpers.floatTo16BitPCM(silenceData);
+
+        // Base64 encode
+        const base64Audio = helpers.arrayBufferToBase64(pcmData);
+
+        return base64Audio;
+    },
+
+    // Send a silence frame to maintain API engagement
+    sendSilenceFrame() {
+        const { state } = Carl;
+
+        if (!state.isConnected()) return;
+
+        const base64Audio = this.generateSilenceFrame();
+
+        const audioMessage = {
+            realtime_input: {
+                media_chunks: [{
+                    mime_type: 'audio/pcm',
+                    data: base64Audio
+                }]
+            }
+        };
+
+        try {
+            state.ws.send(JSON.stringify(audioMessage));
+            console.log('Silence frame sent to keep API engaged');
+        } catch (err) {
+            console.error('Error sending silence frame:', err);
+        }
     },
 
     // Send audio data over WebSocket

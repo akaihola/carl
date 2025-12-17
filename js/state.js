@@ -40,6 +40,7 @@ Carl.state = {
     silenceStartTime: 0,
     lastSilenceLogTime: 0,
     lastAudioLogTime: 0,
+    lastSilenceSendTime: 0,
 
     // Location context cache
     cachedLocationContext: null,
@@ -59,6 +60,7 @@ Carl.state = {
         this.silencePacketCount = 0;
         this.silenceStartTime = 0;
         this.lastSilenceLogTime = 0;
+        this.lastSilenceSendTime = 0;
     },
 
     // Reset silence tracking (when speech resumes)

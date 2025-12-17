@@ -34,5 +34,9 @@ Carl.config = {
 
     // Logging intervals (ms)
     AUDIO_LOG_INTERVAL: 2000,
-    SILENCE_LOG_INTERVAL: 5000
+    SILENCE_LOG_INTERVAL: 5000,
+
+    // Silence frame sending (keeps Gemini Live API engaged during pauses)
+    SEND_SILENCE_INTERVAL: 1000,  // Send a silence frame every 1000ms (1 second)
+    SILENCE_FRAME_DURATION_MS: 100  // Duration of each silence frame in ms
 };

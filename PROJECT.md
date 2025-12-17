@@ -63,7 +63,10 @@ Carl is a web-based application designed for personal use that:
   - Threshold: 0.05 (minimum RMS to consider as speech)
   - Smoothing: 0.9 (slower release, prevents chatter)
   - Hold time: 300ms (continue sending after speech stops)
+  - Silence interval: 1000ms (send periodic silence frames)
+  - Silence frame duration: 100ms (duration of each silence frame)
 - Reduces unnecessary audio transmission
+- **Periodic silence frames**: During detected silence, sends PCM frames with zeros every 1 second to keep Gemini Live API engaged and responsive
 
 ### 5. Responsive Font Sizing
 - Binary search algorithm to find optimal font size
@@ -124,17 +127,18 @@ carl/
 
 The application has been refactored from a monolithic `script.js` into a modular architecture using a global `Carl` namespace. This design works with `file:///` URLs (avoiding ES modules' CORS limitations).
 
-#### `config.js` (38 lines)
+#### `config.js` (42 lines)
 - **Purpose**: Centralized configuration constants
 - **Exports**: `Carl.config`
 - **Key Constants**:
   - API endpoints (MODEL, VERIFICATION_MODEL, WS_URL, REST_URL)
   - Feature markers (STRUCTURED_RESPONSE_MARKER = '§')
   - VAD thresholds (VAD_THRESHOLD, VAD_SMOOTHING, VAD_HOLD_TIME)
+  - Silence frame sending (SEND_SILENCE_INTERVAL, SILENCE_FRAME_DURATION_MS)
   - Audio settings (sample rates, buffer sizes)
   - Logging intervals
 
-#### `state.js` (81 lines)
+#### `state.js` (85 lines)
 - **Purpose**: Centralized state management
 - **Exports**: `Carl.state`
 - **State Categories**:
@@ -143,7 +147,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - Response rendering
   - Structured response parsing
   - Audio playback queue
-  - Voice Activity Detection tracking
+  - Voice Activity Detection tracking (including silence send timing)
   - Location context cache
 - **Helper Methods**:
   - `resetStructuredState()`, `resetVadState()`, `resetSilenceTracking()`
@@ -177,12 +181,14 @@ The application has been refactored from a monolithic `script.js` into a modular
   - Timezone detection
   - Fallback handling for permission denial
 
-#### `audio.js` (204 lines)
+#### `audio.js` (247 lines)
 - **Purpose**: Audio input/output and Voice Activity Detection
 - **Exports**: `Carl.audio`
 - **Functions**:
   - `initInput()` - Microphone setup and audio processing pipeline
-  - `detectVoiceActivity()` - RMS-based VAD with smoothing
+  - `detectVoiceActivity()` - RMS-based VAD with smoothing and periodic silence sending
+  - `generateSilenceFrame()` - Creates zero-filled PCM audio frames
+  - `sendSilenceFrame()` - Sends silence frames to keep API engaged during pauses
   - `sendAudioMessage()` - WebSocket audio transmission
   - `queueForPlayback()`, `playNextChunk()` - Audio output queue
   - `cleanup()` - Resource cleanup on disconnect
@@ -367,12 +373,19 @@ Both system prompts are editable in the UI settings panel:
 
 ## Recent Enhancements
 
-### Confidence-Based Verification (Latest)
+### Periodic Silence Frame Sending (Latest)
+- Sends zero-filled PCM audio frames every 1 second during detected silence
+- Keeps Gemini Live API engaged and responsive during user pauses
+- Configurable via `SEND_SILENCE_INTERVAL` and `SILENCE_FRAME_DURATION_MS`
+- Uses same audio format as regular speech frames (16-bit PCM at 16kHz)
+- Seamlessly integrates with existing VAD system
+
+### Confidence-Based Verification
 - Structured response format allows low-confidence detection
 - Automatic routing to verification model
 - No user action required
 
-### Grounding with Tools (Latest)
+### Grounding with Tools
 - Google Search integration for real-time information
 - Code Execution for calculations and transformations
 - Automatic tool selection by model
