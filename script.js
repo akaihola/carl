@@ -22,6 +22,7 @@ let lastSpeechTime = 0;
 let silencePacketCount = 0;
 let silenceStartTime = 0;
 let lastSilenceLogTime = 0;
+let lastAudioLogTime = 0;        // Track last time we logged audio above threshold
 
 // Configuration
 const MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
@@ -296,14 +297,17 @@ async function connect() {
                 data = await data.text();
             }
 
-            console.log('Received full message:', data.substring(0, 500));
             const response = JSON.parse(data);
-            console.log('Parsed response keys:', Object.keys(response));
 
             if (response.serverContent && response.serverContent.modelTurn) {
                 const parts = response.serverContent.modelTurn.parts;
-                console.log('Model turn received with', parts.length, 'parts');
                 for (const part of parts) {
+                    // Log text parts with type indicator
+                    if (part.text) {
+                        const type = part.thought ? 'thought' : 'response';
+                        const preview = part.text.substring(0, 100).replace(/\n/g, ' ');
+                        console.log(`Received ${type}: ${preview}${part.text.length > 100 ? '...' : ''}`);
+                    }
                     // Skip thought parts (internal reasoning)
                     if (part.thought) {
                         continue;
@@ -473,7 +477,12 @@ function sendAudioMessage(base64Audio) {
     };
     try {
         ws.send(JSON.stringify(audioMessage));
-        console.log('Audio sent:', { size: base64Audio.length, volume: smoothedVolume.toFixed(4), wsReady: ws?.readyState === WebSocket.OPEN });
+        // Log audio status periodically (every 2 seconds) instead of on every packet
+        const now = performance.now();
+        if (now - lastAudioLogTime >= 2000) {
+            console.log('Audio sent:', { size: base64Audio.length, volume: smoothedVolume.toFixed(4), wsReady: ws?.readyState === WebSocket.OPEN });
+            lastAudioLogTime = now;
+        }
     } catch (err) {
         console.error('Error sending audio message:', err);
     }
