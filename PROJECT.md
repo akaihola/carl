@@ -463,6 +463,16 @@ System prompts are defined in `config.js` and editable in UI settings:
 - When user provides answer to previously-verified Q-only fact: moves to queue head for re-verification
 - Enables Carl to act as both a fact-checker AND an open-question answerer
 
+### Answer Updates During Verification
+- When an answer arrives while verification is already in progress for that question:
+  - Answer is stored in state (existing behavior)
+  - Fact is immediately re-queued to head of verification queue (new behavior)
+  - Current verification completes without displaying its result
+  - Fact is re-verified with the updated answer
+  - User sees only the final, corrected verification result
+- Prevents stale or incorrect intermediate answers from being displayed
+- Ensures all answer updates are properly verified, regardless of timing
+
 ### Fact-Checking Architecture
 - Switched from Flash 2.5 (voice+text) to Flash 2.0 (text-only)
 - Primary model now identifies facts instead of answering
