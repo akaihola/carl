@@ -1,15 +1,15 @@
 # Carl Project Documentation
 
-Carl is a real-time conversation AI assistant that listens through a device microphone, transcribes speech to text, and provides intelligent contextual responses using Gemini AI models.
+Carl is a real-time conversation fact-checker that listens through a device microphone, identifies factual questions and claims, and provides verified answers using Gemini AI models.
 
 ## Overview
 
 Carl is a web-based application designed for personal use that:
 - Listens to conversation via microphone input
-- Provides real-time speech transcription in "subtitle" style
-- Generates contextual AI responses when appropriate
-- Displays responses as large, readable text banners
-- Implements confidence-based fact verification with real-time grounding
+- Identifies questions, missing facts, and misinformation
+- Silently tracks factual claims from the conversation
+- Verifies facts using Google Search and Code Execution tools
+- Displays only verified factual answers as large, readable text banners
 
 ## Architecture
 
@@ -20,14 +20,17 @@ Carl is a web-based application designed for personal use that:
 - **Server-Sent Events (SSE)**: Streaming response handling for REST API calls
 
 ### AI Models
-- **Primary Model**: `models/gemini-2.5-flash-native-audio-preview-12-2025`
-  - Real-time audio transcription and response generation
+- **Primary Model**: `models/gemini-2.0-flash-exp`
+  - Real-time audio processing with text-only output
+  - Role: Fact identifier (NOT answerer)
+  - Outputs structured `Qn:` / `An:` format for questions and conversation answers
   - Communicates via WebSocket
 
 - **Verification Model**: `models/gemini-2.5-pro`
-  - Fact verification and grounding
-  - Communicates via REST API with streaming
+  - Fact verification and correction
+  - Communicates via REST API with streaming (SSE)
   - Tools: Google Search, Code Execution
+  - Responds with "CORRECT" or streams the actual fact
 
 ### Key Infrastructure
 - **Gemini API**: Google AI for Developers (generativelanguage.googleapis.com)
@@ -36,28 +39,46 @@ Carl is a web-based application designed for personal use that:
 
 ## Core Features
 
-### 1. Real-Time Audio Transcription
+### 1. Real-Time Audio Processing
 - WebSocket connection to Gemini Live API
 - 16kHz mono PCM audio streaming
 - Binary frame transmission
-- Progressive text rendering as transcription arrives
+- Primary model outputs text-only (no audio response)
 
-### 2. Confidence-Based Verification Protocol
-- Primary model assesses confidence in factual claims (99%+ threshold)
-- Low-confidence responses trigger structured format: `§{q, a, c}`
-  - `q`: Factual question needing verification
-  - `a`: Model's brief answer
-  - `c`: Confidence level (0-100)
-- Automatic routing to verification model when triggered
+### 2. Fact Identification Protocol
+- Primary model identifies factual gaps in conversation:
+  - Questions (direct or indirect)
+  - Missing information
+  - Misinformation or incomplete facts
+- Output format: `Qn: [question]` and `An: [answer from conversation]`
+  - Example: `Q1: How many moons does Mars have?`
+  - Example: `A1: Mars has two moons`
+- Questions and answers are numbered with matching prefixes (Q1/A1, Q2/A2, etc.)
+- Amended answers reuse the same number for re-verification
 
-### 3. Verification with Grounding
-- Verification model uses tools to ground answers:
+### 3. Silent Fact Tracking
+- `Qn:` and `An:` format is parsed but NOT displayed to user
+- Facts stored in internal mapping: `{number: {q, a, f}}`
+- FIFO verification queue maintains order of discovery
+- User only sees verified facts from verification model
+
+### 4. Verification Queue Processing
+- One verification request in flight at a time (no parallel requests)
+- Queue processes in FIFO order
+- Verification model receives: question + conversation answer
+- Response handling:
+  - First word "CORRECT": fact confirmed, removed from queue
+  - Otherwise: streams actual fact to display
+- Amended answers (same Q number, new A) move to head of queue
+
+### 5. Verification with Grounding
+- Verification model uses tools to validate/correct facts:
   - **Google Search**: Real-time information retrieval
   - **Code Execution**: Mathematical calculations and data processing
 - Grounding metadata logged to console
-- Visual indicator: Teal border for grounded responses vs. green for regular verified
+- Facts streamed to display as they arrive
 
-### 4. Voice Activity Detection (VAD)
+### 6. Voice Activity Detection (VAD)
 - Algorithm: RMS volume analysis from AnalyserNode
 - Configuration:
   - Threshold: 0.05 (minimum RMS to consider as speech)
@@ -68,13 +89,13 @@ Carl is a web-based application designed for personal use that:
 - Reduces unnecessary audio transmission
 - **Periodic silence frames**: During detected silence, sends PCM frames with zeros every 1 second to keep Gemini Live API engaged and responsive
 
-### 5. Responsive Font Sizing
+### 7. Responsive Font Sizing
 - Binary search algorithm to find optimal font size
 - Fits response text within viewport constraints
 - Updates during streaming with smooth CSS transitions
 - Prevents text overflow on any screen size
 
-### 6. Location Context Injection
+### 8. Location Context Injection
 - Automatically prepends current context to system prompt on connection
 - Uses browser Geolocation API for coordinates
 - Reverse geocodes via OpenStreetMap Nominatim API
@@ -98,14 +119,15 @@ carl/
 ├── PROJECT.md              # This file
 ├── .env                    # API keys (not committed)
 ├── silero_vad.onnx         # Silero voice activity detection model
-├── js/                     # Modular application (1173 lines total)
+├── js/                     # Modular application
 │   ├── helpers.js          # Shared utilities (audio conversion, formatting)
 │   ├── config.js           # Application constants and configuration
 │   ├── state.js            # Centralized state management
 │   ├── ui.js               # DOM manipulation and UI helpers
 │   ├── location.js         # Geolocation and context acquisition
 │   ├── audio.js            # Audio I/O and Voice Activity Detection
-│   ├── response.js         # Response rendering and verification
+│   ├── response.js         # Response rendering and verification queue
+│   ├── facts.js            # Fact parsing (Qn:/An:) and queue management
 │   ├── connection.js       # WebSocket connection management
 │   └── main.js             # Entry point and initialization
 └── .claude/                # Claude Code configuration
@@ -126,30 +148,35 @@ carl/
 
 The application has been refactored from a monolithic `script.js` into a modular architecture using a global `Carl` namespace. This design works with `file:///` URLs (avoiding ES modules' CORS limitations).
 
-#### `config.js` (42 lines)
+#### `config.js`
 - **Purpose**: Centralized configuration constants
 - **Exports**: `Carl.config`
 - **Key Constants**:
   - API endpoints (MODEL, VERIFICATION_MODEL, WS_URL, REST_URL)
-  - Feature markers (STRUCTURED_RESPONSE_MARKER = '§')
+  - System prompts (PRIMARY_SYSTEM_PROMPT, VERIFICATION_SYSTEM_PROMPT)
+  - Format markers (QUESTION_PREFIX = 'Q', ANSWER_PREFIX = 'A')
   - VAD thresholds (VAD_THRESHOLD, VAD_SMOOTHING, VAD_HOLD_TIME)
   - Silence frame sending (SEND_SILENCE_INTERVAL, SILENCE_FRAME_DURATION_MS)
   - Audio settings (sample rates, buffer sizes)
   - Logging intervals
 
-#### `state.js` (85 lines)
+#### `state.js`
 - **Purpose**: Centralized state management
 - **Exports**: `Carl.state`
 - **State Categories**:
   - WebSocket and audio contexts
   - API authentication
   - Response rendering
-  - Structured response parsing
-  - Audio playback queue
+  - Facts mapping and verification queue
   - Voice Activity Detection tracking (including silence send timing)
   - Location context cache
+- **Facts State**:
+  - `facts.mapping`: `{number: {q, a, f}}` - question, answer, fact
+  - `facts.queue`: `[1, 2, 3...]` - FIFO verification queue
+  - `facts.currentVerification`: number being verified (or null)
 - **Helper Methods**:
-  - `resetStructuredState()`, `resetVadState()`, `resetSilenceTracking()`
+  - `addFact()`, `removeFact()`, `getNextVerification()`, `completeVerification()`
+  - `isVerificationInProgress()`, `resetVadState()`, `resetSilenceTracking()`
   - `clearAudioQueue()`, `isConnected()`
 
 #### `helpers.js` (70 lines)
@@ -192,16 +219,27 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `queueForPlayback()`, `playNextChunk()` - Audio output queue
   - `cleanup()` - Resource cleanup on disconnect
 
-#### `response.js` (312 lines)
-- **Purpose**: Response rendering and structured response handling
+#### `response.js`
+- **Purpose**: Response rendering and verification queue processing
 - **Exports**: `Carl.response`
 - **Functions**:
-  - `findOptimalFontSize()` - Binary search for responsive sizing (consolidated)
+  - `findOptimalFontSize()` - Binary search for responsive sizing
   - `startNew()`, `updateText()`, `finalize()` - Response lifecycle
-  - `parseStructured()` - JSON parsing from § marker format
-  - `processTranscription()` - Handles structured response detection
-  - `handleCompleteStructured()` - Verification trigger logic
-  - `verifyWithGeminiPro()` - REST API call to verification model
+  - `processTranscription()` - Routes text to facts parser or display
+  - `verifyNextFact()` - Initiates verification from queue (one at a time)
+  - `verifyWithGeminiPro()` - REST API call to verification model with streaming
+
+#### `facts.js`
+- **Purpose**: Fact parsing and queue management
+- **Exports**: `Carl.facts`
+- **Functions**:
+  - `parseAndStore()` - Parses `Qn:` and `An:` format from model output
+  - `hasFactFormat()` - Detects if text contains fact format
+  - `filterFactLines()` - Removes fact format lines from text
+- **Behavior**:
+  - Silently stores facts in `state.facts.mapping`
+  - Adds new facts to verification queue
+  - Handles amended answers (moves to head of queue)
 
 #### `connection.js` (211 lines)
 - **Purpose**: WebSocket connection lifecycle
@@ -247,32 +285,43 @@ Web Audio API (AnalyserNode)
     ↓
 VAD Check (RMS volume analysis)
     ↓
-Binary frame encoding
+Binary frame encoding (16kHz PCM)
     ↓
-WebSocket → Gemini Live API
+WebSocket → Flash 2.0 (text-only output)
     ↓
-Streaming response (text)
+Qn:/An: format (parsed silently)
     ↓
-Display in UI + Font size calculation
+Facts stored in mapping, queued for verification
 ```
 
 ### Verification Pipeline
 ```
-Primary Model Response
+Turn Complete
     ↓
-Confidence assessment (§ marker detected)
+verifyNextFact() called
     ↓
-Parse structured JSON {q, a, c}
+Get first fact from queue (FIFO)
     ↓
-Extract factual question
-    ↓
-REST API → Verification Model (gemini-2.5-pro)
+REST API → Gemini Pro (streaming)
     ↓
 Tool execution (Google Search, Code Execution)
     ↓
-Grounding metadata extraction
+Response check:
+    ├── "CORRECT" → Remove from queue, try next
+    └── Fact text → Stream to display, store in mapping
     ↓
-Display with visual indicator (teal border)
+Repeat until queue empty
+```
+
+### Display Flow
+```
+User sees ONLY:
+- Verified facts streamed from Pro model
+- Error messages on verification failure
+
+User does NOT see:
+- Qn:/An: format from primary model
+- CORRECT confirmations
 ```
 
 ## API Integration
@@ -280,8 +329,11 @@ Display with visual indicator (teal border)
 ### Gemini Live API (WebSocket)
 - **URL**: `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`
 - **Authentication**: API key (query parameter)
-- **Protocol**: Binary frames for audio, text/JSON for responses
-- **Purpose**: Real-time audio transcription and response generation
+- **Protocol**: Binary frames for audio input, text/JSON for responses
+- **Setup Configuration**:
+  - `response_modalities: ['TEXT']` (text-only output, no audio)
+  - System instruction for fact identification
+- **Purpose**: Real-time audio processing with fact identification output
 
 ### Gemini REST API (Server-Sent Events)
 - **URL**: `https://generativelanguage.googleapis.com/v1beta/{model}:streamGenerateContent`
@@ -297,18 +349,21 @@ Display with visual indicator (teal border)
 ## Configuration
 
 ### System Prompts
-Both system prompts are editable in the UI settings panel:
+System prompts are defined in `config.js` and editable in UI settings:
 
-**Primary Model Instructions:**
-- Contribute concisely only when facts are needed
-- Wait for at least 2 turns before responding to factual gaps
-- Use confidence protocol: output structured JSON for low-confidence claims
+**Primary Model (Fact Identifier):**
+- Identify questions, gaps, and misinformation in conversation
+- Do NOT provide direct answers
+- Output format: `Qn: [question]` and `An: [answer from conversation]`
+- Use matching numbers (Q1/A1, Q2/A2, etc.)
+- Repeat same number for amended answers
 
-**Verification Model Instructions:**
-- Use Google Search for current/real-world information
+**Verification Model (Fact Validator):**
+- Verify factual claims using available tools
+- Respond with "CORRECT" if answer is accurate
+- Otherwise, provide the correct fact
+- Use Google Search for real-time information
 - Use Code Execution for calculations
-- Ground answers in tool results
-- Cite sources when applicable
 
 ### API Key Management
 - Stored in localStorage (key: `gemini_api_key`)
@@ -367,23 +422,32 @@ Both system prompts are editable in the UI settings panel:
 
 ## Recent Enhancements
 
-### Periodic Silence Frame Sending (Latest)
+### Fact-Checking Architecture (Latest)
+- Switched from Flash 2.5 (voice+text) to Flash 2.0 (text-only)
+- Primary model now identifies facts instead of answering
+- New `Qn:/An:` format for structured fact tracking
+- Silent fact parsing (user never sees raw model output)
+- FIFO verification queue with one-at-a-time processing
+- "CORRECT" detection for confirmed facts
+- Amended answers move to head of queue for re-verification
+
+### Facts Module
+- New `facts.js` module for parsing and queue management
+- Stores facts in `state.facts.mapping`
+- Maintains verification queue in `state.facts.queue`
+- Handles question/answer matching by number
+
+### Periodic Silence Frame Sending
 - Sends zero-filled PCM audio frames every 1 second during detected silence
 - Keeps Gemini Live API engaged and responsive during user pauses
 - Configurable via `SEND_SILENCE_INTERVAL` and `SILENCE_FRAME_DURATION_MS`
 - Uses same audio format as regular speech frames (16-bit PCM at 16kHz)
-- Seamlessly integrates with existing VAD system
-
-### Confidence-Based Verification
-- Structured response format allows low-confidence detection
-- Automatic routing to verification model
-- No user action required
 
 ### Grounding with Tools
 - Google Search integration for real-time information
 - Code Execution for calculations and transformations
-- Automatic tool selection by model
-- Grounding metadata logging and visual indicators
+- Automatic tool selection by verification model
+- Grounding metadata logged to console
 
 ### Font Sizing Improvements
 - Smooth CSS transitions during size changes
@@ -399,10 +463,11 @@ Both system prompts are editable in the UI settings panel:
 4. Ensure browser supports Web Audio API
 
 ### Verification Not Triggering
-1. Check that response contains confidence assessment
-2. Verify structured response format is correct (§{...})
-3. Check API key for verification model
-4. Review confidence threshold (99%+)
+1. Check that primary model outputs `Qn:/An:` format
+2. Verify facts are being added to queue (check console logs)
+3. Ensure turn completes (triggers `verifyNextFact()`)
+4. Check API key for verification model
+5. Look for `[FACTS]` and `[VERIFICATION]` log messages
 
 ### Font Size Issues
 1. Clear localStorage and reload
