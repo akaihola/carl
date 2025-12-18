@@ -5,6 +5,9 @@ Carl.connection = {
     // Buffer for accumulating chunks until complete lines are available
     textBuffer: '',
 
+    // Wake lock sentinel
+    wakeLock: null,
+
     // Toggle connection state
     async toggle() {
         const { state, ui } = Carl;
@@ -53,9 +56,23 @@ Carl.connection = {
         console.log('Creating WebSocket connection to:', url);
         state.ws = new WebSocket(url);
 
-        state.ws.onopen = () => {
+        state.ws.onopen = async () => {
             console.log('WebSocket connected (readyState:', state.ws.readyState, ')');
             ui.setConnected(true);
+
+            // Request wake lock to keep screen awake during session
+            if ('wakeLock' in navigator) {
+                try {
+                    this.wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake lock acquired');
+                    this.wakeLock.addEventListener('release', () => {
+                        console.log('Wake lock released');
+                        this.wakeLock = null;
+                    });
+                } catch (err) {
+                    console.warn('Failed to acquire wake lock:', err);
+                }
+            }
 
             const setupMessage = {
                 setup: {
@@ -168,6 +185,14 @@ Carl.connection = {
 
         console.log('disconnect() called');
         ui.setConnected(false);
+
+        // Release wake lock
+        if (this.wakeLock) {
+            this.wakeLock.release().catch(err => {
+                console.warn('Failed to release wake lock:', err);
+            });
+            this.wakeLock = null;
+        }
 
         if (state.ws) {
             console.log('Closing WebSocket');

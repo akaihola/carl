@@ -249,7 +249,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - Adds new questions to verification queue immediately upon parsing
   - Handles amended answers (moves to head of queue)
 
-#### `connection.js` (208 lines)
+#### `connection.js` (220 lines)
 - **Purpose**: WebSocket connection lifecycle
 - **Exports**: `Carl.connection`
 - **Functions**:
@@ -257,6 +257,10 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `connect()` - WebSocket setup with handlers (onopen, onmessage, onerror, onclose)
   - `disconnect()` - Cleanup and resource release
   - `sendTextMessage()` - Text message transmission
+- **Wake Lock Management**:
+  - Requests Screen Wake Lock API on successful connection to keep device screen awake
+  - Releases wake lock on disconnect
+  - Gracefully handles browsers without wake lock support
 
 #### `main.js` (78 lines)
 - **Purpose**: Entry point and initialization
@@ -525,6 +529,12 @@ System prompts are defined in `config.js` and editable in UI settings:
 - Smooth CSS transitions during size changes
 - Responsive sizing with clamp()
 - Prevents text overflow on all screens
+
+### Screen Wake Lock
+- Requests Screen Wake Lock API when connection opens
+- Keeps device screen awake during active listening and verification sessions
+- Automatically releases wake lock when disconnecting
+- Gracefully handles browsers without wake lock support (Firefox 145+, Chromium 143+)
 
 ## Troubleshooting
 
