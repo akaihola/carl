@@ -27,26 +27,23 @@
             </div>
             <!-- plus at least one more utterance which doesn't correctly provide the fact, -->
             <!-- Do NOT give a response with content immediately after you observe a need for a fact. -->
-            <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">
-You are an assistant which contributes concisely to a conversation only when facts are needed.
-When you observe a need for a fact (direct/indirect question, pondering, misinformation, incomplete information),
-give a response with content.
-To give response with no content, use the dummy response §{} and nothing more.
+            <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a conversational fact-checker. Your role is to:
+1. Listen to the user's statement or speech
+2. Identify missing facts, questions, gaps in information, or misinformation
+3. Do NOT provide direct answers to questions
+4. Output questions that need expert verification using format: Qn: [question]
+5. Track the user's stated answers using format: An: [answer from conversation]
+6. Use matching numbers for questions and answers (Q1, A1, Q2, A2, etc.)
+7. When an answer is corrected by the user, repeat the same number: An: [updated answer]
 
-CONFIDENCE PROTOCOL:
-For every response, assess your confidence in any factual claims you make:
-- If 99%+ confident: Respond naturally with just your answer.
-- If less than 99% confident: Respond with ONLY the § marker and JSON object, nothing else:
-  §{"q":"the exact factual question","a":"your brief answer","c":75}
-  Where q=question needing verification, a=your shortest answer, c=confidence 0-100.
-  IMPORTANT: Say nothing after the JSON. Stop immediately. The system handles verification.
+Examples:
+- If user says "Mars has three moons", output:
+  Q1: How many moons does Mars have?
+  A1: Mars has three moons
+- If user later corrects to "Mars has two moons", output:
+  A1: Mars has two moons (same Q1 number, updated answer)
 
-VERIFICATION MODEL SYSTEM INSTRUCTION:
-When verifying facts:
-- Use Google Search to retrieve current/real-world information for verification
-- Use Code Execution for calculations or data transformations
-- Ground your answers in the tool results
-- Answer directly and concisely, citing sources when applicable
+Focus on identifying factual gaps, not providing answers.
 </textarea>
         </div>
     </div>
@@ -73,6 +70,7 @@ When verifying facts:
     <script src="js/location.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/response.js"></script>
+    <script src="js/facts.js"></script>
     <script src="js/connection.js"></script>
     <script src="js/main.js"></script>
 </body>

@@ -99,170 +99,73 @@ Carl.response = {
             state.currentResponseEl = null;
             state.currentResponseText = '';
         }
-
-        state.resetStructuredState();
     },
 
-    // Parse structured response JSON from the marker format
-    parseStructured(text) {
-        const { config } = Carl;
-
-        if (!text.startsWith(config.STRUCTURED_RESPONSE_MARKER)) {
-            return null;
-        }
-
-        const jsonStart = text.indexOf('{');
-        const jsonEnd = text.lastIndexOf('}');
-
-        if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-            return null;
-        }
-
-        try {
-            const jsonStr = text.substring(jsonStart, jsonEnd + 1);
-            const parsed = JSON.parse(jsonStr);
-
-            if (Object.keys(parsed).length === 0) {
-                return { empty: true };
-            }
-
-            return {
-                question: parsed.q || '',
-                answer: parsed.a || '',
-                confidence: parsed.c || 0,
-                empty: false
-            };
-        } catch (e) {
-            console.error('Failed to parse structured response:', e);
-            return null;
-        }
-    },
-
-    // Count braces in text and update state depth
-    countBraces(text) {
-        const { state } = Carl;
-        for (const char of text) {
-            if (char === '{') state.structuredBraceDepth++;
-            if (char === '}') state.structuredBraceDepth--;
-        }
-    },
 
     // Process incoming transcription text
     processTranscription(text) {
-        const { state, config, ui } = Carl;
+        const { state, facts } = Carl;
 
-        // Check if this is the start of a structured response
-        if (!state.isParsingStructured && text.includes(config.STRUCTURED_RESPONSE_MARKER)) {
-            const markerIndex = text.indexOf(config.STRUCTURED_RESPONSE_MARKER);
-
-            // Display any text before the marker
-            const beforeMarker = text.substring(0, markerIndex);
-            if (beforeMarker.trim()) {
-                this.updateText(beforeMarker);
-            }
-
-            // Start parsing structured response
-            state.isParsingStructured = true;
-            state.pendingStructuredResponse = text.substring(markerIndex);
-            state.structuredBraceDepth = 0;
-            this.countBraces(state.pendingStructuredResponse);
-
-            if (state.structuredBraceDepth === 0 && state.pendingStructuredResponse.includes('}')) {
-                this.handleCompleteStructured();
-            }
+        // Parse Qn:/An: format silently (Flash 2.0 fact-checker output)
+        if (facts.hasFactFormat(text)) {
+            facts.parseAndStore(text);
+            // Do NOT display Qn:/An: format to user
             return;
         }
 
-        // Continue parsing a structured response
-        if (state.isParsingStructured) {
-            state.pendingStructuredResponse += text;
-            this.countBraces(text);
-
-            if (state.structuredBraceDepth === 0 && state.pendingStructuredResponse.includes('}')) {
-                this.handleCompleteStructured();
-            }
-            return;
-        }
-
-        // Normal text - display directly
+        // Normal text - display directly (verification model responses)
         this.updateText(text);
     },
 
-    // Handle a complete structured response
-    handleCompleteStructured() {
-        const { state } = Carl;
+    // Verify next fact in queue (one at a time)
+    async verifyNextFact() {
+        const { state, config } = Carl;
 
-        // Find where the JSON ends
-        let braceCount = 0;
-        let jsonEndIndex = -1;
-
-        for (let i = 0; i < state.pendingStructuredResponse.length; i++) {
-            if (state.pendingStructuredResponse[i] === '{') braceCount++;
-            if (state.pendingStructuredResponse[i] === '}') {
-                braceCount--;
-                if (braceCount === 0) {
-                    jsonEndIndex = i;
-                    break;
-                }
-            }
+        // Check if already verifying
+        if (state.isVerificationInProgress()) {
+            console.log('[VERIFICATION] Already verifying a fact, skipping');
+            return;
         }
 
-        const structuredPart = state.pendingStructuredResponse.substring(0, jsonEndIndex + 1);
-        const afterStructured = state.pendingStructuredResponse.substring(jsonEndIndex + 1);
-
-        console.log(`[MODEL] Complete structured response: ${structuredPart}`);
-        if (afterStructured.trim()) {
-            console.log(`[MODEL] Text after structured response: "${afterStructured.trim()}"`);
+        // Get next fact to verify
+        const factNumber = state.getNextVerification();
+        if (!factNumber) {
+            console.log('[VERIFICATION] No facts in queue to verify');
+            return;
         }
 
-        const parsed = this.parseStructured(structuredPart);
-
-        // Reset parsing state
-        state.isParsingStructured = false;
-        state.pendingStructuredResponse = '';
-        state.structuredBraceDepth = 0;
-
-        if (parsed && !parsed.empty && parsed.question) {
-            // Stop audio playback for the uncertain response
-            state.clearAudioQueue();
-
-            // Finalize any current response before verification
-            if (state.currentResponseEl) {
-                this.finalize();
-            }
-
-            console.log(`[MODEL] Uncertain (${parsed.confidence}%): "${parsed.question}" - MODEL answer: "${parsed.answer}"`);
-            console.log(`[MODEL] Delegating to VERIFICATION_MODEL...`);
-
-            this.verifyWithGeminiPro(parsed.question);
-        } else if (parsed && parsed.empty) {
-            console.log('[MODEL] Empty structured response - no verification needed');
+        const fact = state.facts.mapping[factNumber];
+        if (!fact || !fact.q || !fact.a) {
+            console.log(`[VERIFICATION] Fact ${factNumber} incomplete, skipping`);
+            state.removeFact(factNumber);
+            state.completeVerification();
+            // Try next fact
+            setTimeout(() => this.verifyNextFact(), 100);
+            return;
         }
 
-        // Process any text after the structured response
-        if (afterStructured.trim()) {
-            console.log(`[MODEL] Processing remaining text after structured response`);
-            setTimeout(() => this.processTranscription(afterStructured), 100);
-        }
+        await this.verifyWithGeminiPro(factNumber, fact.q, fact.a);
     },
 
     // Call verification model for fact-checking
-    async verifyWithGeminiPro(question) {
-        const { state, config, ui } = Carl;
+    async verifyWithGeminiPro(factNumber, question, conversationAnswer) {
+        const { state, config } = Carl;
 
         const url = `${config.REST_URL}/${config.VERIFICATION_MODEL}:streamGenerateContent?key=${state.currentApiKey}&alt=sse`;
+
+        const promptText = `Question: ${question}\nUser's Answer: ${conversationAnswer}\n\nPlease verify if this answer is correct.`;
 
         const requestBody = {
             contents: [{
                 role: 'user',
-                parts: [{ text: question }]
+                parts: [{ text: promptText }]
             }],
             generationConfig: {
                 maxOutputTokens: 1024
             },
             systemInstruction: {
                 parts: [{
-                    text: 'Answer the question directly and concisely. Provide accurate, factual information.'
+                    text: config.VERIFICATION_SYSTEM_PROMPT
                 }]
             },
             tools: [
@@ -271,7 +174,7 @@ Carl.response = {
             ]
         };
 
-        console.log(`[VERIFICATION_MODEL] Sending question: "${question}"`);
+        console.log(`[VERIFICATION] Q${factNumber}: "${question}", Answer: "${conversationAnswer}"`);
 
         try {
             const response = await fetch(url, {
@@ -287,12 +190,13 @@ Carl.response = {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
+            let verificationText = '';
             this.startNew();
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    console.log(`[VERIFICATION_MODEL] Stream complete, total length: ${state.currentResponseText.length}`);
+                    console.log(`[VERIFICATION] Complete for Q${factNumber}: ${verificationText.substring(0, 100)}`);
                     break;
                 }
 
@@ -310,12 +214,11 @@ Carl.response = {
                             const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
 
                             if (groundingMetadata) {
-                                console.log('[VERIFICATION] Grounded answer with:', groundingMetadata);
+                                console.log('[VERIFICATION] Grounded with:', groundingMetadata);
                             }
 
                             if (text) {
-                                const preview = text.substring(0, 100).replace(/\n/g, ' ');
-                                console.log(`[VERIFICATION_MODEL] Received response: ${preview}${text.length > 100 ? '...' : ''}`);
+                                verificationText += text;
                                 this.updateText(text);
                             }
                         } catch (e) {
@@ -326,12 +229,35 @@ Carl.response = {
             }
 
             this.finalize();
+
+            // Check if first word is "CORRECT"
+            const firstWord = verificationText.trim().split(/\s+/)[0].toLowerCase();
+            if (firstWord === 'correct') {
+                state.facts.mapping[factNumber].f = 'CORRECT';
+                console.log(`[VERIFICATION] Q${factNumber} marked CORRECT`);
+            } else {
+                state.facts.mapping[factNumber].f = verificationText;
+                console.log(`[VERIFICATION] Q${factNumber} fact updated`);
+            }
+
+            // Remove from queue and complete verification
+            state.removeFact(factNumber);
+            state.completeVerification();
+
+            // Try next fact
+            setTimeout(() => this.verifyNextFact(), 100);
         } catch (error) {
-            console.error('[VERIFICATION_MODEL] Verification failed:', error);
-            if (!state.currentResponseEl) this.startNew();
+            console.error('[VERIFICATION] Verification failed:', error);
+            this.startNew();
             state.currentResponseText = `[Verification failed: ${error.message}]`;
             state.currentResponseEl.textContent = state.currentResponseText;
             this.finalize();
+
+            state.removeFact(factNumber);
+            state.completeVerification();
+
+            // Try next fact
+            setTimeout(() => this.verifyNextFact(), 500);
         }
     }
 };

@@ -58,16 +58,8 @@ Carl.connection = {
                 setup: {
                     model: config.MODEL,
                     generation_config: {
-                        response_modalities: ['AUDIO'],
-                        speech_config: {
-                            voice_config: {
-                                prebuilt_voice_config: {
-                                    voice_name: 'Kore'
-                                }
-                            }
-                        }
+                        response_modalities: ['TEXT']
                     },
-                    output_audio_transcription: {},
                     system_instruction: {
                         parts: [{ text: prompt }]
                     }
@@ -104,21 +96,10 @@ Carl.connection = {
                         // Skip thought parts (internal reasoning)
                         if (part.thought) continue;
 
-                        // Handle audio data (skip if parsing structured response)
-                        if (part.inlineData?.mimeType === 'audio/pcm') {
-                            if (!state.isParsingStructured) {
-                                audio.queueForPlayback(part.inlineData.data);
-                            } else {
-                                console.log('[MODEL] Skipping audio chunk (parsing structured response)');
-                            }
-                        }
-
-                        // Handle text (for non-audio models)
+                        // Handle text (Flash 2.0 outputs text only, including Qn:/An: format)
                         if (part.text) {
-                            if (!state.currentResponseEl) {
-                                response.startNew();
-                            }
-                            state.currentResponseText += part.text;
+                            // Parse Qn:/An: format silently (will be handled by response.processTranscription)
+                            response.processTranscription(part.text);
                         }
                     }
                 }
@@ -136,6 +117,8 @@ Carl.connection = {
                 if (msg.serverContent?.turnComplete) {
                     console.log('[MODEL] Turn complete');
                     response.finalize();
+                    // Start verification of any queued facts
+                    setTimeout(() => response.verifyNextFact(), 100);
                 }
             } catch (err) {
                 console.error('Failed to parse message:', event.data);
