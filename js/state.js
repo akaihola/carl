@@ -44,7 +44,8 @@ Carl.state = {
     facts: {
         mapping: {},      // {number: {q: question, a: answer, f: fact}}
         queue: [],        // [1, 2, 3, ...] numbers awaiting verification (FIFO)
-        currentVerification: null  // number currently being verified, null if none
+        currentVerification: null,  // number currently being verified, null if none
+        completed: new Set()  // Set of fact numbers that have been verified and completed
     },
 
     // Reset structured response state
@@ -90,6 +91,12 @@ Carl.state = {
             this.facts.queue.push(number);
             console.log(`[FACTS] Added fact ${number}: "${q}"`);
         } else {
+            // Skip if fact already completed (verified and displayed)
+            if (this.facts.completed.has(number)) {
+                console.log(`[FACTS] Fact ${number} already completed, ignoring update`);
+                return;
+            }
+
             // Update answer if it's a new one
             this.facts.mapping[number].a = a;
             this.facts.mapping[number].f = null;  // Reset fact for re-verification

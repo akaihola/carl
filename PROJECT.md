@@ -181,6 +181,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `facts.mapping`: `{number: {q, a, f}}` - question, answer, fact
   - `facts.queue`: `[1, 2, 3...]` - FIFO verification queue
   - `facts.currentVerification`: number being verified (or null)
+  - `facts.completed`: Set of fact numbers that have finished verification (prevents re-queuing)
 - **Helper Methods**:
   - `addFact()`, `removeFact()`, `getNextVerification()`, `completeVerification()`
   - `isVerificationInProgress()`, `resetVadState()`, `resetSilenceTracking()`
@@ -444,7 +445,16 @@ System prompts are defined in `config.js` and editable in UI settings:
 
 ## Recent Enhancements
 
-### Question Filtering (Latest)
+### Verified Fact Deduplication (Latest)
+- **Problem**: After a fact was verified and removed from queue, subsequent model outputs with the same fact number would re-queue it, causing repeated displays
+- **Solution**: Added `completed` Set to track which facts have finished verification
+- **Behavior**:
+  - When a fact completes verification (success, SKIP, or error), it's added to `completed` set
+  - Any subsequent updates to completed facts are silently ignored
+  - Console logs: `[FACTS] Fact {n} already completed, ignoring update`
+- **Impact**: Each fact displays only once, preventing the "Q1 keeps repeating" issue even if model outputs stale data
+
+### Question Filtering
 - Defense-in-depth filtering for private, situational, and unanswerable questions
 - **Primary Model Prevention**: System prompt instructs model to avoid extracting:
   - Private questions requiring personal knowledge (passwords, family details)

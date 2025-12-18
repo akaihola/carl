@@ -20,6 +20,12 @@ Carl.facts = {
                 const question = questionMatch[2];
                 this.nextNumber = Math.max(this.nextNumber, number + 1);
 
+                // Skip if fact already completed
+                if (state.facts.completed.has(number)) {
+                    console.log(`[FACTS] Q${number} already completed, ignoring`);
+                    continue;
+                }
+
                 if (state.facts.mapping[number]) {
                     // Question already exists - this might be an update
                     console.log(`[FACTS] Question ${number} already exists`);
@@ -37,6 +43,12 @@ Carl.facts = {
                 const number = parseInt(answerMatch[1], 10);
                 const answer = answerMatch[2];
                 this.nextNumber = Math.max(this.nextNumber, number + 1);
+
+                // Skip if fact already completed
+                if (state.facts.completed.has(number)) {
+                    console.log(`[FACTS] A${number} already completed, ignoring`);
+                    continue;
+                }
 
                 if (state.facts.mapping[number]) {
                     const prevAnswer = state.facts.mapping[number].a;

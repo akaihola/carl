@@ -270,6 +270,7 @@ Carl.response = {
             if (isSkipped) {
                 console.log(`[VERIFICATION] Q${factNumber} silently dropped (SKIP)`);
                 state.removeFact(factNumber);
+                state.facts.completed.add(factNumber);
                 state.completeVerification();
                 setTimeout(() => this.verifyNextFact(), 100);
                 return;
@@ -293,8 +294,9 @@ Carl.response = {
                 this.finalize();
             }
 
-            // Remove from queue and complete verification
+            // Remove from queue, mark as completed, and complete verification
             state.removeFact(factNumber);
+            state.facts.completed.add(factNumber);
             state.completeVerification();
 
             // Try next fact
@@ -307,6 +309,7 @@ Carl.response = {
             this.finalize();
 
             state.removeFact(factNumber);
+            state.facts.completed.add(factNumber);
             state.completeVerification();
 
             // Try next fact
