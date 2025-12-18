@@ -44,13 +44,13 @@ Carl.facts = {
                     state.facts.mapping[number].f = null;  // Reset fact for re-verification
 
                     if (prevAnswer !== answer) {
-                        // Answer was updated - move to head of queue if not currently verifying
+                        // Answer was updated - move to head of queue for re-verification
+                        state.facts.queue = state.facts.queue.filter(n => n !== number);
+                        state.facts.queue.unshift(number);
                         if (state.facts.currentVerification !== number) {
-                            state.facts.queue = state.facts.queue.filter(n => n !== number);
-                            state.facts.queue.unshift(number);
                             console.log(`[FACTS] Updated A${number}: "${answer}" (moved to head of queue)`);
                         } else {
-                            console.log(`[FACTS] Updated A${number}: "${answer}" (currently verifying)`);
+                            console.log(`[FACTS] Updated A${number}: "${answer}" (re-queued for verification)`);
                         }
                     } else {
                         console.log(`[FACTS] Parsed A${number}: ${answer}`);
