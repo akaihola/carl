@@ -24,9 +24,10 @@ Carl.facts = {
                     // Question already exists - this might be an update
                     console.log(`[FACTS] Question ${number} already exists`);
                 } else {
-                    // New question - store it and wait for answer
+                    // New question - store it and add to verification queue
                     state.facts.mapping[number] = { q: question, a: null, f: null };
-                    console.log(`[FACTS] Parsed Q${number}: ${question}`);
+                    state.facts.queue.push(number);
+                    console.log(`[FACTS] Parsed Q${number}: ${question} (added to queue)`);
                 }
             }
 

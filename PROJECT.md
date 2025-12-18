@@ -187,7 +187,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `resampleTo16kHz()` - Audio resampling
   - `floatTo16BitPCM()`, `arrayBufferToBase64()`, `base64ToArrayBuffer()` - Audio encoding
 
-#### `ui.js` (100 lines)
+#### `ui.js` (116 lines)
 - **Purpose**: DOM manipulation and UI state
 - **Exports**: `Carl.ui`
 - **Responsibilities**:
@@ -207,7 +207,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - Timezone detection
   - Fallback handling for permission denial
 
-#### `audio.js` (247 lines)
+#### `audio.js` (255 lines)
 - **Purpose**: Audio input/output and Voice Activity Detection
 - **Exports**: `Carl.audio`
 - **Functions**:
@@ -219,7 +219,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `queueForPlayback()`, `playNextChunk()` - Audio output queue
   - `cleanup()` - Resource cleanup on disconnect
 
-#### `response.js`
+#### `response.js` (264 lines)
 - **Purpose**: Response rendering and verification queue processing
 - **Exports**: `Carl.response`
 - **Functions**:
@@ -229,7 +229,7 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `verifyNextFact()` - Initiates verification from queue (one at a time)
   - `verifyWithGeminiPro()` - REST API call to verification model with streaming
 
-#### `facts.js`
+#### `facts.js` (87 lines)
 - **Purpose**: Fact parsing and queue management
 - **Exports**: `Carl.facts`
 - **Functions**:
@@ -238,10 +238,10 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `filterFactLines()` - Removes fact format lines from text
 - **Behavior**:
   - Silently stores facts in `state.facts.mapping`
-  - Adds new facts to verification queue
+  - Adds new questions to verification queue immediately upon parsing
   - Handles amended answers (moves to head of queue)
 
-#### `connection.js` (211 lines)
+#### `connection.js` (208 lines)
 - **Purpose**: WebSocket connection lifecycle
 - **Exports**: `Carl.connection`
 - **Functions**:
@@ -250,14 +250,13 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `disconnect()` - Cleanup and resource release
   - `sendTextMessage()` - Text message transmission
 
-#### `main.js` (90 lines)
+#### `main.js` (78 lines)
 - **Purpose**: Entry point and initialization
-- **Exports**: `Carl.init()`, `Carl.apiKey`
+- **Exports**: `Carl.apiKey` (with submit and clear methods)
 - **Responsibilities**:
-  - Global event handler registration (DOMContentLoaded, scroll, keydown)
-  - UI initialization
-  - API key management (submit, clear, localStorage)
   - Global function bindings for HTML onclick handlers
+  - API key management (submit, clear, localStorage)
+  - Global event handler registration
 
 ### styles.css
 **Key Classes:**
