@@ -69,9 +69,10 @@ Carl.facts = {
         }
     },
 
-    // Check if text contains Qn:/An: format
+    // Check if text contains Qn:/An: format (at line start after trimming)
     hasFactFormat(text) {
-        return /^Q\d+:/.test(text.trim()) || /^A\d+:/.test(text.trim());
+        const trimmed = text.trim();
+        return /^Q\d+:/.test(trimmed) || /^A\d+:/.test(trimmed);
     },
 
     // Filter out Qn:/An: format from text (for display)

@@ -2,6 +2,9 @@
 window.Carl = window.Carl || {};
 
 Carl.connection = {
+    // Buffer for accumulating chunks until complete lines are available
+    textBuffer: '',
+
     // Toggle connection state
     async toggle() {
         const { state, ui } = Carl;
@@ -82,24 +85,29 @@ Carl.connection = {
                 if (msg.serverContent?.modelTurn) {
                     const parts = msg.serverContent.modelTurn.parts;
                     for (const part of parts) {
-                        // Log text parts with type indicator
-                        if (part.text) {
-                            const type = part.thought ? 'thought' : 'response';
-                            if (part.thought) {
-                                console.log(`[MODEL] Received ${type}:\n${part.text}`);
-                            } else {
-                                const preview = part.text.substring(0, 100).replace(/\n/g, ' ');
-                                console.log(`[MODEL] Received ${type}: ${preview}${part.text.length > 100 ? '...' : ''}`);
-                            }
-                        }
-
                         // Skip thought parts (internal reasoning)
                         if (part.thought) continue;
 
                         // Handle text (Flash 2.0 outputs text only, including Qn:/An: format)
                         if (part.text) {
-                            // Parse Qn:/An: format silently (will be handled by response.processTranscription)
-                            response.processTranscription(part.text);
+                            // Log raw chunk for debugging
+                            const preview = part.text.substring(0, 100).replace(/\n/g, ' ');
+                            console.log(`[MODEL] Received chunk: ${preview}${part.text.length > 100 ? '...' : ''}`);
+
+                            // Buffer the text and process complete lines
+                            this.textBuffer += part.text;
+                            const lines = this.textBuffer.split('\n');
+
+                            // Keep the last incomplete line in buffer (may not end with \n)
+                            this.textBuffer = lines[lines.length - 1];
+
+                            // Process all complete lines (all but the last)
+                            for (let i = 0; i < lines.length - 1; i++) {
+                                const completeLine = lines[i];
+                                if (completeLine.trim()) {
+                                    response.processTranscription(completeLine);
+                                }
+                            }
                         }
                     }
                 }
@@ -116,6 +124,11 @@ Carl.connection = {
                 // Check if turn is complete
                 if (msg.serverContent?.turnComplete) {
                     console.log('[MODEL] Turn complete');
+                    // Process any remaining buffered text
+                    if (this.textBuffer.trim()) {
+                        response.processTranscription(this.textBuffer);
+                        this.textBuffer = '';
+                    }
                     response.finalize();
                     // Start verification of any queued facts
                     setTimeout(() => response.verifyNextFact(), 100);
@@ -162,6 +175,7 @@ Carl.connection = {
             state.ws = null;
         }
 
+        this.textBuffer = '';
         audio.cleanup();
         response.finalize();
     },

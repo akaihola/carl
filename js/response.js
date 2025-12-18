@@ -108,8 +108,9 @@ Carl.response = {
 
         // Parse Qn:/An: format silently (Flash 2.0 fact-checker output)
         if (facts.hasFactFormat(text)) {
+            console.log(`[FACTS] Parsing fact format: ${text}`);
             facts.parseAndStore(text);
-            // Do NOT display Qn:/An: format to user
+            // Do NOT display Qn:/An: format to user - return immediately
             return;
         }
 
