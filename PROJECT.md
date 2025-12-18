@@ -377,12 +377,15 @@ System prompts are defined in `config.js` and editable in UI settings:
 
 **Verification Model (Fact Validator/Answerer):**
 - Verify factual claims OR find answers to questions
-- Respond with "CORRECT" if a user answer was provided and is accurate
+- Respond with "CORRECT" if a user answer was provided and is accurate (not displayed to user)
 - Respond with "SKIP" (first word) for private/situational/unanswerable questions
-- Otherwise, provide the correct fact or found answer
+- Otherwise, provide the correct fact or found answer with full context
 - Use Google Search for real-time information
 - Use Code Execution for calculations
 - Adapts behavior based on whether user answer was provided
+- Always provide complete, understandable answers that work without the original question
+  - Example: "The capital of Finland is Helsinki" (not just "Helsinki")
+  - Example: "Mars has two moons" (not just "two")
 
 ### API Key Management
 - Stored in localStorage (key: `gemini_api_key`)
@@ -499,6 +502,14 @@ System prompts are defined in `config.js` and editable in UI settings:
 - Code Execution for calculations and transformations
 - Automatic tool selection by verification model
 - Grounding metadata logged to console
+
+### Response Quality Improvements (Latest)
+- **"CORRECT" metadata handling**: "CORRECT" responses are now stored as metadata only and never displayed to the user
+- **Increased token limits**: `maxOutputTokens` increased from 1024 to 2048 to prevent truncated responses
+- **Full context answers**: Enhanced verification system prompt to ensure answers include full context
+  - Prevents single-word or out-of-context answers
+  - Examples added to guide model: "The capital of Finland is Helsinki" (not just "Helsinki")
+  - Ensures answers are meaningful when displayed without the original question
 
 ### Font Sizing Improvements
 - Smooth CSS transitions during size changes

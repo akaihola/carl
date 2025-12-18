@@ -165,7 +165,7 @@ Carl.response = {
                 parts: [{ text: promptText }]
             }],
             generationConfig: {
-                maxOutputTokens: 1024
+                maxOutputTokens: 2048
             },
             systemInstruction: {
                 parts: [{
@@ -201,8 +201,9 @@ Carl.response = {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    // If stream ended but we haven't displayed anything yet, display it now
-                    if (!displayStarted && !isSkipped && verificationText.trim()) {
+                    // If stream ended but we haven't displayed anything yet
+                    const firstWord = verificationText.trim().split(/\s+/)[0].toLowerCase();
+                    if (!displayStarted && !isSkipped && verificationText.trim() && firstWord !== 'correct') {
                         displayStarted = true;
                         this.startNew();
                         this.updateText(verificationText);
@@ -239,13 +240,17 @@ Carl.response = {
                                     if (firstWord === 'skip') {
                                         isSkipped = true;
                                         console.log(`[VERIFICATION] Q${factNumber} SKIPPED (unanswerable question)`);
+                                    } else if (firstWord === 'correct') {
+                                        // Don't display CORRECT - it's just metadata
+                                        // Continue buffering but don't start display
+                                        console.log(`[VERIFICATION] Q${factNumber} received CORRECT, buffering...`);
                                     } else if (trimmed.length > 0 && /\s/.test(trimmed)) {
-                                        // First word complete and not SKIP - start displaying
+                                        // First word complete and not SKIP/CORRECT - start displaying
                                         displayStarted = true;
                                         this.startNew();
                                         this.updateText(verificationText);
                                     } else if (trimmed.length >= 10) {
-                                        // Safety: 10+ chars without space means not SKIP
+                                        // Safety: 10+ chars without space means not SKIP/CORRECT
                                         displayStarted = true;
                                         this.startNew();
                                         this.updateText(verificationText);
@@ -270,16 +275,22 @@ Carl.response = {
                 return;
             }
 
-            this.finalize();
-
-            // Check if first word is "CORRECT"
+            // Check if first word is "CORRECT" BEFORE finalizing display
             const firstWord = verificationText.trim().split(/\s+/)[0].toLowerCase();
             if (firstWord === 'correct') {
                 state.facts.mapping[factNumber].f = 'CORRECT';
                 console.log(`[VERIFICATION] Q${factNumber} marked CORRECT`);
+                // Don't display "CORRECT" to user - just store it as metadata
+                // Clear any text that was already displayed
+                if (state.currentResponseEl) {
+                    state.currentResponseEl.remove();
+                    state.currentResponseEl = null;
+                }
+                state.currentResponseText = '';
             } else {
                 state.facts.mapping[factNumber].f = verificationText;
                 console.log(`[VERIFICATION] Q${factNumber} fact updated`);
+                this.finalize();
             }
 
             // Remove from queue and complete verification

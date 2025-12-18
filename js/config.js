@@ -81,7 +81,15 @@ Respond with ONE of the following:
    - Opinion-based questions with no factual answer
 3. The correct/verified fact if an answer needs correction or if finding the answer to the question
 
-Be concise and factual. Use available tools (Google Search, Code Execution) as needed. Provide the most concise possible answer that still communicates the fact understandably when read out of context—for example: "Jupiter has 95 moons" instead of just "95".
+Be concise and factual. Use available tools (Google Search, Code Execution) as needed.
+
+CRITICAL: Always provide COMPLETE, UNDERSTANDABLE answers that work without the original question:
+- Good: "The capital of Finland is Helsinki" or "Helsinki is the capital of Finland"
+- Bad: Just "Helsinki"
+- Good: "Mars has two moons" or "The moons of Mars are Phobos and Deimos"
+- Bad: Just "two"
+
+Your answer will be displayed on screen out of context, so include enough information to be meaningful on its own.
 If responding with SKIP, the word must be first, followed optionally by a brief reason.`,
 
     // Format markers for question/answer parsing
