@@ -46,15 +46,16 @@ Carl is a web-based application designed for personal use that:
 - Primary model outputs text-only (no audio response)
 
 ### 2. Fact Identification Protocol
-- Primary model identifies factual gaps in conversation:
-  - Questions (direct or indirect)
-  - Missing information
-  - Misinformation or incomplete facts
-- Output format: `Qn: [question]` and `An: [answer from conversation]`
-  - Example: `Q1: How many moons does Mars have?`
-  - Example: `A1: Mars has two moons`
+- Primary model identifies factual gaps and questions in conversation:
+  - Questions (direct or indirect) - queued immediately
+  - Missing information - queued for finding answers
+  - Misinformation or claimed facts - queued for verification
+- Output format: `Qn: [question]` for questions, `An: [answer from conversation]` for user statements
+  - Example: `Q1: How many moons does Mars have?` (queued alone, model will find answer)
+  - Example: `A1: Mars has two moons` (paired with Q1 if both present, or standalone)
 - Questions and answers are numbered with matching prefixes (Q1/A1, Q2/A2, etc.)
-- Amended answers reuse the same number for re-verification
+- Questions are queued for verification immediately upon parsing (no answer required)
+- Amended or new answers (same Q number, new A) move to head of queue for re-verification
 
 ### 3. Silent Fact Tracking
 - `Qn:` and `An:` format is parsed but NOT displayed to user
@@ -62,14 +63,20 @@ Carl is a web-based application designed for personal use that:
 - FIFO verification queue maintains order of discovery
 - User only sees verified facts from verification model
 
-### 4. Verification Queue Processing
+### 4. Verification Queue Processing (Dual-Mode)
 - One verification request in flight at a time (no parallel requests)
 - Queue processes in FIFO order
-- Verification model receives: question + conversation answer
+- Two verification modes:
+  - **With Answer** (Q+A): Verification model receives question + user's answer, verifies correctness
+  - **Without Answer** (Q-only): Verification model receives question alone, finds and verifies the correct answer
+- Request prompt adapts based on mode:
+  - With answer: `"Question: X\nUser's Answer: Y\n\nPlease verify if this answer is correct."`
+  - Without answer: `"Question: X\n\nPlease find and verify the correct answer to this question."`
 - Response handling:
-  - First word "CORRECT": fact confirmed, removed from queue
-  - Otherwise: streams actual fact to display
-- Amended answers (same Q number, new A) move to head of queue
+  - First word "CORRECT": answer confirmed (only in with-answer mode), fact removed from queue
+  - Otherwise: streams finding or correction to display
+- Amended answers (same Q number, new A) move to head of queue for re-verification
+- When answer arrives for verified Q-only fact: moves to head of queue for re-verification against user answer
 
 ### 5. Verification with Grounding
 - Verification model uses tools to validate/correct facts:
@@ -293,7 +300,7 @@ Qn:/An: format (parsed silently)
 Facts stored in mapping, queued for verification
 ```
 
-### Verification Pipeline
+### Verification Pipeline (Dual-Mode)
 ```
 Turn Complete
     ↓
@@ -301,13 +308,22 @@ verifyNextFact() called
     ↓
 Get first fact from queue (FIFO)
     ↓
+Check if answer exists (fact.a):
+    ├── With answer → Prompt: "Please verify this answer"
+    └── Without answer → Prompt: "Please find the answer"
+    ↓
 REST API → Gemini Pro (streaming)
     ↓
 Tool execution (Google Search, Code Execution)
     ↓
 Response check:
-    ├── "CORRECT" → Remove from queue, try next
+    ├── "CORRECT" → Remove from queue, try next (verification mode only)
     └── Fact text → Stream to display, store in mapping
+    ↓
+Later if answer arrives for Q-only fact:
+    ├── Update fact.a with user's answer
+    ├── Move to head of queue
+    └── Re-verify with "verify answer" mode
     ↓
 Repeat until queue empty
 ```
@@ -357,12 +373,13 @@ System prompts are defined in `config.js` and editable in UI settings:
 - Use matching numbers (Q1/A1, Q2/A2, etc.)
 - Repeat same number for amended answers
 
-**Verification Model (Fact Validator):**
-- Verify factual claims using available tools
-- Respond with "CORRECT" if answer is accurate
-- Otherwise, provide the correct fact
+**Verification Model (Fact Validator/Answerer):**
+- Verify factual claims OR find answers to questions
+- Respond with "CORRECT" if a user answer was provided and is accurate
+- Otherwise, provide the correct fact or found answer
 - Use Google Search for real-time information
 - Use Code Execution for calculations
+- Adapts behavior based on whether user answer was provided
 
 ### API Key Management
 - Stored in localStorage (key: `gemini_api_key`)
@@ -421,7 +438,18 @@ System prompts are defined in `config.js` and editable in UI settings:
 
 ## Recent Enhancements
 
-### Fact-Checking Architecture (Latest)
+### Open-Question Answering (Latest)
+- Extended verification to handle questions without answers
+- Questions alone (Q-only) now queued for answer-finding instead of skipped
+- Dual-mode verification system:
+  - **With-answer mode**: Verifies user-stated answers ("Is this correct?")
+  - **Without-answer mode**: Finds answers to questions ("What is the answer?")
+- Verification prompt adapts based on whether answer is present
+- System prompt updated to guide model for both verification and finding modes
+- When user provides answer to previously-verified Q-only fact: moves to queue head for re-verification
+- Enables Carl to act as both a fact-checker AND an open-question answerer
+
+### Fact-Checking Architecture
 - Switched from Flash 2.5 (voice+text) to Flash 2.0 (text-only)
 - Primary model now identifies facts instead of answering
 - New `Qn:/An:` format for structured fact tracking
