@@ -43,10 +43,16 @@ Carl.response = {
     startNew() {
         const { state, ui } = Carl;
         state.currentResponseText = '';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'response-wrapper';
+
         state.currentResponseEl = document.createElement('div');
         state.currentResponseEl.className = 'response';
         state.currentResponseEl.style.visibility = 'visible';
-        ui.elements.log.appendChild(state.currentResponseEl);
+
+        wrapper.appendChild(state.currentResponseEl);
+        ui.elements.log.appendChild(wrapper);
     },
 
     // Update current response with text and recalculate font size
@@ -54,10 +60,23 @@ Carl.response = {
         const { state, ui } = Carl;
         if (!state.currentResponseEl) this.startNew();
 
+        const isFirstUpdate = state.currentResponseText === '';
         state.currentResponseText += text;
         state.currentResponseEl.textContent = state.currentResponseText;
-        state.currentResponseEl.style.fontSize = this.findOptimalFontSize(state.currentResponseText) + 'px';
-        ui.scrollToBottom();
+
+        const fontSize = this.findOptimalFontSize(state.currentResponseText);
+
+        if (isFirstUpdate) {
+            // Disable transition for initial render to prevent jitter
+            state.currentResponseEl.style.transition = 'none';
+            state.currentResponseEl.style.fontSize = fontSize + 'px';
+            state.currentResponseEl.offsetHeight; // Force reflow
+            state.currentResponseEl.style.transition = '';
+        } else {
+            state.currentResponseEl.style.fontSize = fontSize + 'px';
+        }
+
+        ui.scrollToResponse(state.currentResponseEl);
     },
 
     // Finalize the current response
@@ -68,9 +87,17 @@ Carl.response = {
             const fontSize = this.findOptimalFontSize(state.currentResponseText);
             console.log(`Finalizing response: applying font size ${fontSize}px`);
             state.currentResponseEl.style.fontSize = fontSize + 'px';
+
+            // Do a final scroll after font size is applied and layout is settled
+            const responseEl = state.currentResponseEl;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    ui.scrollToResponse(responseEl);
+                });
+            });
+
             state.currentResponseEl = null;
             state.currentResponseText = '';
-            ui.scrollToBottom();
         }
 
         state.resetStructuredState();
@@ -261,7 +288,6 @@ Carl.response = {
             const decoder = new TextDecoder();
 
             this.startNew();
-            state.currentResponseEl.classList.add('verified');
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -285,7 +311,6 @@ Carl.response = {
 
                             if (groundingMetadata) {
                                 console.log('[VERIFICATION] Grounded answer with:', groundingMetadata);
-                                state.currentResponseEl.classList.add('grounded');
                             }
 
                             if (text) {

@@ -25,12 +25,12 @@
                 <span>Settings</span>
                 <button class="menu-close" onclick="closeMenu()">✕</button>
             </div>
+            <!-- plus at least one more utterance which doesn't correctly provide the fact, -->
+            <!-- Do NOT give a response with content immediately after you observe a need for a fact. -->
             <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">
 You are an assistant which contributes concisely to a conversation only when facts are needed.
 When you observe a need for a fact (direct/indirect question, pondering, misinformation, incomplete information),
-plus at least one more utterance which doesn't correctly provide the fact,
 give a response with content.
-Do NOT give a response with content immediately after you observe a need for a fact.
 To give response with no content, use the dummy response §{} and nothing more.
 
 CONFIDENCE PROTOCOL:
@@ -60,6 +60,10 @@ When verifying facts:
     </div>
 
     <div id="log"></div>
+
+    <!-- GSAP library for smooth scrolling with speed control -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
 
     <!-- Load modules in dependency order -->
     <script src="js/helpers.js"></script>

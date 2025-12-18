@@ -98,7 +98,6 @@ carl/
 ├── PROJECT.md              # This file
 ├── .env                    # API keys (not committed)
 ├── silero_vad.onnx         # Silero voice activity detection model
-├── script.js               # Deprecated: original monolithic script
 ├── js/                     # Modular application (1173 lines total)
 │   ├── helpers.js          # Shared utilities (audio conversion, formatting)
 │   ├── config.js           # Application constants and configuration
@@ -161,14 +160,14 @@ The application has been refactored from a monolithic `script.js` into a modular
   - `resampleTo16kHz()` - Audio resampling
   - `floatTo16BitPCM()`, `arrayBufferToBase64()`, `base64ToArrayBuffer()` - Audio encoding
 
-#### `ui.js` (97 lines)
+#### `ui.js` (100 lines)
 - **Purpose**: DOM manipulation and UI state
 - **Exports**: `Carl.ui`
 - **Responsibilities**:
   - Element caching (menu, controls, buttons, inputs)
   - Menu toggling and backdrop handling
   - API key UI state management
-  - Scroll management with programmatic scroll tracking
+  - Scroll management: positions response wrapper top just below fixed toolbar
   - Connection button state
 
 #### `location.js` (70 lines)
@@ -221,11 +220,6 @@ The application has been refactored from a monolithic `script.js` into a modular
   - UI initialization
   - API key management (submit, clear, localStorage)
   - Global function bindings for HTML onclick handlers
-
-#### `script.js` (991 lines - Deprecated)
-- Original monolithic implementation kept for reference
-- No longer loaded by index.html
-- Can be removed once modular version is stable
 
 ### styles.css
 **Key Classes:**

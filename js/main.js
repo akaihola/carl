@@ -53,18 +53,6 @@ Carl.init = function() {
         ui.showApiKeyInput();
     }
 
-    // Track user scroll behavior
-    window.addEventListener('scroll', () => {
-        if (state.isProgrammaticScrolling) return;
-        state.userHasScrolledUp = !ui.isAtBottom();
-    });
-
-    // Clear programmatic scroll flag when scroll animation completes
-    window.addEventListener('scrollend', () => {
-        state.isProgrammaticScrolling = false;
-        clearTimeout(state.scrollEndTimeout);
-    });
-
     // Global Enter key handler
     document.addEventListener('keydown', (e) => {
         console.log('keydown:', e.key, 'activeElement:', document.activeElement?.tagName, document.activeElement?.id);
@@ -80,7 +68,7 @@ Carl.init = function() {
             console.log('Enter pressed, isInputFocused:', isInputFocused);
             if (!isInputFocused) {
                 e.preventDefault();
-                Carl.connection.sendTextMessage('Tell me something funny again.');
+                Carl.connection.sendTextMessage('Tell me another intriguing fact.');
             }
         }
     });

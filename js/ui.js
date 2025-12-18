@@ -4,6 +4,7 @@ window.Carl = window.Carl || {};
 Carl.ui = {
     // DOM element cache
     elements: {},
+    scrollTimeout: null,
 
     // Initialize element references
     init() {
@@ -62,22 +63,40 @@ Carl.ui = {
         this.elements.connectBtn.blur();
     },
 
-    // Scroll management
-    scrollToBottom() {
-        const { state } = Carl;
-        if (state.userHasScrolledUp) return;
+    // Scroll to position response wrapper top just below the fixed toolbar
+    scrollToResponse(responseEl) {
+        if (!responseEl || !window.gsap) return;
 
-        requestAnimationFrame(() => {
-            state.isProgrammaticScrolling = true;
-            clearTimeout(state.scrollEndTimeout);
-            window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-            state.scrollEndTimeout = setTimeout(() => { state.isProgrammaticScrolling = false; }, 1000);
-        });
-    },
+        // Debounce scroll updates - clear previous timeout
+        if (this.scrollTimeout) {
+            clearTimeout(this.scrollTimeout);
+        }
 
-    // Check if user is at bottom of page
-    isAtBottom() {
-        return (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 10);
+        // Defer scroll calculation to batch updates and avoid interrupting ongoing scrolls
+        this.scrollTimeout = setTimeout(() => {
+            this.scrollTimeout = null;
+
+            // Use requestAnimationFrame to ensure layout is complete after font size changes
+            requestAnimationFrame(() => {
+                const rect = responseEl.getBoundingClientRect();
+                // If user scrolled up significantly (response well above viewport), don't auto-scroll
+                if (rect.top > window.innerHeight + 200) return;
+
+                // Get the wrapper and calculate scroll target to position its top just below toolbar
+                const wrapper = responseEl.parentElement;
+                const wrapperTop = wrapper.offsetTop;
+                const toolbarHeight = this.elements.toolbar.offsetHeight;
+                const scrollTarget = Math.max(0, wrapperTop - toolbarHeight);
+
+                // Kill any existing scroll animation and start fresh
+                gsap.killTweensOf(window);
+                gsap.to(window, {
+                    scrollTo: { y: scrollTarget },
+                    duration: 1.5,
+                    ease: 'none'
+                });
+            });
+        }, 100); // 100ms debounce to batch transcription chunks
     },
 
     // Get system prompt value

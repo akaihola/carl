@@ -19,11 +19,6 @@ Carl.state = {
     currentResponseEl: null,
     currentResponseText: '',
 
-    // Scroll tracking
-    userHasScrolledUp: false,
-    isProgrammaticScrolling: false,
-    scrollEndTimeout: null,
-
     // Structured response parsing (confidence protocol)
     pendingStructuredResponse: '',
     isParsingStructured: false,
