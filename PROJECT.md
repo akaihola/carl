@@ -30,7 +30,7 @@ Carl is a web-based application designed for personal use that:
   - Fact verification and correction
   - Communicates via REST API with streaming (SSE)
   - Tools: Google Search, Code Execution
-  - Responds with "CORRECT" or streams the actual fact
+  - Responds with "CORRECT", "SKIP" (for unanswerable questions), or streams the actual fact
 
 ### Key Infrastructure
 - **Gemini API**: Google AI for Developers (generativelanguage.googleapis.com)
@@ -337,6 +337,7 @@ User sees ONLY:
 User does NOT see:
 - Qn:/An: format from primary model
 - CORRECT confirmations
+- SKIP responses (silently dropped)
 ```
 
 ## API Integration
@@ -372,10 +373,12 @@ System prompts are defined in `config.js` and editable in UI settings:
 - Output format: `Qn: [question]` and `An: [answer from conversation]`
 - Use matching numbers (Q1/A1, Q2/A2, etc.)
 - Repeat same number for amended answers
+- Skip private, situational, and unanswerable questions
 
 **Verification Model (Fact Validator/Answerer):**
 - Verify factual claims OR find answers to questions
 - Respond with "CORRECT" if a user answer was provided and is accurate
+- Respond with "SKIP" (first word) for private/situational/unanswerable questions
 - Otherwise, provide the correct fact or found answer
 - Use Google Search for real-time information
 - Use Code Execution for calculations
@@ -438,7 +441,18 @@ System prompts are defined in `config.js` and editable in UI settings:
 
 ## Recent Enhancements
 
-### Open-Question Answering (Latest)
+### Question Filtering (Latest)
+- Defense-in-depth filtering for private, situational, and unanswerable questions
+- **Primary Model Prevention**: System prompt instructs model to avoid extracting:
+  - Private questions requiring personal knowledge (passwords, family details)
+  - Situational questions requiring subjective judgment ("What should I do?")
+  - Questions requiring real-time context (screen contents, physical surroundings)
+  - Opinion-based questions with no factual answer
+- **Verification Model Fallback**: If such questions slip through, verification model responds with "SKIP" as first word
+- **Silent Handling**: SKIP responses are detected and silently dropped without display to user
+- Console logging for debugging: `[VERIFICATION] Q{n} SKIPPED (unanswerable question)`
+
+### Open-Question Answering
 - Extended verification to handle questions without answers
 - Questions alone (Q-only) now queued for answer-finding instead of skipped
 - Dual-mode verification system:

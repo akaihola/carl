@@ -195,11 +195,18 @@ Carl.response = {
             const decoder = new TextDecoder();
 
             let verificationText = '';
-            this.startNew();
+            let displayStarted = false;
+            let isSkipped = false;
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
+                    // If stream ended but we haven't displayed anything yet, display it now
+                    if (!displayStarted && !isSkipped && verificationText.trim()) {
+                        displayStarted = true;
+                        this.startNew();
+                        this.updateText(verificationText);
+                    }
                     console.log(`[VERIFICATION] Complete for Q${factNumber}: ${verificationText.substring(0, 100)}`);
                     break;
                 }
@@ -223,13 +230,44 @@ Carl.response = {
 
                             if (text) {
                                 verificationText += text;
-                                this.updateText(text);
+
+                                // Buffer until we can determine first word
+                                if (!displayStarted && !isSkipped) {
+                                    const trimmed = verificationText.trim();
+                                    const firstWord = trimmed.split(/\s+/)[0].toLowerCase();
+
+                                    if (firstWord === 'skip') {
+                                        isSkipped = true;
+                                        console.log(`[VERIFICATION] Q${factNumber} SKIPPED (unanswerable question)`);
+                                    } else if (trimmed.length > 0 && /\s/.test(trimmed)) {
+                                        // First word complete and not SKIP - start displaying
+                                        displayStarted = true;
+                                        this.startNew();
+                                        this.updateText(verificationText);
+                                    } else if (trimmed.length >= 10) {
+                                        // Safety: 10+ chars without space means not SKIP
+                                        displayStarted = true;
+                                        this.startNew();
+                                        this.updateText(verificationText);
+                                    }
+                                } else if (displayStarted) {
+                                    this.updateText(text);
+                                }
                             }
                         } catch (e) {
                             // Ignore parse errors for partial chunks
                         }
                     }
                 }
+            }
+
+            // Handle SKIP responses silently
+            if (isSkipped) {
+                console.log(`[VERIFICATION] Q${factNumber} silently dropped (SKIP)`);
+                state.removeFact(factNumber);
+                state.completeVerification();
+                setTimeout(() => this.verifyNextFact(), 100);
+                return;
             }
 
             this.finalize();
