@@ -136,8 +136,8 @@ Carl.response = {
         }
 
         const fact = state.facts.mapping[factNumber];
-        if (!fact || !fact.q || !fact.a) {
-            console.log(`[VERIFICATION] Fact ${factNumber} incomplete, skipping`);
+        if (!fact || !fact.q) {
+            console.log(`[VERIFICATION] Fact ${factNumber} incomplete (missing question), skipping`);
             state.removeFact(factNumber);
             state.completeVerification();
             // Try next fact
@@ -148,13 +148,16 @@ Carl.response = {
         await this.verifyWithGeminiPro(factNumber, fact.q, fact.a);
     },
 
-    // Call verification model for fact-checking
+    // Call verification model for fact-checking or finding answers
     async verifyWithGeminiPro(factNumber, question, conversationAnswer) {
         const { state, config } = Carl;
 
         const url = `${config.REST_URL}/${config.VERIFICATION_MODEL}:streamGenerateContent?key=${state.currentApiKey}&alt=sse`;
 
-        const promptText = `Question: ${question}\nUser's Answer: ${conversationAnswer}\n\nPlease verify if this answer is correct.`;
+        // Conditional prompt based on whether answer was provided
+        const promptText = conversationAnswer
+            ? `Question: ${question}\nUser's Answer: ${conversationAnswer}\n\nPlease verify if this answer is correct.`
+            : `Question: ${question}\n\nPlease find and verify the correct answer to this question.`;
 
         const requestBody = {
             contents: [{

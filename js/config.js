@@ -59,15 +59,15 @@ Examples:
 
 Focus on identifying factual gaps, not providing answers.`,
 
-    VERIFICATION_SYSTEM_PROMPT: `Your role is to verify factual claims. You will receive:
+    VERIFICATION_SYSTEM_PROMPT: `Your role is to verify factual claims or find answers to questions. You will receive:
 - A factual question
-- The user's stated answer
+- The user's stated answer (if provided)
 
 Respond with EITHER:
-1. "CORRECT" if the answer is 100% accurate
-2. The correct fact if the answer is inaccurate or incomplete
+1. "CORRECT" if a user answer was provided and is 100% accurate
+2. The correct/verified fact if an answer needs correction or if finding the answer to the question
 
-Be concise and factual. Use available tools (Google Search, Code Execution) to verify.`,
+Be concise and factual. Use available tools (Google Search, Code Execution) as needed.`,
 
     // Format markers for question/answer parsing
     QUESTION_PREFIX: 'Q',
