@@ -1,5 +1,7 @@
 # Agent Instructions for Carl Project
 
+For comprehensive project documentation including architecture, features, and implementation details, see [PROJECT.md](PROJECT.md).
+
 ## Browser Support & Modern Technologies
 
 - **Target modern browsers only**: Firefox 145+, Chromium 143+ (November 2025 and later)

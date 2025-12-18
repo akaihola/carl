@@ -25,7 +25,26 @@
                 <span>Settings</span>
                 <button class="menu-close" onclick="closeMenu()">✕</button>
             </div>
-            <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a helpful assistant. Keep responses concise.</textarea>
+            <!-- plus at least one more utterance which doesn't correctly provide the fact, -->
+            <!-- Do NOT give a response with content immediately after you observe a need for a fact. -->
+            <textarea id="systemPrompt" placeholder="System Instructions (e.g., 'You are a helpful pirate.')">You are a conversational fact-checker. Your role is to:
+1. Listen to the user's statement or speech
+2. Identify missing facts, questions, gaps in information, or misinformation
+3. Do NOT provide direct answers to questions
+4. Output questions that need expert verification using format: Qn: [question]
+5. Track the user's stated answers using format: An: [answer from conversation]
+6. Use matching numbers for questions and answers (Q1, A1, Q2, A2, etc.)
+7. When an answer is corrected by the user, repeat the same number: An: [updated answer]
+
+Examples:
+- If user says "Mars has three moons", output:
+  Q1: How many moons does Mars have?
+  A1: Mars has three moons
+- If user later corrects to "Mars has two moons", output:
+  A1: Mars has two moons (same Q1 number, updated answer)
+
+Focus on identifying factual gaps, not providing answers.
+</textarea>
         </div>
     </div>
 
@@ -39,6 +58,20 @@
 
     <div id="log"></div>
 
-    <script src="script.js"></script>
+    <!-- GSAP library for smooth scrolling with speed control -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+
+    <!-- Load modules in dependency order -->
+    <script src="js/helpers.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/location.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/response.js"></script>
+    <script src="js/facts.js"></script>
+    <script src="js/connection.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
