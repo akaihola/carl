@@ -40,3 +40,13 @@ model short, and never surface uncertain verdicts.
 
 See [docs/research/realtime-fact-checking.md](docs/research/realtime-fact-checking.md)
 for the architecture research, vendor landscape and candidate models.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
