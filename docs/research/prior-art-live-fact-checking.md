@@ -9,10 +9,12 @@ it, and how they avoid showing something wrong.
 
 ## How this was researched, and how far to trust it
 
-- The network proxy in this session blocked direct page fetches from arXiv,
-  ACM, Google, vendor sites and news sites. Claims marked **[search]** come
-  from search-engine summaries of the cited page, not from reading the page
-  itself. Check them against the source before relying on them.
+- The first pass was written from search-engine summaries, because the
+  network proxy blocked page fetches. On 2026-09-24 every such claim was
+  re-checked against the cited page itself. Sections marked **[verified]**
+  now match their sources; wrong figures, quotes and attributions were
+  corrected, and sources were added where a claim came from a page other
+  than the one cited.
 - GitHub was reachable. Claims marked **[code]** were read directly from the
   repository at the stated commit date and are first-hand.
 - **[vendor]** marks self-reported product claims with no independent
@@ -49,8 +51,8 @@ it, and how they avoid showing something wrong.
    the wrong thing. This matters for Carl's rule to keep the decision model's
    context short.
 5. **Precision-first has a known failure on the other side.** Google's Magic
-   Cue barely appears (about 70% of 9to5Google poll respondents said "it
-   hardly shows up"), and users read that as the feature not working. Carl
+   Cue barely appears (68% of 9to5Google poll respondents chose "No – It
+   hardly appears"), and users read that as the feature not working. Carl
    should expect this and make it visible that it is listening.
 6. **Research on proactive assistants frames the problem the same way Carl
    does**: speaking and staying silent have asymmetric costs. PRISM gates on
@@ -64,9 +66,9 @@ it, and how they avoid showing something wrong.
 | --- | --- | --- | --- | --- |
 | Even Realities G2 *Conversate* | Glasses, in person | "AI Cues": definitions, bios, fact-checks, suggested answers | Automatic, from live audio | Not published [vendor] |
 | Halo X (Halo, 2025) | Glasses, always listening | Real-time info from Gemini and Perplexity | Automatic | Not published [vendor] |
-| Brilliant Labs Halo / Noa | Glasses | Memory recall ("Narrative") | Mostly asked | Not published [vendor] |
-| Google Pixel Magic Cue | Phone, calls and chats | Personal info (flight number, booking) | Automatic, on device | Very conservative; rarely appears |
-| Gemini Live API *proactive audio* | Voice-agent API | Spoken reply | Model decides whether to speak | Not published; preview |
+| Brilliant Labs Halo / Noa | Glasses | Conversational assistant, memory recall ("Narrative") | Not documented | Not published [vendor] |
+| Google Pixel Magic Cue | Phone, calls and chats | Personal info (flight number, booking) | Automatic, on device | Stays silent without a relevant suggestion (Google); reviewers found it rarely appears and is sometimes wrong |
+| Gemini Live API *proactive audio* | Voice-agent API | Spoken reply | Model decides whether to speak | Not published |
 | Cluely / Natively | Desktop meetings | Answers to detected questions, "fact checks" | Cluely: question detection, user pulls the answer. Natively: a judge | Natively: tiered thresholds by mode [code] |
 | Visual Captions / ARChat (Google, CHI '23) | Video calls | Images and emoji for spoken concepts | Continuous (every 100 ms on the latest sentences); 3 proactivity levels | Duplicate suppression; user choice of level [code] |
 | Memoro (MIT, CHI '24) | Wearable audio | The user's own memories | User invokes; the system infers the query | User controls timing |
@@ -79,52 +81,67 @@ it, and how they avoid showing something wrong.
 
 ## In-person and ambient assistants (closest to Carl)
 
-### Even Realities G2: Conversate [vendor][search]
+### Even Realities G2: Conversate [vendor][verified]
 
 - Listens through the microphone only; the glasses have no camera. It shows
-  "AI Cues": concept explanations, background on people, suggested answers,
-  recommended actions, and "live fact checks on names, claims, or places",
-  followed by a summary after the conversation.
+  "AI Cues": concept explanations, background on people, "suggested answers
+  or relevant facts", and recommended actions, followed by a summary after
+  the conversation. Even's March 2026 press release lists "fact checking";
+  the phrase "live fact checks on names, claims, or places" comes from a
+  third-party optician's blog, not from Even.
 - The March 2026 update added **Prep Notes**: the user uploads documents
   before a meeting, and cues are then grounded in them.
 - Reviewers present it as a trivia-night aid and a way to "call someone out on
   their nonsense". A Tom's Guide writer "fact-checked my boss".
 - No thresholds, cue frequency or accuracy figures are published. The
-  support-page details could not be fetched.
-- **For Carl:** the one shipped consumer product with the same trigger set
+  support page has user settings for *Auto pop-up* (cues expand
+  automatically) and *Cue duration*.
+- **For Carl:** as far as this research found, the one shipped consumer
+  product with the same trigger set
   (fact-check plus answer). Its scope is much wider (bios, definitions,
   suggested replies), which is the opposite of Carl's narrow two-trigger
   scope.
 
-### Halo X (Halo, 2025) [vendor][search]
+### Halo X (Halo, 2025) [vendor][verified]
 
-- $249 always-listening glasses that "listen, record, and transcribe every
-  conversation and then display relevant information… in real time". They use
+- $249 always-on glasses that, in TechCrunch's words, "listen to, record,
+  and transcribe every conversation and then display relevant information to
+  the wearer in real time". They use
   Gemini for reasoning and Perplexity for web lookup. Coverage centred on
   privacy concerns, not accuracy.
-- Do not confuse it with **Brilliant Labs Halo** ($299, "Noa" assistant,
-  "Narrative" memory). That product answers questions when asked and recalls
-  the user's own life. It is not a fact-checker.
+- Do not confuse it with **Brilliant Labs Halo** ($299 at preorder, now
+  $399; "Noa" assistant, "Narrative" memory; has a camera). It is a
+  conversational assistant that recalls the user's own life; neither source
+  says what triggers it. It is not marketed as a fact-checker.
 
-### Google Pixel Magic Cue (2025–) [search]
+### Google Pixel Magic Cue (2025–) [verified]
 
-- An on-device Gemini Nano feature that shows personal information in context,
-  for example the flight number when you call an airline.
-- In practice it almost never appears. About 70% of respondents to a
-  9to5Google poll said "it hardly shows up", and Android Authority called it
-  "really bad" after a month of use.
-- **For Carl:** a live example of precision-over-recall pushed so far that
-  the feature seems absent. A silent Carl looks broken unless it shows
+- A Gemini Nano feature (on device, with Private AI Compute in the cloud
+  added in Nov 2025) that shows personal information in context, for example
+  "your flight information when you call your airline". Google's design
+  rule: "if it doesn't find a relevant suggestion, it won't disturb you."
+- In practice it almost never appears. In a self-selected, still-open
+  9to5Google poll, 68% (838 of 1,232 votes on 2026-09-24) chose "No – It
+  hardly appears". Android Authority called it "really bad" after a month of
+  use, and also got wrong suggestions: a flight already taken, and Monday's
+  return flight when asked about Friday's.
+- **For Carl:** a live example of a cautious assistant that users read as
+  absent. Its rare suggestions were not reliably right either, so caution
+  alone did not buy precision. A silent Carl looks broken unless it shows
   somehow that it is listening.
 
-### Gemini Live API: proactive audio [search]
+### Gemini Live API: proactive audio [verified]
 
-- A preview flag (`proactivity: { proactiveAudio: true }`) on native-audio
-  models. The model "decides not to respond" to input that is not relevant and
-  acts as "a silent co-listener". Google's example: two people talk and the
-  agent answers only when addressed.
-- Output tokens are billed only when the model speaks. It is not supported on
-  Gemini 3.1 models.
+- An optional setting (`proactivity: { proactiveAudio: true }`, `v1beta`) on
+  older native-audio models; still Preview on Vertex AI. It is permanently on
+  in the stable Gemini 3.8 Live model and unsupported in the 3.1 Flash Live
+  preview. "Gemini can proactively decide not to respond if the content is
+  not relevant", acting as "a silent co-listener" (Google Cloud Blog).
+- Google's example is topic-triggered: two speakers chat, and with the
+  prompt "only chime in when the topic is about Italian cooking" Gemini
+  stays silent until someone asks how to make a pizza.
+- Output audio is billed only when the model responds; input audio tokens
+  are still charged while it listens.
 - **For Carl:** a candidate way to merge the decision model and speech-to-text
   into one stage. It hides the decision, though, and gives no confidence to
   put a threshold on.
@@ -421,14 +438,19 @@ Ambient and in-person assistants:
 - Even Realities Conversate: https://support.evenrealities.com/hc/en-us/articles/14273795154319-Conversate ;
   https://www.evenrealities.com/ai-glasses ;
   https://tools.prnewswire.com/en-us/live/20823/release/20260326EN16415 ;
-  https://www.tomsguide.com/computing/smart-glasses/i-fed-my-tamagotchi-looked-like-a-d1-athlete-and-fact-checked-my-boss-my-time-with-even-g2s-secret-smart-glasses-app-store
+  https://www.tomsguide.com/computing/smart-glasses/i-fed-my-tamagotchi-looked-like-a-d1-athlete-and-fact-checked-my-boss-my-time-with-even-g2s-secret-smart-glasses-app-store ;
+  https://www.tomsguide.com/computing/smart-glasses/even-realities-g2-smart-glasses-review ;
+  https://johnroseeyecare.co.uk/2026/02/25/even-g2-ai-smart-glasses-can-fact-check-speech-in-real-time-the-future-of-eyewear/
 - Halo X: https://techcrunch.com/2025/08/20/harvard-dropouts-to-launch-always-on-ai-smart-glasses-that-listen-and-record-every-conversation
 - Brilliant Labs Halo: https://brilliant.xyz/products/halo ; https://www.hackster.io/news/brilliant-labs-unveils-the-halo-smart-glasses-with-narrative-ai-and-vibe-mode-9755a165531d
 - Magic Cue: https://support.google.com/pixelphone/answer/16508057 ;
+  https://blog.google/products-and-platforms/devices/pixel/google-pixel-10-ai-features-updates/ ;
   https://9to5google.com/2025/11/18/poll-do-you-notice-google-pixels-magic-cue/ ;
   https://www.androidauthority.com/google-pixel-10-magic-cue-one-month-later-3598684/
-- Gemini proactive audio: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/live-api/proactive-audio ;
-  https://ai.google.dev/gemini-api/docs/live-api/capabilities
+- Gemini proactive audio: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/live-api/configure-gemini-capabilities#use-proactive-audio ;
+  https://ai.google.dev/gemini-api/docs/live-api/capabilities ;
+  https://ai.google.dev/gemini-api/docs/models/gemini-3.8-live ;
+  https://cloud.google.com/blog/topics/developers-practitioners/how-to-use-gemini-live-api-native-audio-in-vertex-ai
 - Memoro: https://arxiv.org/abs/2403.02135 ; https://dl.acm.org/doi/10.1145/3613904.3642450
 - Visual Captions: https://research.google/blog/visual-captions-using-large-language-models-to-augment-video-conferences-with-dynamic-visuals/ ;
   https://research.google/pubs/pub52074/ (DOI 10.1145/3544548.3581566) ;

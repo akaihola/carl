@@ -10,7 +10,7 @@ What existing tools, products, demos and research systems do live fact-checking 
 
 ## Answer
 
-Findings: [docs/research/prior-art-live-fact-checking.md](../../../docs/research/prior-art-live-fact-checking.md). Many web claims there are marked **[search]** because the proxy blocked direct page fetches; check them against the source before relying on them.
+Findings: [docs/research/prior-art-live-fact-checking.md](../../../docs/research/prior-art-live-fact-checking.md). The web claims were first written from search summaries, then re-checked against each cited page on 2026-09-24 and corrected where they differed (sections marked **[verified]**).
 
 - **No shipped product does exactly what Carl does.** The closest are Even Realities G2 "Conversate" (smart glasses) and meeting copilots. None publishes its triggers, thresholds or accuracy.
 - **The published precision strategies come from broadcast tools** (Full Fact, Squash, LiveFC, Footnote): a human in the loop, matching against claims already checked, two verifiers that must agree, "unverifiable" as the default verdict, never showing claims about named people or quotes, or claims that start with an unresolved pronoun.
