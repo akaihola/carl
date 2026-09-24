@@ -28,6 +28,8 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 
 <!-- one line per resolved ticket: [title](issues/NN-slug.md): gist -->
 
+- [Lessons from the previous Carl](issues/01-lessons-from-previous-carl.md): stay silent by default, keep to the two triggers, give the table time before showing a card, drop overtaken verdicts; the model-specific tricks are stale
+
 ## Not yet specified
 
 - **Session lifecycle.** How a session starts and stops, and whether Carl
