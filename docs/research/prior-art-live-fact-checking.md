@@ -303,31 +303,38 @@ self-reported by the project on its own golden sets.
   speaker owns at least 80% of its words, because "a wrong name… is worse
   than no name".
 
-## Research datasets on spoken-dialogue fact-checking [search]
+## Research datasets on spoken-dialogue fact-checking [verified]
 
-- **MAD** (arXiv 2508.12186): multi-turn audio dialogues with check-worthiness
-  labelled per sentence, and veracity labelled per sentence and per dialogue.
-  Verification accuracy is only about 72–74% for fine-tuned
-  RoBERTa/DeBERTa/Llama-3-8B.
-- **MAD2 / context-aware verification** (arXiv 2606.11420, June 2026): 1,000
-  two-speaker dialogues with 3,368 claims. Dialogue context helps.
-  *Preceding-context-only* verification often matches offline performance,
-  which supports live use.
-- **TRILOGUE** (arXiv 2609.04452, Sep 2026): about 12K dialogues in
-  English, Russian and Kazakh with 390 h of audio. Claims are spread across
-  speakers and turns. ASR errors and lower-resource languages hurt
-  verification, and retrieved evidence closes much of the gap to gold
-  evidence.
-- **Podcast fact-checking** (arXiv 2502.01402): in claim detection on
-  podcasts, GPT-4 scored F1 0.57 against 0.45 for fine-tuned
-  XLM-RoBERTa-Large. **Check-worthiness on casual speech is much harder than
-  on debates** (compare LiveFC's 0.90).
+- **MAD** (arXiv 2508.12186, SBP-BRiMS 2025 working paper): multi-turn audio
+  dialogues with check-worthiness labelled per sentence, and veracity
+  labelled per sentence and per dialogue. Verification accuracy is only about
+  72–74% per sentence and 71–72% per dialogue for fine-tuned RoBERTa-base,
+  DeBERTa-v3-base and Llama 3 8B.
+- **MAD2 / context-aware verification** (arXiv 2606.11420, June 2026; v2
+  accepted to the SALMA workshop at EMNLP): 1,000 synthetic two-speaker
+  dialogues (about 10 h of audio) with 1,230 sentence-level check-worthy
+  candidates (v1 reported 3,368 claims). Dialogue context helps. "Past-only
+  context often approaches local offline performance", which supports live
+  use.
+- **TRILOGUE** (arXiv 2609.04452, Sep 2026, to appear at EMNLP 2026): nearly
+  12K dialogues in English, Russian and Kazakh with 390 h of audio. Claims
+  are spread across speakers and turns. ASR errors and the lower-resource
+  language (Kazakh) hurt verification, and retrieved evidence "substantially
+  narrows the gap" to gold evidence.
+- **Podcast fact-checking** (arXiv 2502.01402): on a small podcast test set
+  (24 check-worthy of 176 sentences), F1 on the check-worthy class is only
+  0.57 for few-shot GPT-4 against 0.45 for fine-tuned XLM-RoBERTa-Large.
+  Overall weighted F1 is 0.85–0.86. The paper makes no comparison with
+  debates, but finding the few check-worthy sentences in casual speech is
+  clearly the hard part.
 - **TREC 2025 Tip-of-the-Tongue track** (arXiv 2601.20671): known-item
-  retrieval from vague descriptions ("that actor who…") in the movie,
-  celebrity and landmark domains. The best runs reach recall of about 0.66.
-  This is the closest benchmark for Carl's *open question* trigger.
+  retrieval from vague descriptions ("that actor who…"). 2025 went beyond
+  the 2024 movie, celebrity and landmark domains to 53 entity types. The
+  best of 32 runs reaches nDCG@10 of about 0.66 (MRR about 0.63), and most
+  score far lower. This is the closest benchmark for Carl's *open question*
+  trigger.
 
-## Proactive-agent research on when to speak [search]
+## Proactive-agent research on when to speak [verified]
 
 - **ProactiveBench / Proactive Agent** (arXiv 2410.12361) adds a
   *false-alarm rate* metric for unneeded interventions.
@@ -335,12 +342,14 @@ self-reported by the project on its own golden sets.
   probability of the user accepting exceeds a threshold derived from the
   costs of a false alarm and of missed help. It runs a slow "counterfactual"
   mode only near the boundary. It reports about 23% fewer false alarms and
-  +20 F1 on ProactiveBench.
+  about +20 F1 points (66.5 → 86.6) on ProactiveBench.
 - **EgoSocial** (arXiv 2510.13105): omnimodal LLMs detect the right moment to
   intervene in egocentric social video poorly (14.4% for Gemini 2.5 Pro).
 - **Sensible Agent** (Google, UIST 2025) chooses both *what* to help with and
-  *how*, using minimal cues and subtle confirmation (nods, gestures). It was
-  rated less intrusive than a voice-prompted baseline.
+  *how*, using minimal cues and subtle confirmation (head and hand
+  gestures). In a 10-person study it lowered perceived effort and was
+  preferred over a voice-prompted baseline, though interactions took longer
+  (28.5 s against 16.4 s).
 
 ## Patterns relevant to Carl's purpose
 
