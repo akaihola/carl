@@ -1,7 +1,7 @@
 # Situations Carl serves
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by:
 
 ## Question
