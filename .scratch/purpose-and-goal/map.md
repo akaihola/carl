@@ -15,8 +15,14 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 - Working hypothesis: the two triggers in `AGENTS.md` (a false claim; an
   unanswered open question) are the core purpose. *Edges of the purpose* tests
   whether anything else belongs.
-- Treat findings from the previous Carl critically: the model and vendor
-  landscape has changed a lot since it was built.
+- **Set the previous Carl aside until our own research and planning are
+  done.** Don't use its lessons in any ticket before *Check the previous
+  Carl's lessons against our plan*, which compares them with the finished
+  plan and keeps only what still applies.
+- **Hedge, don't refuse.** Carl doesn't refuse to judge any category of claim
+  (named people, quotes, unresolved pronouns). It conveys its confidence
+  through its wording ("maybe", "probably"). This is the owner's standing
+  preference for the prototype.
 - Use the vocabulary in `CONTEXT.md` (decision model, candidate, claim, open
   question, verdict, fact card). Grilling tickets also call `domain-modeling`.
 - Research lives in `docs/research/`; `docs/research/realtime-fact-checking.md`
@@ -28,8 +34,8 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 
 <!-- one line per resolved ticket: [title](issues/NN-slug.md): gist -->
 
-- [Lessons from the previous Carl](issues/01-lessons-from-previous-carl.md): stay silent by default, keep to the two triggers, give the table time before showing a card, drop overtaken verdicts; the model-specific tricks are stale
-- [Prior art in live conversation fact-checking](issues/02-prior-art.md): no shipped product does exactly this; precision comes from agreeing verifiers, checked-claim matching and never showing risky claim types, not self-reported confidence; too much silence reads as broken
+- [Lessons from the previous Carl](issues/01-lessons-from-previous-carl.md): findings parked until *Check the previous Carl's lessons against our plan*
+- [Prior art in live conversation fact-checking](issues/02-prior-art.md): no shipped product does exactly this; precision comes from two verifiers agreeing and from matching claims already checked, not from self-reported confidence (its refusal to judge risky claim types is overridden: Carl hedges instead); too much silence reads as broken
 
 ## Not yet specified
 
