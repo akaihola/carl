@@ -29,6 +29,7 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 <!-- one line per resolved ticket: [title](issues/NN-slug.md): gist -->
 
 - [Lessons from the previous Carl](issues/01-lessons-from-previous-carl.md): stay silent by default, keep to the two triggers, give the table time before showing a card, drop overtaken verdicts; the model-specific tricks are stale
+- [Prior art in live conversation fact-checking](issues/02-prior-art.md): no shipped product does exactly this; precision comes from agreeing verifiers, checked-claim matching and never showing risky claim types, not self-reported confidence; too much silence reads as broken
 
 ## Not yet specified
 
