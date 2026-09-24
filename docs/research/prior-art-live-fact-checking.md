@@ -218,20 +218,22 @@ The only copilot whose trigger logic is public. Relevant parts:
 These are not conversational, but they are the only systems that publish how
 they avoid false corrections.
 
-### Full Fact (UK) [search]
+### Full Fact (UK) [verified]
 
-- A team of 4–10 people fact-checks live, and at least two editors review
-  every check before it goes out.
+- A team of "normally at least four people, sometimes as many as 10"
+  fact-checks live. At least two editors work alongside them, deciding what
+  to write up and reviewing copy before it goes out; everything published
+  "normally has at least two additional pairs of eyes on it".
 - Their AI provides the transcript and **flags repeated claims**: claim
   matching compares what is said with claims Full Fact has already checked.
   Plain embedding similarity "confused different people or places", so they
-  added entity recognition and a trained match classifier, and later a
-  generative model.
+  added entity recognition, a part-of-speech tagger and a trained match
+  classifier, and later a generative model.
 - **For Carl:** matching against known false claims is the highest-precision
   pattern that exists, but it covers only claims someone has already checked.
   Embeddings alone confuse entities.
 
-### Squash (Duke Reporters' Lab, 2019–2021) [search]
+### Squash (Duke Reporters' Lab, live tests 2019–2021) [verified]
 
 - Speech-to-text, then ClaimBuster, then a match against published ClaimReview
   fact-checks, shown as a pop-up.
@@ -240,19 +242,28 @@ they avoid false corrections.
     the exact sentence.
   - Coverage depends on a large corpus of earlier checks.
   - The "Gardener" interface was added so a human could choose among 3
-    candidate matches before anything aired.
+    candidate matches, or reject them all, before anything aired.
 
-### Factiverse Live and LiveFC (WSDM 2025) [search]
+### Factiverse Live and LiveFC (WSDM 2025) [verified]
 
 - The pipeline:
   - diarization, so claims are tied to a speaker;
-  - a fine-tuned XLM-RoBERTa check-worthiness classifier (macro-F1 0.899,
-    reported to beat GPT-4 on this task);
-  - evidence retrieval from several search engines;
-  - an NLI verdict of *Supports*, *Refutes* or *Mixed*.
-- Used live on the 2024 US debates with human fact-checkers. Factiverse
-  reports a transcript accuracy of about 95% and that the system caught
-  claims a team of 5 missed [vendor].
+  - a fine-tuned XLM-RoBERTa-Large check-worthiness classifier (macro-F1
+    0.899 against 0.695 for GPT-4);
+  - claim normalization, whose prompt asks the model to "resolve any
+    references to pronouns, dates, and other entities" (compare Footnote's
+    referent failure below);
+  - evidence retrieval from Google, Bing, Wikipedia, You.com, Semantic
+    Scholar and a corpus of 280K fact-checks;
+  - a binary NLI verdict (supported or refuted) per evidence snippet,
+    combined by majority vote.
+- Piloted live by the Danish fact-checkers Tjekdet on European Parliament
+  election debates in June 2024. Evaluated on the first 2024 US presidential
+  debate against PolitiFact: it found all 30 claims PolitiFact checked, with
+  macro-F1 83.92 on their verdicts.
+- Tjekdet's editor-in-chief, quoted on Factiverse's blog, said the transcript
+  was "almost 95%" accurate and that the tool picked up claims their
+  5-person team missed [vendor].
 
 ### Footnote (open source, `github.com/jordanpeele/footnote`) [code, Aug 2026]
 
@@ -425,9 +436,11 @@ Meeting copilots:
 Broadcast and livestream fact-checking:
 
 - Full Fact: https://fullfact.org/blog/2025/apr/multitasking-ai-tools-and-22785-words-of-preparation-how-we-live-fact-check/ ;
-  https://fullfact.org/blog/2025/feb/how-ai-can-help-fact-checkers/
-- Squash: https://reporterslab.org/the-lessons-of-squash-our-groundbreaking-automated-fact-checking-platform/
-- LiveFC: https://arxiv.org/abs/2408.07448
+  https://fullfact.org/blog/2025/feb/how-ai-can-help-fact-checkers/ ;
+  https://fullfact.org/ai/
+- Squash: https://reporterslab.org/the-lessons-of-squash-our-groundbreaking-automated-fact-checking-platform/ ;
+  https://www.poynter.org/fact-checking/2020/how-the-duke-reporters-lab-used-the-political-conventions-to-perfect-its-automated-fact-checking-program/
+- LiveFC: https://arxiv.org/abs/2408.07448 ; https://doi.org/10.1145/3701551.3704128
 - Factiverse: https://www.factiverse.ai/blog/our-takeaways-from-the-worlds-first-real-time-fact-checking-service
 - Footnote: https://github.com/jordanpeele/footnote (`HOW_FOOTNOTE_DECIDES.md`,
   `CHANGELOG.md`, `pacer.js`, `docs/CALIBRATION_REPORT_5_2026-08-14.md`)
