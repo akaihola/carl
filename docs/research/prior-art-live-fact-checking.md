@@ -67,11 +67,11 @@ it, and how they avoid showing something wrong.
 | Brilliant Labs Halo / Noa | Glasses | Memory recall ("Narrative") | Mostly asked | Not published [vendor] |
 | Google Pixel Magic Cue | Phone, calls and chats | Personal info (flight number, booking) | Automatic, on device | Very conservative; rarely appears |
 | Gemini Live API *proactive audio* | Voice-agent API | Spoken reply | Model decides whether to speak | Not published; preview |
-| Cluely / Natively | Desktop meetings | Answers to detected questions, "fact checks" | Question detection, then a judge | Natively: tiered thresholds by mode [code] |
-| Visual Captions / ARChat (Google, CHI '23) | Video calls | Images and emoji for spoken concepts | Every utterance; 3 proactivity levels | Duplicate suppression; user choice of level [code] |
+| Cluely / Natively | Desktop meetings | Answers to detected questions, "fact checks" | Cluely: question detection, user pulls the answer. Natively: a judge | Natively: tiered thresholds by mode [code] |
+| Visual Captions / ARChat (Google, CHI '23) | Video calls | Images and emoji for spoken concepts | Continuous (every 100 ms on the latest sentences); 3 proactivity levels | Duplicate suppression; user choice of level [code] |
 | Memoro (MIT, CHI '24) | Wearable audio | The user's own memories | User invokes; the system infers the query | User controls timing |
 | Inner Thoughts (CHI '25) | Multi-party chat | Agent contributions | Intrinsic-motivation score | Score threshold |
-| ChatMuse (arXiv 2607.18556) | Mixed reality, small group in person | Private guidance | Proactive | Research prototype |
+| ChatMuse (UIST '26) | Mixed reality, small group in person | Private guidance | Proactive | Research prototype |
 | Full Fact live | Broadcast | Human-written checks | Humans; AI flags repeated claims | Claim matching and editors |
 | Squash (Duke) | Broadcast | Previously published fact-checks | Match to the ClaimReview corpus | Human picks from 3 matches ("Gardener") |
 | Factiverse Live / LiveFC | Debates, podcasts | Claim, verdict and evidence per speaker | Check-worthiness classifier | Human fact-checkers review |
@@ -129,25 +129,30 @@ it, and how they avoid showing something wrong.
   into one stage. It hides the decision, though, and gives no confidence to
   put a threshold on.
 
-### Memoro (MIT Media Lab, CHI 2024) [search]
+### Memoro (MIT Media Lab, CHI 2024) [verified]
 
 - A wearable audio memory assistant. In **Queryless mode**, the user signals
   that they need help, and an LLM "query agent" infers the memory need from
   the conversation. A retrieval agent then answers through bone conduction.
   Suggestions are deliberately minimal.
-- Of 20 participants, 15 preferred Memoro to no system, and 10 preferred
-  Queryless mode. Using it cut device interaction time and preserved
-  conversation quality.
+- Of 20 participants, 15 preferred Memoro over both no system and a
+  non-context-aware LLM baseline, and 10 preferred Queryless mode. Using it
+  cut device interaction time and preserved conversation quality.
+- Queryless mode inferred the right need 70.7% of the time; errors were
+  "due to the Query Agent misinterpreting the context".
 - **For Carl:** the nearest research analogue to the *open question* trigger.
   Note that the **human chooses the moment** and the system only works out
   *what* is needed. Carl tries to infer both, which is harder.
 
-### Visual Captions / ARChat (Google, CHI 2023) [search][code]
+### Visual Captions / ARChat (Google, CHI 2023) [verified][code]
 
-- A fine-tuned LLM proposes images for what is being said in a video call.
-  There are three proactivity levels: **auto-display**, **auto-suggest**
-  (shown, the user confirms) and **on-demand**. Preferred levels "varied by
-  social scenario".
+- A fine-tuned LLM proposes images for what is being said in a video call,
+  querying the latest captions every 100 ms. There are three proactivity
+  levels: **auto-display**, **auto-suggest** (shown in a private view; the
+  user clicks to share it) and **on-demand-suggest** (suggests only when the
+  user presses the spacebar). "Different levels of AI proactivity in Visual
+  Captions were preferred in various social scenarios"; in the lab study 6
+  participants preferred auto-display, 7 auto-suggest and 7 on-demand.
 - In the open-source ARChat code (`github.com/google/archat`), a new
   suggestion is dropped if its entity name has Jaccard similarity above 0.7
   with a visual already on screen, after removing stopwords and punctuation.
@@ -155,26 +160,31 @@ it, and how they avoid showing something wrong.
 - **For Carl:** a precedent for making proactivity a setting, and for simple
   text-similarity dedupe.
 
-### Inner Thoughts (CHI 2025) and ChatMuse (arXiv, July 2026) [search]
+### Inner Thoughts (CHI 2025) and ChatMuse (UIST 2026) [verified]
 
 - *Inner Thoughts* generates a parallel stream of candidate "thoughts" and
-  voices one only when its intrinsic-motivation score is high enough. The
+  voices one only when its intrinsic-motivation score is high enough,
+  combined with a turn-taking prediction. The
   heuristics come from a 24-person study of when humans hold back. It beat
   next-speaker-prediction baselines on turn appropriateness and related
   measures.
 - *ChatMuse* is a mixed-reality agent for small groups in person. It reads
-  verbal and non-verbal cues and gives the user private guidance.
+  verbal and non-verbal cues and gives the user private, real-time guidance
+  on their own verbal and non-verbal behaviour (Meta Quest Pro study, 6
+  groups, N=18).
 - **For Carl:** separating "generate a candidate" from "decide whether to
   speak" matches Carl's split between decision model and fact-checking model.
 
 ## Meeting copilots
 
-### Cluely [vendor][search]
+### Cluely [vendor][verified]
 
-- An overlay that listens to calls and shows "Live Insights": detected
-  questions, keywords and suggestions. The user clicks one, or presses Tab to
-  answer the top "Dynamic Action". Marketing lists "fact checks".
-- Journalists' tests reported delays of 5–90 s and generic suggestions.
+- An overlay that listens to calls and shows a Live Insights card with
+  "Dynamic Insights": questions, keywords and suggestions detected from the
+  transcript. The user clicks one, or presses Tab to answer the top "Dynamic
+  Action". The docs list "Fact check" as a one-click default action.
+- Journalists' tests in April 2025, before the current Live Insights UI,
+  reported delays of 5–90 s and generic suggestions.
 - **The answer is user-pulled.** Detection only offers a prompt; it does not
   push an answer.
 
@@ -421,6 +431,7 @@ Ambient and in-person assistants:
   https://ai.google.dev/gemini-api/docs/live-api/capabilities
 - Memoro: https://arxiv.org/abs/2403.02135 ; https://dl.acm.org/doi/10.1145/3613904.3642450
 - Visual Captions: https://research.google/blog/visual-captions-using-large-language-models-to-augment-video-conferences-with-dynamic-visuals/ ;
+  https://research.google/pubs/pub52074/ (DOI 10.1145/3544548.3581566) ;
   https://github.com/google/archat (`content/interactive_image.ts`)
 - Inner Thoughts: https://arxiv.org/abs/2501.00383
 - ChatMuse: https://arxiv.org/abs/2607.18556
