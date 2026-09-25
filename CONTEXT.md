@@ -62,6 +62,14 @@ The stage that turns a confident verdict into a fact card.
 The short message shown on screen: a title, a one-sentence fact and a source.
 _Avoid_: Correction, banner, contribution
 
+**Card history**:
+The session's earlier fact cards, kept on screen out of the way of the current card, newest first.
+_Avoid_: Feed, log, ledger
+
+**Live transcript line**:
+An optional line next to the listening indicator showing the latest utterance Carl heard.
+_Avoid_: Captions, subtitles
+
 **Hedged fact card**:
 A fact card whose wording ("probably", "maybe") carries a verdict that is likely but not confident. Below that band, no card is shown.
 _Avoid_: Uncertain card, low-confidence card

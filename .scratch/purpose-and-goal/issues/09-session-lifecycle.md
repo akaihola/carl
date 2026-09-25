@@ -12,3 +12,4 @@ How does a session start and end (who starts it, what ends it: a tap, silence, a
 
 - From [Social contract at the table](05-social-contract.md): the owner discloses Carl at the start and anyone's objection means it doesn't run; anyone can pause, and nothing is heard or kept while paused.
 - From [Situations Carl serves](03-situations.md): sessions run 30 min to 2 h in the background on the owner's phone.
+- From [Fact card behaviour](06-fact-card-behaviour.md): the screen keeps a card history for the session (earlier fact cards, newest first), and a live transcript line can be switched on. Decide what happens to both when the session ends.

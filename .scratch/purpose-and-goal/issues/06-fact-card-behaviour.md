@@ -1,7 +1,7 @@
 # Fact card behaviour
 
 Type: prototype
-Status: claimed
+Status: resolved
 Blocked by: 04, 05
 
 ## Question
@@ -18,3 +18,18 @@ How does a fact card look and behave: what the screen shows while Carl is listen
 ## Assets
 
 - Prototype (throwaway): [prototypes/fact-card-prototype.html](../prototypes/fact-card-prototype.html), also published as a private artifact: https://claude.ai/artifact/Vd9hpnzxb7mv1BNRTadkPb. Three screens (A Spotlight, B Ledger, C Ambient) played against one scripted Finnish dinner conversation, with knobs for check time (3/8/20 s) and what happens when the table settles a card already on screen.
+
+## Answer
+
+Settled with the owner by reacting to the prototype.
+
+- **Screen: Spotlight (A) for the current card, Ledger (B) for history.** One large card at a time, readable across the table. Earlier cards from the session collect in a **card history** in the Ledger style: newest on top, older ones smaller and dimmer.
+- **A card stays until someone taps it away.** No timer while nothing is waiting.
+- **Cards queue.** When another card is waiting, the one on screen gives way either on a timer or when someone taps it, and the next card is shown. Cards never stack on screen.
+- **The table settles a card already on screen → mark it.** The card stays, marked "Settled at the table" / "Ratkesi pöydässä". A candidate the table settles before its card is ready is still dropped (from *Edges of the purpose*).
+- **Claims and answered open questions look different: a coloured label** (Claim / Väite, Question / Kysymys, in different colours). Hedged fact cards are also marked visually, not only by "probably"/"maybe" in the wording.
+- **Live transcript line: welcome, but can be switched on and off.** It shows the latest utterance Carl heard next to the listening indicator. When on, it doubles as proof that Carl is listening.
+- **Check time (end of utterance to card): not decided here.** It moves to *Success criteria*, which already covers latency tolerances. In the prototype, a 3 s check showed the Great Wall card before the table corrected it; with 8 s the card never appeared.
+- Unchanged from earlier tickets: the listening indicator and one-tap Pause are always visible, and between cards they are the only things on screen.
+
+Glossary updated in `CONTEXT.md`: *Card history*, *Live transcript line*.
