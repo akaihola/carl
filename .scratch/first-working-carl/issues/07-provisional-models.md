@@ -1,7 +1,7 @@
 # Provisional models for each stage
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01, 02, 03, 06, 15
 
 ## Question
