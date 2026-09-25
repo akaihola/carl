@@ -46,6 +46,8 @@ requires, and includes development mode, so real dinners can be recorded as
 
 <!-- one line per resolved ticket: [title](issues/NN-slug.md): gist -->
 
+- [What a phone browser allows a web page to do](issues/04-phone-browser-capabilities.md): iOS mutes the mic whenever the page is hidden, so a session needs a wake lock (Home Screen apps from iOS 18.4); iOS deletes a Safari tab's storage after 7 days unused, so on-phone data needs a Home Screen web app with `persist()` plus export; Android evicts only under disk pressure; 2 h of 16 kHz Opus is ~22 MB
+
 ## Not yet specified
 
 - **Tracking a candidate until its card.** How Carl notices the table settling
