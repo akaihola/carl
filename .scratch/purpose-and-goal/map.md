@@ -36,6 +36,7 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 
 - [Lessons from the previous Carl](issues/01-lessons-from-previous-carl.md): findings parked until *Check the previous Carl's lessons against our plan*
 - [Prior art in live conversation fact-checking](issues/02-prior-art.md): no shipped product does exactly this; precision comes from two verifiers agreeing and from matching claims already checked, not from self-reported confidence (its refusal to judge risky claim types is overridden: Carl hedges instead); too much silence reads as broken
+- [Situations Carl serves](issues/03-situations.md): home dinner or coffee, the owner plus 1–5 adults they know well, 2–6 speakers, one phone propped up for everyone to see, Finnish and English (mixed), running in the background for 30 min to 2 h
 
 ## Not yet specified
 
