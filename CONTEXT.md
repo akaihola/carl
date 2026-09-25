@@ -73,3 +73,21 @@ _Avoid_: Captions, subtitles
 **Hedged fact card**:
 A fact card whose wording ("probably", "maybe") carries a verdict that is likely but not confident. Below that band, no card is shown.
 _Avoid_: Uncertain card, low-confidence card
+
+**Check time**:
+The time from the end of an utterance to its fact card on screen.
+_Avoid_: Latency, delay
+
+**Late card**:
+A fact card ready more than 20 s after its utterance. It skips the screen and goes straight into the card history, at its place by utterance time.
+_Avoid_: Stale card, expired card
+
+### Testing
+
+**Recording session**:
+A session run by the dev version of Carl that records audio, transcripts and model logs for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record.
+_Avoid_: Debug session, test session
+
+**Test corpus**:
+The owner-corrected Markdown files and audio from recording sessions, with each fact card marked deserved or not and missed candidates added. Carl's precision and recall are measured against it.
+_Avoid_: Golden set, dataset, benchmark

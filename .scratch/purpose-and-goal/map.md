@@ -40,6 +40,7 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 - [Edges of the purpose](issues/04-edges-of-purpose.md): only the two triggers; a card needs an error that changes the point (or a myth), a public-source-checkable claim and a citable source; confident verdicts stated plainly, likely ones hedged, lower ones silent; Carl drops what the table resolves itself and only overhears
 - [Social contract at the table](issues/05-social-contract.md): everyone sees the same card; the owner discloses Carl and anyone's objection stops it; always-on listening indicator; anyone can pause with one tap; a card addresses the claim, never the person, in a neutral reference-book voice
 - [Fact card behaviour](issues/06-fact-card-behaviour.md): one big card at a time (Spotlight) plus a Ledger-style card history; a card stays until tapped, and when others queue it gives way on a timer or a tap; cards the table settles on screen are marked settled; coloured Claim/Question labels, with hedged cards marked visually; live transcript line can be switched on and off; check time moves to *Success criteria*
+- [Success criteria](issues/07-success-criteria.md): a test corpus built from recording sessions, each corrected by the owner, plus a log of real sessions; ≥95% of cards deserved and no wrong plain card; recall floors of 1 in 3 claims and 1 in 5 open questions; check time median ≤4 s and 90th percentile ≤8 s, with cards later than 20 s filed into the card history; about €1/h and a monthly cap
 
 ## Not yet specified
 
