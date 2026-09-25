@@ -53,6 +53,7 @@ requires, and includes development mode, so real dinners can be recorded as
 - [What "done" means for the first working version](issues/01-done-for-first-version.md): Android Chrome on the owner's phone; development mode first, with fact cards shown live in recording sessions; card archive, settled mark, live transcript line, budget setting and warning, Log menu and 30-min silence end wait; no quality targets, done = a 2 h session runs end to end and is recorded completely (every STT event and model call with its config, latency and cost); cost metered from the start
 - [Scaleway as Carl's host](issues/16-scaleway-hosting.md): Cloudflare still fits better; Scaleway serverless caps requests at 60 min and can't do owner-only WebSocket access; an Instance (~€0.43–6.55/month + IPv4) is a Hetzner-like option; Object Storage lifecycle meets 6-month deletion; an L4 GPU for Parakeet costs ~€1.75/session, Vast.ai is cheaper but a poor home for private audio
 - [Running Parakeet v3 for Carl's speech-to-text](issues/15-parakeet-v3.md): Parakeet v3 alone doesn't fit (offline-only, no diarization, weak code-switching); NVIDIA's Nemotron streaming ASR + diarization is the self-hosted pair to try (weaker Finnish); not viable in the phone's browser; free on the owner's GPU machine; Vast.ai is no cheaper than Soniox
+- [What runs in the browser and what runs on a server](issues/06-browser-and-server-split.md): thin page (mic, screen, wake lock, location, taps), whole pipeline and all keys on a server; a network drop loses its gap; 2-min reconnect grace before a session ends, server holds the cards and re-sends them; a server restart resumes from saved state; Pause stops the mic and closes the speech-to-text connection
 
 ## Not yet specified
 
@@ -67,7 +68,9 @@ requires, and includes development mode, so real dinners can be recorded as
   deployment, a switch, or a URL, and how the recording-session disclosure and
   objection flow look on screen.
 - **Can't-hear-or-check state.** Which signals from each stage flip the
-  listening indicator, and what the failure log records per stage.
+  listening indicator, and what the failure log records per stage. Known
+  signals so far: a dropped page–server connection, the 2-minute reconnect
+  grace period, and a server restart.
 - **Prompts and their one source of truth.** Where the decision,
   fact-checking and message-writing prompts live, how card language is
   chosen for mixed Finnish/English talk.

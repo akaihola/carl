@@ -9,7 +9,7 @@ false or when a question goes unanswered.
 ### The setting
 
 **Session**:
-One stretch of listening. It starts when the owner taps Start and ends when anyone taps End, after 30 min without an utterance, or when the page is closed.
+One stretch of listening. It starts when the owner taps Start and ends when anyone taps End, after 30 min without an utterance, or when the page is closed or loses its connection for more than 2 minutes.
 _Avoid_: Conversation, run, meeting
 
 **Owner**:
