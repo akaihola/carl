@@ -1,7 +1,7 @@
 # What runs in the browser and what runs on a server
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01, 02, 03, 04
 
 ## Question
