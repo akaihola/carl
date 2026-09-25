@@ -1,7 +1,7 @@
 # Check the previous Carl's lessons against our plan
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 03, 04, 05, 06, 07, 09
 
 ## Question
