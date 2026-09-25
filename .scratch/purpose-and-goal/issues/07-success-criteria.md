@@ -50,3 +50,5 @@ Settled with the owner in a grilling session.
 Glossary updated in `CONTEXT.md`: *Check time*, *Late card*, *Recording session*, *Test corpus*.
 
 ## Comments
+
+- Superseded in part by [Session lifecycle and what Carl keeps](09-session-lifecycle.md): recording sessions keep the raw model-call logs too, and each is deleted 6 months after it was recorded.
