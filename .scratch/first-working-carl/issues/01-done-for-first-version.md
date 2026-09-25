@@ -1,7 +1,7 @@
 # What "done" means for the first working version
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 
 
 ## Question
