@@ -8,6 +8,10 @@ false or when a question goes unanswered.
 
 ### The setting
 
+**Session**:
+One stretch of listening. It starts when the owner taps Start and ends when anyone taps End, after 30 min without an utterance, or when the page is closed.
+_Avoid_: Conversation, run, meeting
+
 **Owner**:
 The person who runs Carl on their own phone and discloses it to the table.
 _Avoid_: User, host, operator
@@ -66,6 +70,10 @@ _Avoid_: Correction, banner, contribution
 The session's earlier fact cards, kept on screen out of the way of the current card, newest first.
 _Avoid_: Feed, log, ledger
 
+**Card archive**:
+Earlier sessions' fact cards, grouped by session and kept on the owner's phone until the owner deletes them. It can be opened only when no session is running.
+_Avoid_: History, recap, log
+
 **Live transcript line**:
 An optional line next to the listening indicator showing the latest utterance Carl heard.
 _Avoid_: Captions, subtitles
@@ -85,7 +93,7 @@ _Avoid_: Stale card, expired card
 ### Testing
 
 **Recording session**:
-A session run by the dev version of Carl that records audio, transcripts and model logs for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record.
+A session run by the dev version of Carl (development mode) that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record. Each one is deleted 6 months after it was recorded.
 _Avoid_: Debug session, test session
 
 **Test corpus**:
