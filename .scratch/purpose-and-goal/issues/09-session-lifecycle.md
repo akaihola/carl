@@ -38,3 +38,7 @@ Settled with the owner in a grilling session.
   - The spec gives the owner a suggested disclosure line saying the conversation goes to cloud AI services, so the table's consent is informed.
 
 Glossary updated in `CONTEXT.md`: *Session*, *Card archive*, *Recording session*.
+
+## Comments
+
+- Extended by [Check the previous Carl's lessons against our plan](08-check-previous-carl-lessons.md): a normal session also adds to a **failure log** (no conversation content, 30-day expiry), and the suggested disclosure line also says that the location goes to cloud AI services.

@@ -34,3 +34,4 @@ Glossary updated in `CONTEXT.md`: *Claim* (checkable against a public source), *
 ## Comments
 
 - **Owner, during charting:** Don't refuse to judge any category of claim (named people, quotes, unresolved pronouns). Carl conveys its confidence in its wording instead ("maybe", "probably"). **Settle here:** this pulls against `AGENTS.md` ("precision over recall", "never surface uncertain verdicts"). What confidence level, if any, still means showing nothing at all?
+- Narrowed by [Check the previous Carl's lessons against our plan](08-check-previous-carl-lessons.md): Carl now knows the date, time and location, so situational questions count when a public source can answer them given where and when the table is.

@@ -21,7 +21,7 @@ Everyone taking part in the conversation Carl listens to, the owner included. Al
 _Avoid_: Audience, participants, room
 
 **Listening indicator**:
-The always-visible on-screen sign that Carl is listening, or that it is paused.
+The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down, cost cap reached).
 _Avoid_: Status light, recording badge
 
 **Pause**:
@@ -39,11 +39,11 @@ An utterance the decision model flags as worth fact-checking; either a claim or 
 _Avoid_: Detection, hit, trigger
 
 **Claim**:
-A candidate stating something that can be checked as true or false against a public source. Opinions, predictions, private facts and contested questions are not claims.
+A candidate stating something that can be checked as true or false against a public source, given where and when the table is. Opinions, predictions, private facts and contested questions are not claims.
 _Avoid_: Statement, assertion
 
 **Open question**:
-A candidate where the conversation wonders about something and the table leaves it unresolved ("what was that actor's name…"). A disagreement the table can't settle ("1953 or '54?") is an open question too.
+A candidate where the conversation wonders about something that a public source can answer, given where and when the table is, and the table leaves it unresolved ("what was that actor's name…"). A disagreement the table can't settle ("1953 or '54?") is an open question too.
 _Avoid_: Memory lapse, unanswered question
 
 ### The pipeline
@@ -89,6 +89,10 @@ _Avoid_: Latency, delay
 **Late card**:
 A fact card ready more than 20 s after its utterance. It skips the screen and goes straight into the card history, at its place by utterance time.
 _Avoid_: Stale card, expired card
+
+**Failure log**:
+The record of moments Carl couldn't hear or couldn't check: time, stage and error, with no conversation content. It can be opened at any time, and entries expire after 30 days.
+_Avoid_: Error log, debug log
 
 ### Testing
 
