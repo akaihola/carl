@@ -4,6 +4,8 @@ Label: wayfinder:map
 
 ## Destination
 
+**Reached:** the spec is assembled at [spec.md](spec.md) and `AGENTS.md`'s Goal is rewritten from it. Its open issues are listed at the end of the spec.
+
 A product spec at `.scratch/purpose-and-goal/spec.md` stating what Carl is for,
 who uses it, the situations it serves, what it deliberately doesn't do, and how
 we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.

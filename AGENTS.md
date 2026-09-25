@@ -2,15 +2,24 @@
 
 ## Goal
 
-Carl is a live conversation fact-checker. It listens to a conversation at a
-table and shows a short fact card when:
+Carl is a live conversation fact-checker for private, personal use: an
+experiment, not a product. The owner props their phone up at a table of 2–6
+people they know well (dinner or coffee at home, Finnish and English), and Carl
+overhears the conversation and shows everyone a short fact card only when:
 
-1. someone states something inaccurate or false, or
-2. the conversation wonders about something without reaching the answer
-   ("what was that actor's name…").
+1. someone states a claim that is false, checkable against a public source,
+   and wrong enough to change the point (or a well-known myth), or
+2. the table wonders about an open question a public source can answer and
+   leaves it unresolved ("what was that actor's name…").
 
-**Precision over recall.** One wrong "correction" destroys trust. When unsure,
-show nothing.
+Nothing else: no asides, no confirmations, no speech, no wake word.
+
+**Precision over recall.** One wrong "correction" destroys trust. Never surface
+unsourced or low-confidence verdicts; hedge moderate ones ("probably",
+"maybe"). When unsure, show nothing.
+
+The full product spec, including success criteria, is
+[.scratch/purpose-and-goal/spec.md](.scratch/purpose-and-goal/spec.md).
 
 ## Requirements
 
@@ -26,8 +35,8 @@ show nothing.
     decides whether it holds a checkable claim or an unanswered question.
   - **Fact-checking model** – stronger and slower; runs only on candidates and
     returns a verdict, answer, source and confidence.
-  - **Message-writing model** – turns a confident verdict into the short card
-    shown to the user.
+  - **Message-writing model** – turns a confident verdict into a plain fact
+    card, or a likely one into a hedged fact card, shown to the whole table.
 
 ## Pipeline
 
@@ -36,7 +45,8 @@ mic → speech-to-text → decision → fact-checking → message writing → ca
 ```
 
 Act only on final transcript segments, keep the context passed to the decision
-model short, and never surface uncertain verdicts.
+model short, and never surface unsourced or low-confidence verdicts; hedge
+moderate ones.
 
 ## Research
 
