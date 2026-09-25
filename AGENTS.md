@@ -16,6 +16,8 @@ show nothing.
 
 - **Runs on any device with a microphone and a display** just by browsing to
   Carl's web page. No app install and no platform-specific code.
+- **Visual output only.** Cards are shown on screen; there is no
+  text-to-speech.
 - **Pluggable models.** Each stage sits behind a small, provider-neutral
   interface so implementations can be swapped through configuration without
   touching the rest of the pipeline:
