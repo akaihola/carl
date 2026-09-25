@@ -1,7 +1,7 @@
 # Success criteria
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 04
 
 ## Question
