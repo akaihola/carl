@@ -21,7 +21,7 @@ Everyone taking part in the conversation Carl listens to, the owner included. Al
 _Avoid_: Audience, participants, room
 
 **Listening indicator**:
-The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down, cost cap reached).
+The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down). While the month is over the monthly budget, it also carries a warning mark.
 _Avoid_: Status light, recording badge
 
 **Pause**:
@@ -71,7 +71,7 @@ The session's earlier fact cards, kept on screen out of the way of the current c
 _Avoid_: Feed, log, ledger
 
 **Card archive**:
-Earlier sessions' fact cards, grouped by session and kept on the owner's phone until the owner deletes them. It can be opened only when no session is running.
+Earlier sessions' fact cards, grouped by session with each session's listening time (paused time excluded), and kept on the owner's phone until the owner deletes them. Between sessions the owner can mark cards wrong or pointless and add a note of missed moments. It can be opened only when no session is running.
 _Avoid_: History, recap, log
 
 **Live transcript line**:
@@ -94,12 +94,16 @@ _Avoid_: Stale card, expired card
 The record of moments Carl couldn't hear or couldn't check: time, stage and error, with no conversation content. It can be opened at any time, and entries expire after 30 days.
 _Avoid_: Error log, debug log
 
+**Monthly budget**:
+The running cost the owner sets for a month. Going over it never stops Carl; it only puts a warning on the listening indicator and the Start screen.
+_Avoid_: Cost cap, limit, quota
+
 ### Testing
 
 **Recording session**:
-A session run by the dev version of Carl (development mode) that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record. Each one is deleted 6 months after it was recorded.
+A session run by the dev version of Carl (development mode) that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record. Its audio, raw transcript and model-call logs are deleted 6 months after it was recorded; its corrected Markdown stays in the test corpus.
 _Avoid_: Debug session, test session
 
 **Test corpus**:
-The owner-corrected Markdown files and audio from recording sessions, with each fact card marked deserved or not and missed candidates added. Carl's precision and recall are measured against it.
+The owner-corrected Markdown files from recording sessions, with each fact card marked deserved or not and missed candidates added, plus the audio of those under 6 months old. The Markdown keeps speaker labels (no names) and the location rounded to neighbourhood or town, and stays until the owner deletes it. Carl's precision and recall are measured against it.
 _Avoid_: Golden set, dataset, benchmark

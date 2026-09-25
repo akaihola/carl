@@ -25,3 +25,7 @@ Settled with the owner in a grilling session, going through each finding in [Les
 - **The screen stays on for the whole session.** The documentation tells the owner that a long session on a propped-up phone wants a charger.
 
 Glossary updated in `CONTEXT.md`: *Claim* and *Open question* (checkable given where and when), *Listening indicator* (can't-hear state), new term *Failure log*.
+
+## Comments
+
+- Superseded in part by [Resolve the spec's open issues](10-spec-open-issues.md): "cost cap reached" is no longer a can't-hear-or-check state or a failure log stage. Going over the **monthly budget** only puts a warning on the listening indicator and the Start screen.

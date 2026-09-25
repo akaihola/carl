@@ -52,3 +52,4 @@ Glossary updated in `CONTEXT.md`: *Check time*, *Late card*, *Recording session*
 ## Comments
 
 - Superseded in part by [Session lifecycle and what Carl keeps](09-session-lifecycle.md): recording sessions keep the raw model-call logs too, and each is deleted 6 months after it was recorded.
+- Superseded in part by [Resolve the spec's open issues](10-spec-open-issues.md): the monthly cap becomes a **monthly budget** that only warns and never stops Carl; the corrected Markdown stays in the test corpus after the 6-month deletion (audio does not); the owner's log of real sessions lives in the card archive (listening time, cards marked wrong or pointless, notes).

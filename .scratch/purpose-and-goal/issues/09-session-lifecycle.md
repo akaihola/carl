@@ -42,3 +42,4 @@ Glossary updated in `CONTEXT.md`: *Session*, *Card archive*, *Recording session*
 ## Comments
 
 - Extended by [Check the previous Carl's lessons against our plan](08-check-previous-carl-lessons.md): a normal session also adds to a **failure log** (no conversation content, 30-day expiry), and the suggested disclosure line also says that the location goes to cloud AI services.
+- Superseded in part by [Resolve the spec's open issues](10-spec-open-issues.md): the cost cap no longer stops Carl (a **monthly budget** only warns); a recording session's corrected Markdown outlives its 6-month deletion; the card archive also keeps listening time and the owner's marks and notes, which the table may see or delete.

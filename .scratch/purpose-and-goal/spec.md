@@ -162,7 +162,10 @@ Sources: [05](issues/05-social-contract.md), [06](issues/06-fact-card-behaviour.
   no special mark.
 - The listening indicator is always visible and shows one of: listening,
   recording (in a **recording session**), paused, or can't hear or check
-  (connection lost, a stage down, cost cap reached).
+  (connection lost, a stage down).
+- While the month is over the **monthly budget**, the listening indicator
+  carries a prominent warning mark that the whole table sees, and the Start
+  screen shows the same warning. Nothing stops.
 - An optional **live transcript line** next to the indicator shows the latest
   utterance; it can be switched on and off. Between cards, the indicator (and
   this line, if on) is all that is on screen, which is how Carl shows it is
@@ -170,7 +173,7 @@ Sources: [05](issues/05-social-contract.md), [06](issues/06-fact-card-behaviour.
 - The screen stays on for the whole session. The documentation tells the owner
   that a long session wants a charger.
 
-Sources: [05](issues/05-social-contract.md), [06](issues/06-fact-card-behaviour.md), [07](issues/07-success-criteria.md), [08](issues/08-check-previous-carl-lessons.md).
+Sources: [05](issues/05-social-contract.md), [06](issues/06-fact-card-behaviour.md), [07](issues/07-success-criteria.md), [08](issues/08-check-previous-carl-lessons.md), [10](issues/10-spec-open-issues.md).
 
 ### Social contract
 
@@ -190,55 +193,64 @@ Sources: [05](issues/05-social-contract.md), [08](issues/08-check-previous-carl-
 - **Start:** the owner taps Start after telling the table. Nothing is heard
   before that tap.
 - **End:** anyone taps End; or 30 min pass without an utterance, paused or
-  not; or the page is closed. There is no hard time limit. The monthly cost
-  cap also stops Carl (see [Open issues](#open-issues)).
+  not; or the page is closed. There is no hard time limit, and going over the
+  monthly budget doesn't end a session.
 
-Source: [09](issues/09-session-lifecycle.md).
+Sources: [09](issues/09-session-lifecycle.md), [10](issues/10-spec-open-issues.md).
 
 ### What Carl keeps
 
 **A normal session**
 
 - Keeps only its fact cards. At the end, the card history moves into the
-  **card archive** (title, fact, source, time, grouped by session), kept on the
-  owner's phone until the owner deletes it.
+  **card archive** (title, fact, source, time, grouped by session, with the
+  session's listening time excluding pauses), kept on the owner's phone until
+  the owner deletes it.
+- Between sessions, the owner can mark archived cards "wrong" or "pointless"
+  and add a free-text note of missed moments.
 - The archive can be opened only when no session is running.
 - The transcript and live transcript line are discarded when the session ends.
   No audio is kept. The archive doesn't keep the location.
-- Anyone who was at the table may ask to see a session's cards or have them
-  deleted, and the owner honours it.
+- Anyone who was at the table may ask to see a session's cards, marks and
+  notes, or have them deleted, and the owner honours it.
 - The **failure log** records moments Carl couldn't hear or check: time, stage
-  (speech-to-text, decision, fact-checking, message writing, connection, cost
-  cap) and error, with no conversation content. It opens from a "Log" menu at
+  (speech-to-text, decision, fact-checking, message writing, connection) and
+  error, with no conversation content. It opens from a "Log" menu at
   any time, entries expire after 30 days, and the owner can clear it.
 
 **A recording session** (development mode)
 
 - Visibly marked on the listening indicator and disclosed on its own. Anyone's
   objection means the session runs without recording. Pause stops recording.
+  The disclosure says the corrected text is kept beyond 6 months.
 - Keeps its fact cards, the full transcript, the audio and the full log of
   every model call (including the location). Raw logs are not deleted after
   correction.
-- Deleted automatically 6 months after it was recorded.
+- 6 months after recording, its audio, raw transcript and model-call logs are
+  deleted automatically. Its owner-corrected Markdown stays in the **test
+  corpus** until the owner deletes it, with speaker labels (no names) and the
+  location rounded to neighbourhood or town.
 - Heard or read only by the owner and by the models Carl is tested with; never
-  put in the repo.
-- Anyone recorded may ask to hear or read it, or to have it deleted. Deletion
-  removes the whole session. The owner honours a request without asking why.
+  put in the repo, corrected Markdown included.
+- Anyone recorded may ask to hear or read it, corrected Markdown included, or
+  to have it deleted. Deletion removes the whole session. The owner honours a
+  request without asking why.
 
 **Model providers:** no limit on what each stage's provider keeps or trains
 on. Carl's documentation names each stage's provider and links to its
 retention terms.
 
-Sources: [07](issues/07-success-criteria.md), [08](issues/08-check-previous-carl-lessons.md), [09](issues/09-session-lifecycle.md).
+Sources: [07](issues/07-success-criteria.md), [08](issues/08-check-previous-carl-lessons.md), [09](issues/09-session-lifecycle.md), [10](issues/10-spec-open-issues.md).
 
 ### Failures
 
 - A failed check shows nothing; there is no error text on screen.
 - When Carl can't hear or can't check at all, the listening indicator shows
   that state instead of claiming to listen, and the failure log records it.
-- At the monthly cost cap, Carl stops cleanly.
+- Going over the monthly budget is not a failure: Carl carries on and only
+  warns (see [The screen](#the-screen)).
 
-Sources: [07](issues/07-success-criteria.md), [08](issues/08-check-previous-carl-lessons.md).
+Sources: [08](issues/08-check-previous-carl-lessons.md), [10](issues/10-spec-open-issues.md).
 
 ### Context Carl gets
 
@@ -253,8 +265,9 @@ Sources: [03](issues/03-situations.md), [08](issues/08-check-previous-carl-lesso
 ## How we'd know it works
 
 **Measured on** a **test corpus** built from recording sessions, and on the
-owner's log of real sessions (wrong or pointless cards, moments Carl should
-have spoken). The corpus is the gate before Carl runs at a real table.
+owner's log of real sessions, kept in the card archive: cards marked wrong or
+pointless, notes of moments Carl should have spoken, and each session's
+listening time. The corpus is the gate before Carl runs at a real table.
 
 - Each recording session becomes one Markdown file: the full cleaned
   transcript (speaker label, timestamp, small talk included), each
@@ -263,8 +276,10 @@ have spoken). The corpus is the gate before Carl runs at a real table.
 - The owner marks each card **deserved** or **not deserved** with a reason
   (wrong, nitpick, opinion, contested, already settled, not checkable), adds
   missed candidates, and fixes transcript errors.
-- The corpus keeps the corrected Markdown and the audio, so the whole pipeline
-  can be replayed.
+- The corpus keeps the corrected Markdown until the owner deletes it, and the
+  audio for 6 months. The decision, fact-checking and message-writing stages
+  can be replayed on the whole corpus; speech-to-text only on the last
+  6 months of audio.
 
 **Targets**
 
@@ -272,10 +287,10 @@ have spoken). The corpus is the gate before Carl runs at a real table.
 | --- | --- |
 | Precision (test corpus) | ≥ 95% of fact cards deserved, hedged cards included |
 | Wrong plain cards (test corpus) | none |
-| Wrong cards (real use) | at most about 1 per 10 h of conversation |
+| Wrong cards (real use) | at most about 1 per 10 h of listening time, from the owner's marks |
 | Recall floor (test corpus) | ≥ 1 in 3 claims, ≥ 1 in 5 open questions get a card |
 | Check time | median ≤ 4 s, 90th percentile ≤ 8 s |
-| Running cost | about €1 per hour of listening, all stages; monthly cap set by the owner |
+| Running cost | about €1 per hour of listening, all stages, within a monthly budget set by the owner |
 
 - The same precision bar for both triggers. A trigger's figure is provisional
   until it has at least 30 scored cards with both Finnish and English
@@ -284,29 +299,4 @@ have spoken). The corpus is the gate before Carl runs at a real table.
 - Late cards still count towards precision. A card on screen before the table
   settles the point is fine.
 
-Source: [07](issues/07-success-criteria.md), amended by [09](issues/09-session-lifecycle.md).
-
-## Open issues
-
-Contradictions or gaps the tickets don't resolve:
-
-1. **Cost cap: end the session, or keep it open?** [07](issues/07-success-criteria.md)
-   says Carl "stops cleanly" at the monthly cap and [09](issues/09-session-lifecycle.md)
-   says the cap "still stops Carl", but [08](issues/08-check-previous-carl-lessons.md)
-   lists "cost cap reached" as a state of the listening indicator during a
-   session. Does reaching the cap end the session (card history to the
-   archive), or leave it running in the can't-check state until End or the
-   30-min timeout?
-2. **Does the 6-month deletion shrink the test corpus?** [09](issues/09-session-lifecycle.md)
-   deletes each recording session 6 months after recording, while the test
-   corpus ([07](issues/07-success-criteria.md)) is the owner-corrected Markdown
-   and audio from those sessions and is meant for later vendor comparisons.
-   Is the corrected Markdown and audio deleted with the session, so the corpus
-   is a rolling 6-month window (and the 30-scored-cards threshold can lapse),
-   or does the corpus outlive the raw session?
-3. **Where the owner's log of real sessions comes from.** [07](issues/07-success-criteria.md)
-   measures real use from the owner's log of wrong cards and missed moments,
-   and a wrong-card rate per 10 h of conversation. A normal session keeps only
-   its cards ([09](issues/09-session-lifecycle.md)): no transcript and no
-   recorded session length. Is this log the owner's own notes outside Carl, or
-   should the card archive also keep session duration and a way to mark cards?
+Source: [07](issues/07-success-criteria.md), amended by [09](issues/09-session-lifecycle.md) and [10](issues/10-spec-open-issues.md).

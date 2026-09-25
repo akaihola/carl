@@ -4,7 +4,7 @@ Label: wayfinder:map
 
 ## Destination
 
-**Reached:** the spec is assembled at [spec.md](spec.md) and `AGENTS.md`'s Goal is rewritten from it. Its open issues are listed at the end of the spec.
+**Reached:** the spec is assembled at [spec.md](spec.md) and `AGENTS.md`'s Goal is rewritten from it. Its open issues were resolved in [Resolve the spec's open issues](issues/10-spec-open-issues.md).
 
 A product spec at `.scratch/purpose-and-goal/spec.md` stating what Carl is for,
 who uses it, the situations it serves, what it deliberately doesn't do, and how
@@ -44,6 +44,7 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 - [Success criteria](issues/07-success-criteria.md): a test corpus built from recording sessions, each corrected by the owner, plus a log of real sessions; ≥95% of cards deserved and no wrong plain card; recall floors of 1 in 3 claims and 1 in 5 open questions; check time median ≤4 s and 90th percentile ≤8 s, with cards later than 20 s filed into the card history; about €1/h and a monthly cap
 - [Session lifecycle and what Carl keeps](issues/09-session-lifecycle.md): the owner taps Start, anyone taps End, and a session also ends after 30 min without an utterance; a normal session keeps only its fact cards, in a card archive kept until the owner deletes it and opened only between sessions; development mode keeps cards, transcript, audio and full model-call logs for 6 months (overriding the earlier plan to delete raw logs); anyone at the table may see or delete what concerns them; no limit on providers, but the documentation and the suggested disclosure say where the conversation goes
 - [Check the previous Carl's lessons against our plan](issues/08-check-previous-carl-lessons.md): most lessons were already in the plan; new: no grace period, one card per claim or question per session, only cards and the listening indicator reach the screen (with a can't-hear state and a failure log), Carl knows the date, time and precise location (location can be switched off), situational questions count when a public source can answer them, and the screen stays on
+- [Resolve the spec's open issues](issues/10-spec-open-issues.md): the cost cap becomes a monthly budget that only warns (on the listening indicator and Start screen) and never stops Carl; after 6 months a recording session's audio and raw material go but its corrected Markdown (rounded location) stays in the test corpus; the card archive keeps listening time and the owner's wrong/pointless marks and missed-moment notes
 
 ## Not yet specified
 
