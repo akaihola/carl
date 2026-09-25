@@ -14,3 +14,7 @@ How does a fact card look and behave: what the screen shows while Carl is listen
 - From [Edges of the purpose](04-edges-of-purpose.md): cards come in two confidence bands, plain and hedged ("probably", "maybe"). The prototype should show how a hedged card reads next to a plain one, for both a claim and an answered open question. Every card carries a source. A card whose candidate the table has already resolved is dropped, so decide what happens to a card that is on screen when that happens.
 - From [Social contract at the table](05-social-contract.md): the screen always shows a listening indicator (and a distinct paused state), plus a one-tap pause anyone can reach; this is also the natural answer to "what shows while Carl has nothing to say". Card wording states the claim's gist and the fact, never the speaker, in a neutral reference-book voice.
 
+
+## Assets
+
+- Prototype (throwaway): [prototypes/fact-card-prototype.html](../prototypes/fact-card-prototype.html), also published as a private artifact: https://claude.ai/artifact/Vd9hpnzxb7mv1BNRTadkPb. Three screens (A Spotlight, B Ledger, C Ambient) played against one scripted Finnish dinner conversation, with knobs for check time (3/8/20 s) and what happens when the table settles a card already on screen.

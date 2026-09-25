@@ -1,0 +1,645 @@
+<title>Carl Fact Card Prototype</title>
+<!--
+  PROTOTYPE, throwaway. Answers the wayfinder ticket "Fact card behaviour"
+  (.scratch/purpose-and-goal/issues/06-fact-card-behaviour.md).
+  Three structurally different fact-card screens (A Spotlight, B Ledger,
+  C Ambient) driven by one scripted dinner conversation, with behaviour
+  knobs (check latency, what happens when the table settles a shown card).
+  Open by double-click; no server, no persistence beyond remembered knobs.
+-->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  :root {
+    --bg: #eceff3;
+    --panel: #f8f9fb;
+    --ink: #18202c;
+    --muted: #5b6778;
+    --line: #d2d8e0;
+    --accent: #2c64c9;
+    --accent-ink: #ffffff;
+    --claim: #c2811a;
+    --question: #1f8f84;
+    --ui: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --legible: "Atkinson Hyperlegible", "Verdana", system-ui, sans-serif;
+    --serif: "Source Serif 4", Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #11151b; --panel: #181d25; --ink: #e5e9ef; --muted: #95a1b3;
+      --line: #2b3441; --accent: #7ea6ee; --accent-ink: #0d1422;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #11151b; --panel: #181d25; --ink: #e5e9ef; --muted: #95a1b3;
+    --line: #2b3441; --accent: #7ea6ee; --accent-ink: #0d1422;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); font: 14px/1.45 var(--ui);
+    padding-inline: 16px; padding-block: 16px 88px; box-sizing: border-box;
+  }
+  * { box-sizing: border-box; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .layout {
+    display: grid; gap: 24px; max-width: 1200px; margin: 0 auto;
+    grid-template-columns: minmax(0, 1fr) 360px; align-items: start;
+  }
+  @media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ---------- the propped-up phone ---------- */
+  .stage { display: flex; justify-content: center; position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); }
+  @media (max-width: 880px) { .stage { position: static; } }
+  .device {
+    background: #06080b; border-radius: 34px; padding: 12px;
+    box-shadow: 0 18px 40px rgba(10, 16, 30, .25);
+    width: min(100%, 400px); aspect-ratio: 400 / 820; max-height: 84svh;
+  }
+  .device.landscape { width: min(100%, 820px); aspect-ratio: 820 / 400; max-height: none; }
+  @media (max-width: 880px) { .device { max-height: 78svh; } }
+  #screen {
+    width: 100%; height: 100%; border-radius: 24px; overflow: hidden; position: relative;
+    container-type: size; font-family: var(--legible);
+  }
+
+  /* ---------- shared pieces inside the screen ---------- */
+  .dot { width: .7em; height: .7em; border-radius: 50%; background: currentColor; display: inline-block; flex: none; }
+  .speaking .dot { animation: pulse .9s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.5); opacity: .55; } }
+  @keyframes enter { from { opacity: 0; transform: translateY(12px); } }
+  .card { animation: enter .45s ease-out; }
+  .timer { height: 3px; border-radius: 2px; background: currentColor; opacity: .35; transform-origin: left; }
+  @media (prefers-reduced-motion: reduce) {
+    .card, .speaking .dot, .ring { animation: none !important; }
+  }
+
+  /* ---------- Variant A: Spotlight ---------- */
+  .vA { background: #0f1319; color: #e9edf2; height: 100%; display: flex; flex-direction: column;
+        padding: 5cqmin; gap: 4cqmin; }
+  .vA.paused { background: #1a1a1a; }
+  .vA .status { align-self: center; display: flex; align-items: center; gap: .6em;
+        font-size: max(13px, 4cqmin); padding: .4em 1em; border-radius: 99px; background: #1d2530; color: #8fd3a6; }
+  .vA.paused .status { color: #d8c38a; background: #2a2720; }
+  .vA .center { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+  .vA .card { display: flex; flex-direction: column; gap: 2.4cqmin; cursor: pointer; }
+  .vA .kind { font-size: max(11px, 3.2cqmin); letter-spacing: .12em; text-transform: uppercase; display: flex; gap: .5em; align-items: center; }
+  .vA .kind.claim { color: #e7a64a; } .vA .kind.question { color: #5fcfc3; }
+  .vA .gist { font-size: max(14px, 4.6cqmin); color: #9aa6b6; }
+  .vA .fact { font-size: max(20px, 7.6cqmin); line-height: 1.22; font-weight: 700; text-wrap: balance; }
+  .vA .src { font-size: max(12px, 3.4cqmin); color: #8894a5; }
+  .vA .settled .fact { color: #8894a5; }
+  .vA .note { font-size: max(12px, 3.4cqmin); color: #d8c38a; }
+  .vA .queue { font-size: max(12px, 3.2cqmin); color: #8894a5; }
+  .vA .pausebtn { align-self: center; border: 0; border-radius: 99px; padding: .8em 2.2em;
+        font-size: max(15px, 4.6cqmin); background: #26303c; color: #e9edf2; font-family: var(--legible); font-weight: 700; }
+  .vA.paused .pausebtn { background: #d8c38a; color: #1a1a1a; }
+
+  /* ---------- Variant B: Ledger ---------- */
+  .vB { background: #f6f3ec; color: #1f1d1a; height: 100%; display: flex; flex-direction: column; }
+  .vB header { display: flex; align-items: center; gap: 3cqmin; padding: 3.5cqmin 4cqmin;
+        border-bottom: 1px solid #d9d2c3; background: #efeadf; }
+  .vB .status { display: flex; align-items: center; gap: .5em; font-size: max(12px, 3.4cqmin); color: #2f7a4f; font-weight: 700; flex: none; }
+  .vB.paused .status { color: #8a6d1f; }
+  .vB .live { flex: 1; min-width: 0; font-family: var(--serif); font-style: italic; color: #857c6c;
+        font-size: max(12px, 3.3cqmin); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vB .pausebtn { flex: none; border: 1px solid #b9ae98; background: transparent; border-radius: 6px;
+        padding: .35em .9em; font-size: max(12px, 3.4cqmin); font-family: var(--legible); font-weight: 700; }
+  .vB.paused .pausebtn { background: #8a6d1f; color: #fff; border-color: #8a6d1f; }
+  .vB .feed { flex: 1; overflow-y: auto; padding: 4cqmin; display: flex; flex-direction: column; gap: 3cqmin; }
+  .vB .empty { color: #a39985; font-family: var(--serif); font-style: italic; font-size: max(13px, 3.6cqmin); margin: auto; text-align: center; }
+  .vB .card { display: grid; grid-template-columns: auto 1fr; gap: .2em 3cqmin; padding: 3cqmin 3.5cqmin;
+        background: #fffdf8; border: 1px solid #ddd5c4; border-radius: 4px; cursor: pointer; }
+  .vB .card.hedged { border-style: dashed; border-color: #bfb49c; }
+  .vB .card.older { opacity: .55; }
+  .vB .card.older .fact { font-size: max(14px, 4.2cqmin); }
+  .vB .glyph { grid-row: span 3; font-family: var(--serif); font-weight: 600; font-size: max(20px, 6cqmin); line-height: 1; }
+  .vB .glyph.claim { color: #b06f10; } .vB .glyph.question { color: #19766d; }
+  .vB .gist { font-size: max(11px, 3cqmin); letter-spacing: .06em; text-transform: uppercase; color: #857c6c; }
+  .vB .settled .gist { text-decoration: line-through; }
+  .vB .fact { font-family: var(--serif); font-size: max(16px, 5.4cqmin); line-height: 1.3; }
+  .vB .src { font-size: max(11px, 3cqmin); color: #857c6c; }
+  .vB .note { font-size: max(11px, 3cqmin); color: #8a6d1f; }
+
+  /* ---------- Variant C: Ambient ---------- */
+  .vC { background: radial-gradient(circle at 50% 60%, #172230, #0b0f15 70%); color: #dfe6ee; height: 100%;
+        position: relative; cursor: pointer; }
+  .vC.paused { background: #121212; }
+  .vC .ambient { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5cqmin; }
+  .vC .ring { width: 30cqmin; height: 30cqmin; border-radius: 50%; border: 2px solid #3f8fd0; box-shadow: 0 0 40px #1c4f7a inset;
+        animation: breathe 5s ease-in-out infinite; }
+  .vC.speaking .ring { border-color: #7cc0f5; }
+  .vC.paused .ring { animation: none; border-color: #555; box-shadow: none; border-style: dashed; }
+  @keyframes breathe { 50% { transform: scale(1.08); opacity: .7; } }
+  .vC .hint { font-size: max(13px, 3.8cqmin); color: #8ea0b5; text-align: center; padding: 0 6cqmin; }
+  .vC.paused .hint { color: #c9b27a; }
+  .vC .toasts { position: absolute; top: 4cqmin; left: 4cqmin; right: 4cqmin; display: flex; flex-direction: column; gap: 3cqmin; }
+  .vC .card { background: rgba(236, 242, 248, .96); color: #121821; border-radius: 16px; padding: 3.5cqmin 4.5cqmin;
+        display: flex; flex-direction: column; gap: 1.4cqmin; box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+  .vC .gist { font-size: max(12px, 3.4cqmin); color: #56637a; }
+  .vC .fact { font-size: max(17px, 5.8cqmin); font-weight: 700; line-height: 1.25; text-wrap: balance; }
+  .vC .src { font-size: max(11px, 3cqmin); color: #56637a; }
+  .vC .settled { opacity: .6; }
+  .vC .note { font-size: max(11px, 3cqmin); color: #8a6d1f; }
+  .vC .earlier { position: absolute; bottom: 5cqmin; left: 50%; transform: translateX(-50%); border: 1px solid #3a4658;
+        background: rgba(20, 28, 38, .8); color: #b9c6d6; border-radius: 99px; padding: .45em 1.2em; font-size: max(12px, 3.4cqmin); font-family: var(--legible); }
+  .vC .sheet { position: absolute; inset: 0; background: rgba(8, 11, 16, .94); padding: 6cqmin; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 3cqmin; cursor: default; }
+  .vC .sheet .card { animation: none; }
+  .vC .sheet .close { align-self: center; margin-top: 2cqmin; }
+
+  /* ---------- control panel (prototype chrome, not part of the design) ---------- */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+        display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .panel h1 { font-size: 19px; margin: 0; text-wrap: balance; }
+  .panel p { margin: 0; color: var(--muted); max-width: 65ch; }
+  .eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .group { display: flex; flex-direction: column; gap: 8px; }
+  .seg { display: flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { flex: 1 1 auto; border: 0; background: transparent; padding: 7px 10px; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 7px 12px; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .clock { font: 500 20px var(--mono); font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .stat b { display: block; font: 500 18px var(--mono); font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11px; color: var(--muted); }
+  .watch { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .watch li { display: grid; grid-template-columns: 3.2em 1fr; gap: 8px; color: var(--muted); }
+  .watch li b { font: 500 13px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .watch li.now { color: var(--ink); }
+  .log { max-height: 280px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+  .log div { display: grid; grid-template-columns: 3.2em 1fr; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  .log div:last-child { border-bottom: 0; }
+  .log .ts { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log .heard { color: var(--muted); font-style: italic; }
+  .log .fresh { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+  .switcher { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        display: flex; align-items: center; gap: 4px; background: #111; color: #fff; border-radius: 99px;
+        padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.3); z-index: 10; font-family: var(--ui); max-width: calc(100% - 32px); }
+  .switcher button { border: 0; background: #2a2a2a; color: #fff; border-radius: 99px; width: 36px; height: 36px; font-size: 16px; }
+  .switcher span { padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+</style>
+
+<div class="layout">
+  <div class="stage"><div class="device" id="device"><div id="screen"></div></div></div>
+
+  <aside class="panel">
+    <div class="group">
+      <span class="eyebrow">Carl · prototype · throwaway</span>
+      <h1>How should a fact card look and behave?</h1>
+      <p>A scripted dinner conversation plays against the phone on the left. Flip between three screens with the bar at the bottom (or ← →), change the knobs, and watch the log. Tap a card to dismiss it; tap Pause as anyone at the table would.</p>
+    </div>
+
+    <div class="group">
+      <div class="row">
+        <span class="clock" id="clock">0:00</span>
+        <button class="btn primary" id="play">Pause scene</button>
+        <button class="btn" id="restart">Restart</button>
+      </div>
+      <div class="seg" id="speed"></div>
+    </div>
+
+    <div class="group">
+      <span class="eyebrow">Screen</span>
+      <div class="seg" id="variant"></div>
+      <p id="variantNote"></p>
+    </div>
+
+    <div class="group">
+      <span class="eyebrow">Check time (end of utterance → card)</span>
+      <div class="seg" id="latency"></div>
+    </div>
+
+    <div class="group">
+      <span class="eyebrow">The table settles a card already on screen</span>
+      <div class="seg" id="settle"></div>
+    </div>
+
+    <div class="row">
+      <div class="group" style="flex:1"><span class="eyebrow">Card language</span><div class="seg" id="lang"></div></div>
+      <div class="group" style="flex:1"><span class="eyebrow">Phone</span><div class="seg" id="orient"></div></div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="group">
+      <span class="eyebrow">Moments to watch</span>
+      <ul class="watch" id="watch"></ul>
+    </div>
+
+    <div class="group">
+      <span class="eyebrow">What happened (newest first)</span>
+      <div class="log" id="log"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="switcher" aria-label="Screen variant">
+  <button id="prev" aria-label="Previous screen">←</button>
+  <span id="switchLabel"></span>
+  <button id="next" aria-label="Next screen">→</button>
+</div>
+
+<script>
+/* ======================================================================
+   Pure simulation module. No DOM. (state, event) in, new state out.
+   Options: latency (s), maxVisible, fadeAfter (s), onSettle.
+   ====================================================================== */
+const Sim = (() => {
+  const clone = (s) => JSON.parse(JSON.stringify(s));
+  const init = () => ({ t: 0, cursor: 0, paused: false, heard: [], pending: [], cards: [], log: [], speakingUntil: 0 });
+  const note = (s, text, kind = "event") => s.log.push({ t: s.t, text, kind });
+  const shownCount = (s) => s.cards.filter((c) => c.status === "shown").length;
+
+  function setPaused(s, v, who) {
+    if (s.paused === v) return;
+    s.paused = v;
+    note(s, v ? `${who} tapped Pause. Carl hears and keeps nothing.` : `${who} tapped Resume. Carl listens again.`);
+    if (v) {
+      for (const p of s.pending) note(s, `Dropped “${p.id}”: it was still being checked when Carl was paused.`);
+      s.pending = [];
+    }
+  }
+
+  function apply(s, e, opts) {
+    if (e.type === "say") {
+      s.heard.push({ t: e.t, who: e.who, id: e.id, heard: !s.paused });
+      if (!s.paused) s.speakingUntil = e.t + e.dur;
+      note(s, s.paused ? `(not heard) ${e.who} speaks` : `${e.who}: ${e.id}`, "heard");
+    } else if (e.type === "candidate") {
+      if (s.paused) return note(s, `Nothing flagged: Carl was paused.`);
+      s.pending.push({ id: e.id, readyAt: e.t + opts.latency });
+      note(s, `Decision model flags “${e.id}”. Checking…`);
+    } else if (e.type === "settle") {
+      const i = s.pending.findIndex((p) => p.id === e.id);
+      if (i >= 0) { s.pending.splice(i, 1); return note(s, `The table settled “${e.id}” before its card was ready. Dropped.`); }
+      const c = s.cards.find((c) => c.id === e.id);
+      if (!c) return;
+      if (c.status === "queued") { c.status = "withdrawn"; return note(s, `The table settled “${e.id}” while it waited in the queue. Dropped.`); }
+      if (c.status !== "shown") return;
+      if (opts.onSettle === "drop") { c.status = "withdrawn"; note(s, `The table settled “${e.id}” while its card was on screen. Card withdrawn.`); }
+      else if (opts.onSettle === "mark") { c.settled = true; note(s, `The table settled “${e.id}” while its card was on screen. Card marked as settled.`); }
+      else note(s, `The table settled “${e.id}” while its card was on screen. Card left as is.`);
+    } else if (e.type === "tap") {
+      setPaused(s, e.action === "pause", e.who);
+    }
+  }
+
+  function release(s, opts) {
+    for (const p of s.pending.filter((p) => p.readyAt <= s.t)) {
+      s.cards.push({ id: p.id, status: "queued", shownAt: null, settled: false });
+      note(s, `Verdict ready for “${p.id}”.`);
+    }
+    s.pending = s.pending.filter((p) => p.readyAt > s.t);
+    for (const c of s.cards) {
+      if (c.status === "shown" && s.t >= c.shownAt + opts.fadeAfter) { c.status = "faded"; note(s, `Card “${c.id}” faded after ${opts.fadeAfter} s.`); }
+    }
+    for (const c of s.cards) {
+      if (c.status !== "queued" || shownCount(s) >= opts.maxVisible) continue;
+      c.status = "shown"; c.shownAt = s.t;
+      note(s, `Card “${c.id}” on screen.`);
+    }
+    const waiting = s.cards.filter((c) => c.status === "queued").length;
+    if (waiting && !s._waitNoted) { note(s, `${waiting} card(s) waiting for screen space.`); s._waitNoted = true; }
+    if (!waiting) s._waitNoted = false;
+  }
+
+  function advance(prev, dt, script, opts) {
+    const s = clone(prev);
+    const end = s.t + dt;
+    while (s.cursor < script.length && script[s.cursor].t <= end) {
+      const e = script[s.cursor++];
+      s.t = Math.max(s.t, e.t);
+      release(s, opts);
+      apply(s, e, opts);
+    }
+    s.t = end;
+    release(s, opts);
+    return s;
+  }
+
+  function dismiss(prev, id, opts) {
+    const s = clone(prev);
+    const c = s.cards.find((c) => c.id === id && c.status === "shown");
+    if (!c) return s;
+    c.status = "dismissed";
+    note(s, `Someone tapped card “${id}” away.`);
+    release(s, opts);
+    return s;
+  }
+
+  function togglePause(prev, opts) {
+    const s = clone(prev);
+    setPaused(s, !s.paused, "Someone");
+    release(s, opts);
+    return s;
+  }
+
+  return { init, advance, dismiss, togglePause };
+})();
+
+/* ======================================================================
+   Scenario: a Finnish dinner table. Times in seconds of conversation.
+   ====================================================================== */
+const SAY = (t, who, id, en, fi) => ({ t, type: "say", who, id, en, fi, dur: Math.max(2, en.length / 16) });
+const SCRIPT = [
+  SAY(0, "Aino", "Rome", "So, how was Rome?", "No, miten Rooman-matka meni?"),
+  SAY(2.5, "Mikko", "Einstein", "Great. Did you know Einstein actually failed maths at school? I read it on the plane.", "Hyvin. Tiesitkö muuten, että Einstein reputti koulussa matematiikan? Luin sen koneessa."),
+  { t: 8, type: "candidate", id: "einstein" },
+  SAY(9, "Leena", "huh", "Really? Huh.", "Oikeasti? Jaa."),
+  SAY(13, "Aino", "Amélie", "We watched Amélie again. Who played her, the lead…", "Katsottiin taas Amélie. Kuka sen pääosan näytteli…"),
+  SAY(16.5, "Mikko", "tip of tongue", "It's on the tip of my tongue… no.", "Se on ihan kielen päällä… ei."),
+  { t: 19, type: "candidate", id: "amelie" },
+  SAY(22, "Leena", "food", "Anyway, the food in Rome…", "No, mutta se ruoka Roomassa…"),
+  SAY(27, "Aino", "Great Wall", "And you can see the Great Wall of China from space, right?", "Ja Kiinan muurinhan näkee avaruudesta, eikö?"),
+  { t: 30, type: "candidate", id: "wall" },
+  SAY(32, "Mikko", "myth", "No, that's a myth. Astronauts say you can't.", "Ei näe, se on myytti. Astronautit sanovat, ettei näe."),
+  { t: 34.5, type: "settle", id: "wall" },
+  SAY(38, "Leena", "tallest", "What's the tallest building in Helsinki these days?", "Mikä on nykyään Helsingin korkein rakennus?"),
+  SAY(41, "Aino", "Kalasatama?", "No idea. Something in Kalasatama?", "Ei hajuakaan. Joku Kalasatamassa?"),
+  { t: 43, type: "candidate", id: "tallest" },
+  SAY(47, "Mikko", "Napoleon", "Napoleon was tiny, that's why he was so aggressive.", "Napoleon oli tosi lyhyt, siksi se oli niin aggressiivinen."),
+  { t: 50, type: "candidate", id: "napoleon" },
+  SAY(50.5, "Leena", "bulls", "And bulls go mad when they see red.", "Ja sonnit raivostuu punaisesta."),
+  { t: 53, type: "candidate", id: "bulls" },
+  SAY(56, "Aino", "sister", "Ha. Can we talk about my sister for a moment…", "Heh. Voidaanko puhua hetki mun siskosta…"),
+  { t: 59, type: "tap", action: "pause", who: "Aino" },
+  SAY(61, "Aino", "grey hair", "She's been so stressed. Her hair went grey overnight.", "Sillä on ollut niin kova stressi. Tukka harmaantui yhdessä yössä."),
+  { t: 65, type: "candidate", id: "grey" },
+  SAY(68, "Leena", "poor thing", "Poor thing.", "Voi ei."),
+  { t: 73, type: "tap", action: "resume", who: "Leena" },
+  SAY(75, "Mikko", "pay", "Right. Whose turn is it to pay?", "No niin. Kenen vuoro on maksaa?"),
+];
+const SCENE_END = 100;
+
+const CARDS = {
+  einstein: { kind: "claim", band: "plain",
+    en: ["Einstein failing maths", "Einstein never failed maths. He excelled at it and had taught himself calculus by 15.", "Wikipedia · Albert Einstein"],
+    fi: ["Einstein ja matematiikka", "Einstein ei reputtanut matematiikkaa. Hän menestyi siinä ja opiskeli itse differentiaalilaskentaa 15-vuotiaana.", "Wikipedia · Albert Einstein"] },
+  amelie: { kind: "question", band: "plain",
+    en: ["Who played Amélie", "Audrey Tautou played Amélie in the 2001 film.", "IMDb · Amélie (2001)"],
+    fi: ["Kuka esitti Amélieta", "Amélieta esitti Audrey Tautou vuoden 2001 elokuvassa.", "IMDb · Amélie (2001)"] },
+  wall: { kind: "claim", band: "plain",
+    en: ["The Great Wall seen from space", "The Great Wall of China can't be seen with the naked eye from orbit.", "NASA Earth Observatory"],
+    fi: ["Kiinan muuri avaruudesta", "Kiinan muuria ei erota paljaalla silmällä kiertoradalta.", "NASA Earth Observatory"] },
+  tallest: { kind: "question", band: "hedged",
+    en: ["Tallest building in Helsinki", "It is probably Majakka in Kalasatama, about 134 metres tall.", "Wikipedia · List of tallest buildings in Finland"],
+    fi: ["Helsingin korkein rakennus", "Se on luultavasti Kalasataman Majakka, noin 134 metriä.", "Wikipedia · Luettelo Suomen korkeimmista rakennuksista"] },
+  napoleon: { kind: "claim", band: "plain",
+    en: ["Napoleon's height", "Napoleon was about 1.69 m, average for a Frenchman of his time.", "Britannica · Napoleon I"],
+    fi: ["Napoleonin pituus", "Napoleon oli noin 169-senttinen, aikansa ranskalaiselle tavallinen pituus.", "Britannica · Napoleon I"] },
+  bulls: { kind: "claim", band: "plain",
+    en: ["Bulls and the colour red", "Bulls don't react to red. They charge at the cape's movement.", "Britannica · Bullfighting"],
+    fi: ["Sonnit ja punainen", "Sonnit eivät reagoi punaiseen väriin. Ne hyökkäävät viitan liikkeen perään.", "Britannica · Härkätaistelu"] },
+  grey: { kind: "claim", band: "plain",
+    en: ["Hair going grey overnight", "", ""], fi: ["Harmaantuminen yhdessä yössä", "", ""] },
+};
+
+const UI = {
+  en: { listening: "Listening", paused: "Paused", notListening: "Not listening", pause: "Pause", resume: "Resume",
+        claim: "Claim", question: "Question", settled: "Settled at the table", tapPause: "Listening · tap anywhere to pause",
+        tapResume: "Paused · tap anywhere to resume", earlier: (n) => `Earlier cards (${n})`, waiting: (n) => `+${n} waiting`,
+        close: "Close", empty: "Cards from this conversation will collect here." },
+  fi: { listening: "Kuuntelee", paused: "Tauolla", notListening: "Ei kuuntele", pause: "Tauko", resume: "Jatka",
+        claim: "Väite", question: "Kysymys", settled: "Ratkesi pöydässä", tapPause: "Kuuntelee · napauta pysäyttääksesi",
+        tapResume: "Tauolla · napauta jatkaaksesi", earlier: (n) => `Aiemmat kortit (${n})`, waiting: (n) => `+${n} jonossa`,
+        close: "Sulje", empty: "Keskustelun kortit kertyvät tähän." },
+};
+
+const VARIANTS = {
+  A: { name: "Spotlight", opts: { maxVisible: 1, fadeAfter: 20 },
+       note: "One card at a time, large enough to read across the table. Fades after 20 s; later cards queue. Labelled Claim / Question. Nothing on screen between cards but the status pill and a big Pause button." },
+  B: { name: "Ledger", opts: { maxVisible: Infinity, fadeAfter: Infinity },
+       note: "A running list, newest on top, kept for the whole session. Older cards shrink and dim. Live transcript line proves Carl is listening. Claim ≠ and question ? glyphs; hedged cards have a dashed edge." },
+  C: { name: "Ambient", opts: { maxVisible: 2, fadeAfter: 12 },
+       note: "An ambient breathing ring; the whole screen is the Pause button. Up to two cards float on top and fade after 12 s into an ‘Earlier cards’ drawer. No labels: the wording alone tells a claim from an answer." },
+};
+
+/* ======================================================================
+   Page shell: knobs, clock, rendering. Throwaway.
+   ====================================================================== */
+const store = {
+  get(k, d) { try { return localStorage.getItem("carl-proto-" + k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("carl-proto-" + k, v); } catch {} },
+};
+const hashVariant = location.hash.replace("#", "");
+const knobs = {
+  variant: VARIANTS[hashVariant] ? hashVariant : store.get("variant", "A"),
+  latency: Number(store.get("latency", "3")),
+  settle: store.get("settle", "mark"),
+  lang: store.get("lang", "fi"),
+  orient: store.get("orient", "portrait"),
+  speed: Number(store.get("speed", "1")),
+};
+let playing = true, state = Sim.init(), sheetOpen = false, lastLogLen = 0;
+const opts = () => ({ ...VARIANTS[knobs.variant].opts, latency: knobs.latency, onSettle: knobs.settle });
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+
+function seg(id, items, key, onPick) {
+  const el = $(id);
+  el.innerHTML = items.map(([v, label]) => `<button data-v="${v}" aria-pressed="${String(knobs[key]) === String(v)}">${label}</button>`).join("");
+  el.onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const v = typeof knobs[key] === "number" ? Number(b.dataset.v) : b.dataset.v;
+    knobs[key] = v; store.set(key, v);
+    for (const x of el.children) x.setAttribute("aria-pressed", String(x.dataset.v === String(v)));
+    onPick && onPick(v);
+  };
+}
+
+function restart() { state = Sim.init(); sheetOpen = false; lastLogLen = 0; playing = true; draw(true); }
+function setVariant(v) {
+  knobs.variant = v; store.set("variant", v);
+  try { history.replaceState(null, "", "#" + v); } catch {}
+  seg("variant", Object.entries(VARIANTS).map(([k, x]) => [k, `${k} · ${x.name}`]), "variant", setVariant);
+  restart();
+}
+
+function cardText(id) { return CARDS[id][knobs.lang]; }
+const speaking = () => !state.paused && state.t < state.speakingUntil;
+
+/* Keyed rendering so a card's entry animation plays once, not every tick. */
+function sync(container, items) {
+  const existing = new Map([...container.children].map((n) => [n.dataset.key, n]));
+  items.forEach(({ key, html }, i) => {
+    let n = existing.get(key);
+    if (!n) { n = document.createElement("div"); n.dataset.key = key; n.style.display = "contents"; }
+    if (n._html !== html) { n.innerHTML = html; n._html = html; }
+    if (container.children[i] !== n) container.insertBefore(n, container.children[i] || null);
+    existing.delete(key);
+  });
+  existing.forEach((n) => n.remove());
+}
+
+function timerBar(c, o) {
+  if (!isFinite(o.fadeAfter)) return "";
+  return `<div class="timer" data-timer="${c.id}"></div>`;
+}
+function updateTimers(root, o) {
+  for (const el of root.querySelectorAll("[data-timer]")) {
+    const c = state.cards.find((x) => x.id === el.dataset.timer);
+    if (c && c.shownAt !== null) el.style.transform = `scaleX(${Math.max(0, 1 - (state.t - c.shownAt) / o.fadeAfter).toFixed(3)})`;
+  }
+}
+
+let shell = null;
+function buildShell() {
+  const v = knobs.variant, s = $("screen");
+  shell = v;
+  if (v === "A") s.innerHTML = `<div class="vA"><div class="status"><span class="dot"></span><span class="label"></span></div>
+      <div class="center"><div class="slot"></div><div class="queue"></div></div><button class="pausebtn"></button></div>`;
+  if (v === "B") s.innerHTML = `<div class="vB"><header><div class="status"><span class="dot"></span><span class="label"></span></div>
+      <div class="live"></div><button class="pausebtn"></button></header><div class="feed"></div></div>`;
+  if (v === "C") s.innerHTML = `<div class="vC"><div class="ambient"><div class="ring"></div><div class="hint"></div></div>
+      <div class="toasts"></div><button class="earlier" hidden></button><div class="sheet" hidden></div></div>`;
+}
+
+function renderScreen() {
+  if (shell !== knobs.variant) buildShell();
+  const L = UI[knobs.lang], o = opts(), root = $("screen").firstElementChild;
+  root.classList.toggle("paused", state.paused);
+  root.classList.toggle("speaking", speaking());
+  const shown = state.cards.filter((c) => c.status === "shown");
+  const q = (sel) => root.querySelector(sel);
+
+  if (knobs.variant === "A") {
+    q(".label").textContent = state.paused ? L.paused : L.listening;
+    q(".pausebtn").textContent = state.paused ? L.resume : L.pause;
+    sync(q(".slot"), shown.map((c) => {
+      const [gist, fact, src] = cardText(c.id), k = CARDS[c.id].kind;
+      return { key: c.id + (c.settled ? "s" : ""), html: `<div class="card ${c.settled ? "settled" : ""}" data-id="${c.id}">
+        <div class="kind ${k}"><span class="dot"></span>${L[k]}</div>
+        <div class="gist">${esc(gist)}</div><div class="fact">${esc(fact)}</div>
+        <div class="src">${esc(src)}</div>${c.settled ? `<div class="note">${L.settled}</div>` : ""}${timerBar(c, o)}</div>` };
+    }));
+    const waiting = state.cards.filter((c) => c.status === "queued").length;
+    q(".queue").textContent = waiting ? L.waiting(waiting) : "";
+  }
+
+  if (knobs.variant === "B") {
+    q(".label").textContent = state.paused ? L.paused : L.listening;
+    q(".pausebtn").textContent = state.paused ? L.resume : L.pause;
+    const last = [...state.heard].reverse().find((h) => h.heard);
+    const line = state.paused ? `— ${L.notListening} —` : last ? `“${SCRIPT.find((e) => e.type === "say" && e.t === last.t)[knobs.lang]}”` : "…";
+    q(".live").textContent = line;
+    const all = state.cards.filter((c) => c.status === "shown").sort((a, b) => b.shownAt - a.shownAt);
+    const feed = q(".feed");
+    if (!all.length) { feed.innerHTML = `<div class="empty">${L.empty}</div>`; feed._empty = true; return; }
+    if (feed._empty) { feed.innerHTML = ""; feed._empty = false; }
+    sync(feed, all.map((c, i) => {
+      const [gist, fact, src] = cardText(c.id), d = CARDS[c.id];
+      return { key: c.id + (c.settled ? "s" : ""), html: `<div class="card ${d.band} ${c.settled ? "settled" : ""}" data-id="${c.id}">
+        <div class="glyph ${d.kind}">${d.kind === "claim" ? "≠" : "?"}</div>
+        <div class="gist">${esc(gist)}</div><div class="fact">${esc(fact)}</div>
+        <div class="src">${esc(src)}${c.settled ? ` · <span class="note">${L.settled}</span>` : ""}</div></div>` };
+    }));
+    feed.querySelectorAll(".card").forEach((n, i) => n.classList.toggle("older", i > 0));
+  }
+
+  if (knobs.variant === "C") {
+    q(".hint").textContent = state.paused ? L.tapResume : L.tapPause;
+    sync(q(".toasts"), shown.map((c) => {
+      const [gist, fact, src] = cardText(c.id);
+      return { key: c.id + (c.settled ? "s" : ""), html: `<div class="card ${c.settled ? "settled" : ""}" data-id="${c.id}">
+        <div class="gist">${esc(gist)}</div><div class="fact">${esc(fact)}</div>
+        <div class="src">${esc(src)}${c.settled ? ` · <span class="note">${L.settled}</span>` : ""}</div>${timerBar(c, o)}</div>` };
+    }));
+    const past = state.cards.filter((c) => c.status === "faded" || c.status === "dismissed");
+    const btn = q(".earlier");
+    btn.hidden = !past.length || sheetOpen;
+    btn.textContent = L.earlier(past.length);
+    const sheet = q(".sheet");
+    sheet.hidden = !sheetOpen;
+    if (sheetOpen) {
+      const html = past.map((c) => { const [g, f, s] = cardText(c.id); return `<div class="card"><div class="gist">${esc(g)}</div><div class="fact">${esc(f)}</div><div class="src">${esc(s)}</div></div>`; }).join("")
+        + `<button class="earlier close" style="position:static;transform:none">${L.close}</button>`;
+      if (sheet._html !== html) { sheet.innerHTML = html; sheet._html = html; }
+    }
+  }
+  updateTimers(root, o);
+}
+
+$("screen").addEventListener("click", (e) => {
+  const o = opts();
+  if (e.target.closest(".pausebtn")) { state = Sim.togglePause(state, o); return draw(); }
+  if (e.target.closest(".close")) { sheetOpen = false; return draw(); }
+  if (e.target.closest(".earlier")) { sheetOpen = true; return draw(); }
+  if (e.target.closest(".sheet")) return;
+  const card = e.target.closest(".card[data-id]");
+  if (card) { state = Sim.dismiss(state, card.dataset.id, o); return draw(); }
+  if (knobs.variant === "C") { state = Sim.togglePause(state, o); draw(); }
+});
+
+const WATCH = [
+  [2.5, "A plain claim: Einstein and maths. How long until the card appears, and does that feel too late?"],
+  [13, "An open question the table can't answer. Does it read differently from a claim?"],
+  [27, "A myth the table corrects itself at 0:34. At 3 s check time the card is already up; at 8 s it never appears. Try the three settle options."],
+  [38, "A hedged answer (“probably”). How does it sit next to plain cards?"],
+  [47, "Two claims two seconds apart. Where does the second card go?"],
+  [59, "Aino taps Pause. A claim made while paused is never heard. Leena resumes at 1:13."],
+];
+
+function renderPanel() {
+  $("clock").textContent = fmt(state.t) + " / " + fmt(SCENE_END);
+  $("play").textContent = state.t >= SCENE_END ? "Scene over" : playing ? "Pause scene" : "Play scene";
+  const count = (st) => state.cards.filter((c) => c.status === st).length;
+  $("stats").innerHTML = [
+    [state.paused ? "Paused" : "On", "Carl"], [state.pending.length, "checking"],
+    [count("shown"), "on screen"], [count("queued"), "queued"],
+  ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join("");
+  $("watch").innerHTML = WATCH.map(([t, s], i) => {
+    const next = WATCH[i + 1] ? WATCH[i + 1][0] : SCENE_END;
+    return `<li class="${state.t >= t && state.t < next ? "now" : ""}"><b>${fmt(t)}</b><span>${s}</span></li>`;
+  }).join("");
+  if (state.log.length !== lastLogLen) {
+    const fresh = state.log.length - lastLogLen;
+    $("log").innerHTML = [...state.log].reverse().map((l, i) =>
+      `<div class="${i < fresh ? "fresh" : ""}"><span class="ts">${fmt(l.t)}</span><span class="${l.kind}">${esc(l.text)}</span></div>`).join("");
+    lastLogLen = state.log.length;
+  }
+  $("switchLabel").textContent = `${knobs.variant} · ${VARIANTS[knobs.variant].name}`;
+  $("variantNote").textContent = VARIANTS[knobs.variant].note;
+  $("device").classList.toggle("landscape", knobs.orient === "landscape");
+}
+
+function draw(force) { if (force) shell = null; renderScreen(); renderPanel(); }
+
+seg("speed", [[1, "1×"], [2, "2×"], [4, "4×"]], "speed");
+seg("variant", Object.entries(VARIANTS).map(([k, x]) => [k, `${k} · ${x.name}`]), "variant", setVariant);
+seg("latency", [[3, "3 s"], [8, "8 s"], [20, "20 s"]], "latency", restart);
+seg("settle", [["drop", "Withdraw it"], ["mark", "Mark settled"], ["keep", "Leave it"]], "settle", restart);
+seg("lang", [["fi", "Suomi"], ["en", "English"]], "lang", () => draw(true));
+seg("orient", [["portrait", "Portrait"], ["landscape", "Landscape"]], "orient", () => draw());
+$("play").onclick = () => { if (state.t >= SCENE_END) return restart(); playing = !playing; draw(); };
+$("restart").onclick = restart;
+const cycle = (d) => { const ks = Object.keys(VARIANTS); setVariant(ks[(ks.indexOf(knobs.variant) + d + ks.length) % ks.length]); };
+$("prev").onclick = () => cycle(-1);
+$("next").onclick = () => cycle(1);
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, [contenteditable]")) return;
+  if (e.key === "ArrowLeft") cycle(-1);
+  if (e.key === "ArrowRight") cycle(1);
+});
+
+setInterval(() => {
+  if (!playing || state.t >= SCENE_END) return;
+  state = Sim.advance(state, 0.1 * knobs.speed, SCRIPT, opts());
+  draw();
+}, 100);
+draw(true);
+</script>
