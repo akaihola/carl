@@ -38,14 +38,10 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 - [Prior art in live conversation fact-checking](issues/02-prior-art.md): no shipped product does exactly this; precision comes from two verifiers agreeing and from matching claims already checked, not from self-reported confidence (its refusal to judge risky claim types is overridden: Carl hedges instead); too much silence reads as broken
 - [Situations Carl serves](issues/03-situations.md): home dinner or coffee, the owner plus 1–5 adults they know well, 2–6 speakers, one phone propped up for everyone to see, Finnish and English (mixed), running in the background for 30 min to 2 h
 - [Edges of the purpose](issues/04-edges-of-purpose.md): only the two triggers; a card needs an error that changes the point (or a myth), a public-source-checkable claim and a citable source; confident verdicts stated plainly, likely ones hedged, lower ones silent; Carl drops what the table resolves itself and only overhears
+- [Social contract at the table](issues/05-social-contract.md): everyone sees the same card; the owner discloses Carl and anyone's objection stops it; always-on listening indicator; anyone can pause with one tap; a card addresses the claim, never the person, in a neutral reference-book voice
 
 ## Not yet specified
 
-- **Session lifecycle.** How a session starts and stops, and whether Carl
-  leaves anything behind afterwards (e.g. a post-conversation recap of what
-  was checked). Sharpens once *Social contract at the table* is resolved.
-- **Privacy beyond "in memory only".** What, if anything, may be kept, and
-  what the others at the table are entitled to.
 
 ## Out of scope
 

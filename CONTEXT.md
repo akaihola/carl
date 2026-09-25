@@ -6,6 +6,24 @@ false or when a question goes unanswered.
 
 ## Language
 
+### The setting
+
+**Owner**:
+The person who runs Carl on their own phone and discloses it to the table.
+_Avoid_: User, host, operator
+
+**Table**:
+Everyone taking part in the conversation Carl listens to, the owner included. All of them see every fact card.
+_Avoid_: Audience, participants, room
+
+**Listening indicator**:
+The always-visible on-screen sign that Carl is listening, or that it is paused.
+_Avoid_: Status light, recording badge
+
+**Pause**:
+A state anyone at the table can switch on with one tap, in which Carl hears and keeps nothing until someone taps again.
+_Avoid_: Mute, stop
+
 ### The conversation
 
 **Utterance**:
