@@ -37,6 +37,7 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
 - [Lessons from the previous Carl](issues/01-lessons-from-previous-carl.md): findings parked until *Check the previous Carl's lessons against our plan*
 - [Prior art in live conversation fact-checking](issues/02-prior-art.md): no shipped product does exactly this; precision comes from two verifiers agreeing and from matching claims already checked, not from self-reported confidence (its refusal to judge risky claim types is overridden: Carl hedges instead); too much silence reads as broken
 - [Situations Carl serves](issues/03-situations.md): home dinner or coffee, the owner plus 1–5 adults they know well, 2–6 speakers, one phone propped up for everyone to see, Finnish and English (mixed), running in the background for 30 min to 2 h
+- [Edges of the purpose](issues/04-edges-of-purpose.md): only the two triggers; a card needs an error that changes the point (or a myth), a public-source-checkable claim and a citable source; confident verdicts stated plainly, likely ones hedged, lower ones silent; Carl drops what the table resolves itself and only overhears
 
 ## Not yet specified
 

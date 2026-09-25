@@ -17,11 +17,11 @@ An utterance the decision model flags as worth fact-checking; either a claim or 
 _Avoid_: Detection, hit, trigger
 
 **Claim**:
-A candidate stating something checkable as true or false.
+A candidate stating something that can be checked as true or false against a public source. Opinions, predictions, private facts and contested questions are not claims.
 _Avoid_: Statement, assertion
 
 **Open question**:
-A candidate where the conversation wonders about something without reaching the answer ("what was that actor's name…").
+A candidate where the conversation wonders about something and the table leaves it unresolved ("what was that actor's name…"). A disagreement the table can't settle ("1953 or '54?") is an open question too.
 _Avoid_: Memory lapse, unanswered question
 
 ### The pipeline
@@ -43,3 +43,7 @@ The stage that turns a confident verdict into a fact card.
 **Fact card**:
 The short message shown on screen: a title, a one-sentence fact and a source.
 _Avoid_: Correction, banner, contribution
+
+**Hedged fact card**:
+A fact card whose wording ("probably", "maybe") carries a verdict that is likely but not confident. Below that band, no card is shown.
+_Avoid_: Uncertain card, low-confidence card
