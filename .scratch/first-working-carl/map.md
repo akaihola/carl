@@ -48,6 +48,7 @@ requires, and includes development mode, so real dinners can be recorded as
 
 - [What a phone browser allows a web page to do](issues/04-phone-browser-capabilities.md): iOS mutes the mic whenever the page is hidden, so a session needs a wake lock (Home Screen apps from iOS 18.4); iOS deletes a Safari tab's storage after 7 days unused, so on-phone data needs a Home Screen web app with `persist()` plus export; Android evicts only under disk pressure; 2 h of 16 kHz Opus is ~22 MB
 - [Models for the decision, fact-checking and message-writing stages](issues/03-models-for-text-stages.md): the decision model costs cents per hour except Haiku 4.5 (~$0.63/h); search fees drive the fact-checking cost (a few cents to ~$0.90/h); no calibrated confidence anywhere, so two verifiers from different vendors agreeing is the practical signal; Perplexity Sonar ends 2026-09-27; Google grounding forbids storing results (clashes with recording sessions); all keys belong on a server; no published Finnish scores, and speed must be measured
+- [Streaming speech-to-text for Finnish and English table audio](issues/02-streaming-speech-to-text.md): only AssemblyAI Universal-3.6 Pro Streaming (~$0.57/h) and Soniox stt-rt-v5 (~$0.12/h) document Finnish, Finnish/English code-switching and streaming diarization; Speechmatics and Deepgram do Finnish but one language per stream; Google, OpenAI, ElevenLabs, xAI and Azure drop out; the browser can connect directly with a short-lived token, and Carl splits finals at speaker changes to get utterances
 
 ## Not yet specified
 
