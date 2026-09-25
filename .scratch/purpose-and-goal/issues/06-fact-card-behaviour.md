@@ -1,7 +1,7 @@
 # Fact card behaviour
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: 04, 05
 
 ## Question
