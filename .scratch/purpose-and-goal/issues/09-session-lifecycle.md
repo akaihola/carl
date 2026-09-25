@@ -1,7 +1,7 @@
 # Session lifecycle and what Carl keeps
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 05
 
 ## Question
