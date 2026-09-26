@@ -92,8 +92,16 @@ An optional line next to the listening indicator showing the latest utterance Ca
 _Avoid_: Captions, subtitles
 
 **Hedged fact card**:
-A fact card whose wording ("probably", "maybe") carries a verdict that is likely but not confident. Below that band, no card is shown.
+A fact card whose wording ("probably") carries a verdict that is likely but not confident, or that only one fact-finding model backs. Below that band, no card is shown.
 _Avoid_: Uncertain card, low-confidence card
+
+**Verified excerpt**:
+A source excerpt that Carl itself found word for word in its source, as opposed to one a model merely claims. Every shown fact card has at least one behind it.
+_Avoid_: Quote, citation
+
+**Agreement**:
+Both fact-finding models reaching the same outcome for a candidate and stating the same fact. A plain fact card needs it.
+_Avoid_: Consensus, concurrence, cross-check
 
 **Check time**:
 The time from the end of an utterance to its fact card on screen.
