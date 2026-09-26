@@ -19,3 +19,12 @@ owner's Android phone:
   listening indicator with listening, recording, paused and can't hear or
   check; Pause and End; the live transcript line.
 - The card archive view with its owner marks, and the Log menu.
+
+## Assets
+
+- [Screen prototype](../prototypes/the-screen/screen-prototype.html)
+  (open by double-click, or the private page
+  <https://claude.ai/artifact/GfBeLrfGYkWw7K7gobKXge>): three session layouts
+  (A Stage, B Split, C Frame), each with its own Start screen, plus the shared
+  disclosure, Stop recording, session summary, card archive and Log screens,
+  driven by a scripted Finnish dinner. Waiting for the owner's reactions.
