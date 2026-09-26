@@ -57,13 +57,10 @@ requires, and includes development mode, so real dinners can be recorded as
 - [Provisional models for each stage](issues/07-provisional-models.md): no message-writing model; decision (GPT-6 Luna) and fact-checking (TypeSafe Jev, swap Gemini 3.5 Flash-Lite) give typed answers only; two fact-finding models search and write draft cards in parallel (GPT-6 Luna + OpenAI search, Gemini 3.8 Flash via Perplexity's Agent API); Soniox for speech-to-text; no Anthropic models; config file per deploy, stored with each recording session; ~$0.35–0.55/h
 - [Search providers' terms and Luna web search](issues/17-search-terms-and-luna.md): OpenAI's and Perplexity's docs don't forbid storing or analysing results (unlike Google), but both vendors' full terms are unverified; OpenAI requires visible, clickable citations; Luna's model page lists OpenAI web search (Responses API, effort `none` = fast search); Gemini 3.8 Flash + `web_search` + JSON schema on Perplexity needs a test call; only Perplexity returns source snippets, OpenAI citations carry no excerpt
 - [How audio is streamed and how speaker labels reach the decision model](issues/08-audio-and-speaker-labels.md): 16 kHz PCM chunks over one WebSocket (echo cancellation and noise suppression off); Soniox endpointing at 1,500 ms, stream kept open through the reconnect grace period, finalised then closed at Pause; utterances split at speaker changes with 1–2-word false switches merged and a ~30 s cap; speaker labels are scoped to their stream, with a marker at each Pause or gap
+- [Decision model context and candidate de-duplication](issues/09-decision-context-and-dedup.md): one call per utterance (only pure backchannel skipped) with up to 10 utterances / 2 min of earlier context; choices `none / claim / open question / same as Cn` over the session's earlier candidates listed by Carl's own ids, each shown by the fact-finder's new standalone restatement; same = same assertion or question, not same topic; a repeat gets nothing unless the earlier one failed; thresholds in config
 
 ## Not yet specified
 
-- **Tracking a candidate until its card.** How Carl notices the table settling
-  a claim or open question (drop before the card, "Settled at the table" after),
-  how in-flight checks run concurrently, and how a late card is filed. Hangs on
-  the decision model's context and de-duplication.
 - **Location.** How the phone's precise location reaches the stages (raw
   coordinates or a place name, via which service, how often updated), and how
   it is rounded to neighbourhood or town for the test corpus.

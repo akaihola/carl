@@ -11,3 +11,4 @@ How does the dev version turn a recording session into the Markdown file the [sp
 ## Comments
 
 - From [How audio is streamed and how speaker labels reach the decision model](08-audio-and-speaker-labels.md#answer): the recording keeps Soniox's raw tokens and labels; speaker labels are scoped per stream (fresh after each Pause or gap), so the owner may need to merge labels across streams when correcting.
+- From [Decision model context and candidate de-duplication](09-decision-context-and-dedup.md#answer): each candidate has a standalone restatement from each fact-finder, and each repeat links to the earlier candidate it matched. The Markdown should show both so the owner can mark wrong matches.

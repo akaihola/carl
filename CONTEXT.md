@@ -42,6 +42,10 @@ _Avoid_: Speaker name, speaker ID, voice
 An utterance the decision model flags as worth fact-checking; either a claim or an open question.
 _Avoid_: Detection, hit, trigger
 
+**Repeat**:
+An utterance that asserts the same thing, or asks the same question, as an earlier candidate in the same session, in any language or wording. It gets nothing new, unless the earlier candidate failed at a stage; then it is checked as a new candidate.
+_Avoid_: Duplicate, re-trigger
+
 **Claim**:
 A candidate stating something that can be checked as true or false against a public source, given where and when the table is. Opinions, predictions, private facts and contested questions are not claims.
 _Avoid_: Statement, assertion
