@@ -87,6 +87,10 @@ The fact-checking model's typed judgement of a draft card (supported by its sour
 The short message shown on screen: a title, a one-sentence fact and a source.
 _Avoid_: Correction, banner, contribution
 
+**Card language**:
+The language a fact card is written in: the conversation's main language, meaning the one most words have been spoken in lately, or the candidate's own language when too little has been said yet. The card's source may be in another language.
+_Avoid_: Output language, locale
+
 **Card history**:
 The session's earlier fact cards, kept on screen out of the way of the current card, ordered by the time of their utterance, newest first.
 _Avoid_: Feed, log, ledger
