@@ -123,6 +123,10 @@ _Avoid_: Stale card, expired card
 The record of moments Carl couldn't hear or couldn't check: time, stage and error, with no conversation content. It can be opened at any time, and entries expire after 30 days.
 _Avoid_: Error log, debug log
 
+**Outage**:
+A stretch of time in which the listening indicator shows that Carl can't hear (no audio reaches speech-to-text) or can't check (a model stage keeps failing). One failed check is not an outage. The failure log records each outage's start and end.
+_Avoid_: Downtime, error state
+
 **Monthly budget**:
 The running cost the owner sets for a month. Going over it never stops Carl; it only puts a warning on the listening indicator and the Start screen.
 _Avoid_: Cost cap, limit, quota
