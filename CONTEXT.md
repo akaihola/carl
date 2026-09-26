@@ -20,6 +20,10 @@ _Avoid_: User, host, operator
 Everyone taking part in the conversation Carl listens to, the owner included. All of them see every fact card.
 _Avoid_: Audience, participants, room
 
+**Access pass**:
+A secret passphrase that lets a browser open Carl. The owner can issue several and revoke each one on its own; a browser that has used one stays let in for a year.
+_Avoid_: Login, account, password
+
 **Listening indicator**:
 The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down). While the month is over the monthly budget, it also carries a warning mark.
 _Avoid_: Status light, recording badge
@@ -122,7 +126,7 @@ _Avoid_: Cost cap, limit, quota
 ### Testing
 
 **Recording session**:
-A session run by the dev version of Carl (development mode) that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record. Its audio, raw transcript and model-call logs are deleted 6 months after it was recorded; its corrected Markdown stays in the test corpus.
+A session run in development mode that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record. Its audio, raw transcript and model-call logs are deleted 6 months after it was recorded; its corrected Markdown stays in the test corpus.
 _Avoid_: Debug session, test session
 
 **Test corpus**:

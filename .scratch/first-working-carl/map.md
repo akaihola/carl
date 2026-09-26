@@ -61,14 +61,16 @@ requires, and includes development mode, so real dinners can be recorded as
 - [Splitting verdict confidence into plain, hedged and silent](issues/10-confidence-bands.md): wait for both fact-finders (~12 s after the first); plain needs agreement (a typed same-fact call) plus a verified excerpt (Perplexity snippet match or a downloaded page) and p(supported) ≥ 0.85; one verified card or a weaker pair is hedged (≥ 0.6) with a fixed "Todennäköisesti:"/"Probably:" prefix; contradictions, unverified excerpts and blocklisted sources show nothing; no category caps; each band recorded with a reason code
 - [Where the card archive, failure log and recording sessions are kept](issues/11-storage-expiry-deletion.md): recordings in EU object storage under `recordings/<id>/` (raw PCM in ~1-min chunks + JSONL event log, written as the session runs), deleted by a 180-day lifecycle rule with no backups; corrected Markdown at `corpus/<id>.md`, no expiry; failure log in a small server store with 30-day expiry, page buffers its own failures; card archive later in the phone's IndexedDB, pulled from the server at End; an owner-only script lists, fetches and deletes whole sessions; host-default encryption only
 - [Metering running cost against the monthly budget](issues/12-cost-metering.md): a price table in the config file turns each call's usage fields into USD (the provider's own figure wins when it reports one); unknown usage is estimated and flagged; per-use charges only, by Helsinki calendar month; per-session cost summaries and a month-to-date total kept indefinitely in the server store; Start screen shows the month total and the last session in ≈€; checked against provider bills by hand
+- [Hosting and secrets](issues/13-hosting-and-secrets.md): following drum-transcribe, one Scaleway Serverless Container in Python (scaled to zero, max scale 1) at `faktat.vempai.men`, proxied by Cloudflare with the drum-transcribe "Starting up…" Worker; a WebSocket handover at ~50 min beats Scaleway's 60-min cap (measured early); several access passes (scrypt entries + 1-year HMAC cookie); one Scaleway bucket with a scoped key holds recordings, corpus, session state, failures (30-day rule) and costs; keys as container secret variables and in the password manager, provider spend limits set; one deploy by hand, staging runs locally under `dev/`; config baked into the image
 
 ## Not yet specified
 
 - **Location.** How the phone's precise location reaches the stages (raw
   coordinates or a place name, via which service, how often updated), and how
   it is rounded to neighbourhood or town for the test corpus.
-- **Development mode vs normal mode.** Whether the dev version is a separate
-  deployment, a switch, or a URL, and how the recording-session disclosure and
+- **Development mode vs normal mode.** Not a separate deployment (see
+  [Hosting and secrets](issues/13-hosting-and-secrets.md)): whether it is a
+  Start-screen switch or something else, and how the recording-session disclosure and
   objection flow look on screen, including someone objecting mid-session
   (end and delete the whole session with the owner's script, or a
   stop-recording tap).
