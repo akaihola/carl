@@ -1,7 +1,7 @@
 # Turning phone coordinates into a place name
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: 
 
 ## Question
