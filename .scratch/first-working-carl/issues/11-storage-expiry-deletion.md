@@ -1,7 +1,7 @@
 # Where the card archive, failure log and recording sessions are kept
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 04, 06
 
 ## Question
