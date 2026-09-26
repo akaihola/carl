@@ -1,7 +1,7 @@
 # How audio is streamed and how speaker labels reach the decision model
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 06, 07
 
 ## Question
