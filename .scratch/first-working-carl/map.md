@@ -13,6 +13,8 @@ screen) with provisional models behind the swappable interfaces `AGENTS.md`
 requires, and includes development mode, so real dinners can be recorded as
 **recording sessions** to start the **test corpus**.
 
+**Destination reached (2026-09-26):** the plan is [spec.md](spec.md).
+
 ## Notes
 
 - **The output is a plan, not code.** Tickets resolve decisions; nothing here

@@ -49,6 +49,13 @@ owner's Android phone:
   best; the one-row portrait bar and smaller history are right; Carl supports
   both orientations; the landscape Start screen is complete.
 
+- **At arrival (owner, 2026-09-26):** the words Carl adds to a card (the
+  Claim/Question label, the "Hedged" tag and the "Settled at the table" mark)
+  follow the card language, as
+  [Prompts, card language and the source blocklist](23-prompts-and-card-language.md#answer)
+  decided. Rule 6's "Carl's own words are in English" covers the rest of the
+  screen. See [spec.md](../spec.md#what-is-written-in-which-language).
+
 ## Answer
 
 Settled with the owner by reacting to two rounds of the

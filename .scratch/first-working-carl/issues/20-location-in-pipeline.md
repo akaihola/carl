@@ -91,3 +91,12 @@ Settled with the owner in a grilling session (2026-09-26). Facts from
 18. **Card archive, failure log and cost summaries:** no location.
 19. **Normal (non-recording) session:** coordinates live only in server
     memory and are gone at End.
+
+## Comments
+
+- **At arrival (owner, 2026-09-26):** [Decision model context and candidate de-duplication](09-decision-context-and-dedup.md#answer)
+  stands: the fact-checking model never sees the fact-finders' restatement.
+  Rule 7's "so the fact-checking model sees it there" doesn't hold. A place
+  written into the restatement still reaches the settle call and the decision
+  call's list of earlier candidates. See
+  [spec.md](../spec.md#verdicts-and-the-agreement-call).
