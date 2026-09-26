@@ -2,11 +2,12 @@
 <!--
   PROTOTYPE, throwaway. Answers the wayfinder ticket "The screen"
   (.scratch/first-working-carl/issues/24-the-screen.md).
-  Three structurally different session screens (A Stage, B Split, C Frame),
-  each with its own Start screen, sharing the disclosure, Stop recording,
-  session summary, card archive and Log screens. One scripted Finnish dinner
-  drives cards, pacing, a settle, a late card, can't hear / can't check and
-  Pause. State lives in memory; only knobs are remembered.
+  Round 2, after the owner's first reactions: layout B's session screen with a
+  one-row top bar, A's Start screen, End with a confirm step, a striped
+  can't-hear/can't-check indicator, Carl's own words in English.
+  Variants: P (portrait) and three landscape layouts (L1 Side column,
+  L2 Control rail, L3 Bottom shelf). One scripted Finnish dinner drives them.
+  State lives in memory; only knobs are remembered.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +20,7 @@
     --mono: "IBM Plex Mono", ui-monospace, monospace;
     --legible: "Atkinson Hyperlegible", Verdana, system-ui, sans-serif;
     /* Carl's own screen is dark in both themes: it sits on a dinner table. */
-    --s-bg: #0f1319; --s-raise: #1b222c; --s-raise2: #26303c; --s-ink: #e9edf2; --s-muted: #8894a5;
+    --s-bg: #0f1319; --s-bar: #131820; --s-raise: #1b222c; --s-raise2: #26303c; --s-ink: #e9edf2; --s-muted: #8894a5;
     --s-line: #2c3542; --claim: #e7a64a; --question: #5fcfc3; --ok: #8fd3a6; --pause: #d8c38a;
     --fail: #f08a5d; --rec: #ff5c5c;
   }
@@ -38,21 +39,25 @@
   body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--ui); margin: 0;
          padding-inline: 16px; padding-block: 16px 88px; }
   button { font: inherit; color: inherit; cursor: pointer; }
-  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  .layout { display: grid; gap: 24px; max-width: 1200px; margin: 0 auto; grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+  .layout { display: grid; gap: 24px; max-width: 1280px; margin: 0 auto; grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
   .stage { display: flex; justify-content: center; position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); }
   .device { background: #06080b; border-radius: 34px; padding: 12px; box-shadow: 0 18px 40px rgba(10,16,30,.25);
-            width: min(100%, 400px); aspect-ratio: 400 / 820; max-height: 86svh; }
+            width: min(100%, 400px); aspect-ratio: 400 / 820; max-height: 86svh; max-width: 100%; }
+  .device.landscape { width: min(100%, 860px); aspect-ratio: 860 / 400; max-height: none; }
   #screen { width: 100%; height: 100%; border-radius: 24px; overflow: hidden; position: relative; container-type: size;
             font-family: var(--legible); background: var(--s-bg); color: var(--s-ink); }
+  @media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } .stage { position: static; } }
   /* On a phone the prototype screen fills the viewport, like Carl will. */
-  @media (max-width: 880px) {
-    body { padding-block: 0 88px; }
-    .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-    .stage { position: static; margin-inline: -16px; }
-    .device { width: 100%; max-height: none; aspect-ratio: auto; height: calc(100svh - 72px); padding: 0; border-radius: 0; box-shadow: none; }
+  @media (max-width: 880px), (max-height: 500px) {
+    body { padding-block: 0 72px; }
+    .layout { gap: 16px; }
+    .stage { margin-inline: -16px; }
+    .device, .device.landscape { width: 100%; max-height: none; aspect-ratio: auto; height: calc(100svh - 60px); padding: 0; border-radius: 0; box-shadow: none; }
     #screen { border-radius: 0; }
+    .switcher { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 4px; }
+    .switcher button { width: 34px; height: 34px; }
   }
 
   /* ---------- shared screen pieces ---------- */
@@ -63,150 +68,134 @@
   @keyframes enter { from { opacity: 0; transform: translateY(12px); } }
   .enter { animation: enter .45s ease-out; }
   @media (prefers-reduced-motion: reduce) { .enter, .dot { animation: none !important; } }
-  .ind { display: inline-flex; align-items: center; gap: .55em; border-radius: 99px; padding: .45em 1em; background: var(--s-raise);
-         font-weight: 700; font-size: max(13px, 3.8cqmin); white-space: nowrap; }
+  .ind { display: inline-flex; align-items: center; gap: .5em; border-radius: 99px; padding: .4em .85em; background: var(--s-raise);
+         font-weight: 700; font-size: 13px; white-space: nowrap; flex: none; }
   .ind.listening { color: var(--ok); }
   .ind.paused { color: var(--pause); background: #2a2720; }
-  .ind.fail { color: var(--fail); background: repeating-linear-gradient(135deg, #2d211c 0 8px, #241b17 8px 16px); }
+  .ind.fail { color: var(--fail); background: repeating-linear-gradient(135deg, #3a261d 0 7px, #231a16 7px 14px); box-shadow: inset 0 0 0 1px #6a3a26; }
   .ind.fail .dot { border-radius: 2px; transform: rotate(45deg); }
-  .rec { display: inline-flex; align-items: center; gap: .45em; color: var(--rec); font-weight: 700; font-size: max(12px, 3.4cqmin);
-         border: 1px solid #5a2a2a; background: #2a1718; border-radius: 99px; padding: .4em .9em; white-space: nowrap; }
-  .live { font-style: italic; color: var(--s-muted); font-size: max(13px, 3.6cqmin); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .iconbtn { border: 0; background: var(--s-raise); color: var(--s-ink); border-radius: 99px; min-width: 44px; height: 44px; font-size: 18px; font-weight: 700; }
+  .rec { display: inline-flex; align-items: center; gap: .45em; color: var(--rec); font-weight: 700; font-size: 13px; font-family: var(--legible);
+         border: 1px solid #5a2a2a; background: #2a1718; border-radius: 99px; padding: .4em .8em; white-space: nowrap; flex: none; }
+  .live { font-style: italic; color: var(--s-muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .iconbtn { border: 0; background: var(--s-raise); color: var(--s-ink); border-radius: 99px; width: 36px; height: 36px; font-size: 16px; font-weight: 700; flex: none; }
+  .sbtn { border: 1px solid var(--s-line); background: transparent; border-radius: 8px; padding: .45em .85em; font-weight: 700; font-size: 13px; font-family: var(--legible); color: var(--s-ink); flex: none; white-space: nowrap; }
+  .sbtn.pausing { background: var(--pause); color: #1a1a1a; border-color: var(--pause); }
+  .sbtn.danger { background: var(--rec); color: #1c0909; border-color: var(--rec); }
+  .sp { flex: 1; min-width: 0; }
 
-  .card { display: flex; flex-direction: column; gap: 2.2cqmin; cursor: pointer; }
-  .kind { font-size: max(12px, 3.3cqmin); letter-spacing: .12em; text-transform: uppercase; display: flex; gap: .6em; align-items: center; font-weight: 700; }
+  /* the one-row top bar */
+  .bar1 { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--s-bar); border-bottom: 1px solid var(--s-line); flex: none; min-height: 52px; }
+  .bar1.confirm { background: #2a1718; }
+  .bar1.confirm b { font-size: 14px; }
+
+  .card { display: flex; flex-direction: column; gap: 2cqmin; cursor: pointer; }
+  .kind { font-size: max(12px, 3.1cqmin); letter-spacing: .12em; text-transform: uppercase; display: flex; gap: .6em; align-items: center; font-weight: 700; }
   .kind.claim { color: var(--claim); } .kind.question { color: var(--question); }
   .hedge { letter-spacing: .06em; border: 1px dashed currentColor; border-radius: 99px; padding: .05em .6em; font-size: .9em; }
-  .gist { font-size: max(14px, 4.4cqmin); color: #9aa6b6; }
-  .fact { font-size: max(20px, 7.2cqmin); line-height: 1.22; font-weight: 700; text-wrap: balance; }
+  .gist { font-size: max(14px, 4.2cqmin); color: #9aa6b6; }
+  .fact { font-size: max(20px, 7.4cqmin); line-height: 1.2; font-weight: 700; text-wrap: balance; }
   .card.hedged .fact { font-weight: 400; }
-  .src { font-size: max(12px, 3.3cqmin); color: var(--s-muted); }
-  .settledmark { align-self: flex-start; display: inline-flex; gap: .45em; align-items: center; font-size: max(12px, 3.4cqmin);
-                 color: var(--ok); border: 1px solid #2f5a40; border-radius: 99px; padding: .25em .8em; }
-  .pace { display: flex; flex-direction: column; gap: 1.2cqmin; color: var(--s-muted); font-size: max(12px, 3.3cqmin); }
+  .src { font-size: max(12px, 3.2cqmin); color: var(--s-muted); }
+  .settledmark { align-self: flex-start; display: inline-flex; gap: .45em; align-items: center; font-size: max(12px, 3.2cqmin);
+                 color: var(--ok); border: 1px solid #2f5a40; border-radius: 99px; padding: .2em .8em; }
+  .pace { display: flex; flex-direction: column; gap: 6px; color: var(--s-muted); font-size: 12px; }
   .bar { height: 4px; border-radius: 2px; background: var(--s-muted); opacity: .6; transform-origin: left; }
-  .empty { color: #5d6878; font-size: max(13px, 3.6cqmin); text-align: center; }
+  .empty { color: #5d6878; font-size: 12px; }
 
-  /* history rows (ledger style, newest on top, older smaller and dimmer) */
-  .hist { display: flex; flex-direction: column; gap: 2.4cqmin; }
-  .hrow { display: grid; grid-template-columns: auto 1fr; gap: .15em 2.6cqmin; padding: 2.6cqmin 3cqmin; border-radius: 8px; background: var(--s-raise); }
+  /* card history: ledger rows, newest on top, older ones dimmer */
+  .hist { display: flex; flex-direction: column; gap: 6px; }
+  .hrow { display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; padding: 6px 9px; border-radius: 6px; background: var(--s-raise); }
   .hrow.hedged { background: transparent; border: 1px dashed #4a5566; }
-  .hrow .glyph { grid-row: span 3; font-weight: 700; font-size: max(18px, 5.4cqmin); line-height: 1; }
+  .hrow .glyph { grid-row: span 3; font-weight: 700; font-size: 15px; line-height: 1.1; }
   .hrow .glyph.claim { color: var(--claim); } .hrow .glyph.question { color: var(--question); }
-  .hrow .g { font-size: max(11px, 3cqmin); color: var(--s-muted); letter-spacing: .05em; text-transform: uppercase; }
-  .hrow .f { font-size: max(14px, 4.4cqmin); line-height: 1.3; }
-  .hrow .s { font-size: max(11px, 3cqmin); color: var(--s-muted); }
-  .hrow.o1 { opacity: .8; } .hrow.o2 { opacity: .6; } .hrow.o3 { opacity: .45; }
-  .hrow.o1 .f, .hrow.o2 .f, .hrow.o3 .f { font-size: max(13px, 3.9cqmin); }
+  .hrow .g { font-size: 10px; color: var(--s-muted); letter-spacing: .06em; text-transform: uppercase; }
+  .hrow .f { font-size: 13px; line-height: 1.3; }
+  .hrow .s { font-size: 10px; color: var(--s-muted); }
+  .hrow.o1 { opacity: .8; } .hrow.o2 { opacity: .62; } .hrow.o3 { opacity: .48; }
+  .histhead { margin: 0; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--s-muted); font-weight: 700; }
 
-  .btn-s { border: 0; border-radius: 99px; padding: .8em 1.6em; font-weight: 700; font-size: max(15px, 4.4cqmin); font-family: var(--legible);
-           background: var(--s-raise2); color: var(--s-ink); }
-  .btn-s.primary { background: var(--ok); color: #0d1a12; }
-  .btn-s.danger { background: var(--rec); color: #1c0909; }
-  .btn-s.pausing { background: var(--pause); color: #1a1a1a; }
-  .btn-s.ghost { background: transparent; border: 1px solid var(--s-line); }
+  /* ---------- P: portrait ---------- */
+  .vP .cur { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 5cqmin; gap: 3cqmin; min-height: 0; overflow: hidden; }
+  .vP .ledger { flex: 0 0 30%; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--s-line); background: #0c1015; }
 
-  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 3cqmin; width: 100%; border: 0; background: transparent;
-            padding: 2.4cqmin 0; font-size: max(14px, 4cqmin); text-align: left; font-family: var(--legible); color: var(--s-ink); }
+  /* ---------- L1: side column ---------- */
+  .vL1 .main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 30%; min-height: 0; }
+  .vL1 .cur { display: flex; flex-direction: column; justify-content: center; gap: 3cqmin; padding: 4cqmin 6cqmin; min-height: 0; overflow: hidden; }
+  .vL1 .ledger { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; border-left: 1px solid var(--s-line); background: #0c1015; }
+
+  /* ---------- L2: control rail ---------- */
+  .vL2 { flex-direction: row; }
+  .vL2 .rail { flex: 0 0 132px; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--s-bar); border-right: 1px solid var(--s-line); }
+  .vL2 .rail .ind, .vL2 .rail .rec { justify-content: center; }
+  .vL2 .rail .sbtn { width: 100%; padding-block: .7em; }
+  .vL2 .rail .railtop { display: flex; justify-content: flex-end; min-height: 36px; }
+  .vL2 .rail .ask { font-size: 13px; font-weight: 700; color: #ffb3b3; text-align: center; }
+  .vL2 .cur { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 3cqmin; padding: 4cqmin 5cqmin; min-width: 0; overflow: hidden; }
+  .vL2 .ledger { flex: 0 0 27%; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; border-left: 1px solid var(--s-line); background: #0c1015; }
+
+  /* ---------- L3: bottom shelf ---------- */
+  .vL3 .cur { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2.4cqmin; padding: 3cqmin 6cqmin; min-height: 0; overflow: hidden; }
+  .vL3 .shelf { flex: 0 0 27%; display: flex; gap: 8px; overflow-x: auto; padding: 8px 10px; border-top: 1px solid var(--s-line); background: #0c1015; align-items: stretch; }
+  .vL3 .shelf .hrow { flex: 0 0 min(34%, 260px); align-content: start; overflow: hidden; }
+  .vL3 .shelf .hrow .f { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .vL3 .shelf .empty { align-self: center; }
+
+  /* ---------- Start screen (from A), both orientations ---------- */
+  .startS { padding: 16px; gap: 10px; }
+  .startS .top { display: flex; align-items: center; gap: 8px; }
+  .startS .grid { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .startS .go { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  .bigstart { width: min(46cqmin, 220px); height: min(46cqmin, 220px); border-radius: 50%; border: 0; background: var(--ok); color: #0d1a12; font-size: max(22px, 6.4cqmin); font-weight: 700; font-family: var(--legible); box-shadow: 0 0 0 10px #16241b; }
+  .startS .side { display: flex; flex-direction: column; gap: 10px; }
+  .startS .opts { border-top: 1px solid var(--s-line); }
+  .startS .opts .toggle { border-bottom: 1px solid var(--s-line); }
+  .startS .cost { color: var(--s-muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+  .startS .cost b { color: var(--s-ink); }
+  @container (orientation: landscape) {
+    .startS .grid { flex-direction: row; align-items: stretch; gap: 24px; }
+    .startS .go { flex: 0 0 42%; }
+    .startS .side { flex: 1; justify-content: center; overflow-y: auto; }
+    .startS .cost { text-align: left; }
+  }
+  .textbtn { border: 0; background: transparent; color: #b9c6d6; font-size: 13px; padding: 6px 8px; font-family: var(--legible); }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; border: 0; background: transparent;
+            padding: 9px 0; font-size: 15px; text-align: left; font-family: var(--legible); color: var(--s-ink); }
   .toggle .sw { width: 44px; height: 26px; border-radius: 99px; background: #3a4452; position: relative; flex: none; }
   .toggle .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #c9d1dc; transition: left .15s; }
   .toggle[aria-checked="true"] .sw { background: var(--ok); }
   .toggle[aria-checked="true"].rectoggle .sw { background: var(--rec); }
   .toggle[aria-checked="true"] .sw::after { left: 21px; background: #fff; }
-  .toggle small { display: block; color: var(--s-muted); font-size: max(11px, 3cqmin); }
+  .toggle small { display: block; color: var(--s-muted); font-size: 11px; }
   .laterbadge { font: 600 10px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: #e0b45c; border: 1px solid #6b5423; border-radius: 4px; padding: 0 4px; margin-left: .5em; vertical-align: middle; }
 
-  .overlay { position: absolute; inset: 0; background: rgba(6,8,11,.82); display: flex; flex-direction: column; justify-content: flex-end; z-index: 5; }
-  .sheet { background: var(--s-raise); border-radius: 18px 18px 0 0; padding: 5cqmin; display: flex; flex-direction: column; gap: 3cqmin; max-height: 85%; overflow-y: auto; }
-  .sheet h2 { margin: 0; font-size: max(18px, 5.4cqmin); text-wrap: balance; }
-  .sheet p { margin: 0; color: #c3cbd6; font-size: max(14px, 4cqmin); }
-  .row { display: flex; gap: 2.4cqmin; flex-wrap: wrap; align-items: center; }
+  /* ---------- overlays and full screens ---------- */
+  .btn-s { border: 0; border-radius: 99px; padding: .75em 1.5em; font-weight: 700; font-size: 15px; font-family: var(--legible); background: var(--s-raise2); color: var(--s-ink); }
+  .btn-s.primary { background: var(--ok); color: #0d1a12; }
+  .btn-s.danger { background: var(--rec); color: #1c0909; }
+  .overlay { position: absolute; inset: 0; background: rgba(6,8,11,.82); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 5; }
+  .sheet { width: min(100%, 560px); background: var(--s-raise); border-radius: 18px 18px 0 0; padding: 18px; display: flex; flex-direction: column; gap: 10px; max-height: 92%; overflow-y: auto; }
+  .sheet h2 { margin: 0; font-size: 19px; text-wrap: balance; }
+  .sheet p { margin: 0; color: #c3cbd6; font-size: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .full { position: absolute; inset: 0; background: var(--s-bg); z-index: 4; display: flex; flex-direction: column; }
-  .full header { display: flex; align-items: center; gap: 3cqmin; padding: 4cqmin; border-bottom: 1px solid var(--s-line); }
-  .full header h2 { margin: 0; font-size: max(17px, 5cqmin); flex: 1; }
-  .full .body { flex: 1; overflow-y: auto; padding: 4cqmin; display: flex; flex-direction: column; gap: 4cqmin; }
-  .menu { position: absolute; top: 14cqmin; right: 4cqmin; background: var(--s-raise2); border-radius: 12px; padding: 1.5cqmin; display: flex; flex-direction: column; min-width: 55%; z-index: 6; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
-  .menu button { border: 0; background: transparent; text-align: left; padding: 2.6cqmin 3cqmin; font-size: max(14px, 4cqmin); font-family: var(--legible); border-radius: 8px; }
+  .full header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--s-line); flex: none; }
+  .full header h2 { margin: 0; font-size: 17px; flex: 1; }
+  .full .body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+  .full .foot { padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--s-line); flex: none; }
+  .menu { position: absolute; top: 56px; right: 10px; background: var(--s-raise2); border-radius: 12px; padding: 6px; display: flex; flex-direction: column; min-width: 200px; z-index: 6; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .menu.left { right: auto; left: 10px; }
+  .menu button { border: 0; background: transparent; text-align: left; padding: 10px 12px; font-size: 14px; font-family: var(--legible); border-radius: 8px; }
   .menu button:hover { background: var(--s-raise); }
-
-  /* ---------- Variant A: Stage ---------- */
-  .vA { padding: 5cqmin; gap: 3cqmin; }
-  .vA .top { display: flex; align-items: center; gap: 2cqmin; }
-  .vA .top .sp { flex: 1; }
-  .vA .liveA { text-align: center; }
-  .vA .center { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4cqmin; min-height: 0; }
-  .vA .handle { align-self: center; border: 0; background: transparent; color: var(--s-muted); font-size: max(13px, 3.6cqmin); padding: 1.5cqmin 3cqmin; }
-  .vA .bottom { display: grid; grid-template-columns: 1fr auto; gap: 3cqmin; align-items: stretch; }
-  .vA .bottom .btn-s { padding-block: 1em; }
-  .hold { position: relative; overflow: hidden; }
-  .hold .fill { position: absolute; inset: 0; background: var(--rec); opacity: .45; transform-origin: left; transform: scaleX(0); pointer-events: none; }
-  .hold span { position: relative; }
-  .vA .startA { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5cqmin; }
-  .vA .bigstart { width: 46cqmin; height: 46cqmin; border-radius: 50%; border: 0; background: var(--ok); color: #0d1a12; font-size: max(22px, 7cqmin); font-weight: 700; font-family: var(--legible); box-shadow: 0 0 0 10px #16241b; }
-  .vA .opts { width: 100%; border-top: 1px solid var(--s-line); }
-  .vA .opts .toggle { border-bottom: 1px solid var(--s-line); }
-  .vA .cost { text-align: center; color: var(--s-muted); font-size: max(12px, 3.4cqmin); font-variant-numeric: tabular-nums; }
-  .vA .cost b { color: var(--s-ink); }
-  .textbtn { border: 0; background: transparent; color: #b9c6d6; font-size: max(13px, 3.6cqmin); padding: 1.5cqmin 2cqmin; font-family: var(--legible); }
-
-  /* ---------- Variant B: Split ---------- */
-  .vB header { display: flex; flex-direction: column; gap: 2cqmin; padding: 4cqmin 4cqmin 3cqmin; border-bottom: 1px solid var(--s-line); background: #131820; }
-  .vB header .r { display: flex; align-items: center; gap: 2cqmin; }
-  .vB header .r .sp { flex: 1; min-width: 0; }
-  .vB .cur { flex: 0 0 55%; display: flex; flex-direction: column; justify-content: center; padding: 5cqmin; gap: 3cqmin; border-bottom: 1px solid var(--s-line); min-height: 0; overflow: hidden; }
-  .vB .cur .fact { font-size: max(19px, 6.6cqmin); }
-  .vB .ledger { flex: 1; overflow-y: auto; padding: 4cqmin; display: flex; flex-direction: column; gap: 2.4cqmin; }
-  .vB .ledger h3 { margin: 0; font-size: max(11px, 3cqmin); letter-spacing: .1em; text-transform: uppercase; color: var(--s-muted); }
-  .vB .smallbtn { border: 1px solid var(--s-line); background: transparent; border-radius: 8px; padding: .55em 1em; font-weight: 700; font-size: max(13px, 3.6cqmin); font-family: var(--legible); }
-  .vB .smallbtn.pausing { background: var(--pause); color: #1a1a1a; border-color: var(--pause); }
-  .vB .confirmbar { display: flex; align-items: center; gap: 2cqmin; background: #2a1718; border-radius: 10px; padding: 2cqmin 3cqmin; font-size: max(13px, 3.6cqmin); }
-  .vB .confirmbar .sp { flex: 1; }
-  .vB .startB { flex: 1; overflow-y: auto; padding: 5cqmin; display: flex; flex-direction: column; gap: 4cqmin; }
-  .vB .month { background: var(--s-raise); border-radius: 14px; padding: 4cqmin; display: flex; flex-direction: column; gap: 1cqmin; font-variant-numeric: tabular-nums; }
-  .vB .month .big { font-size: max(26px, 9cqmin); font-weight: 700; }
-  .vB .month small { color: var(--s-muted); font-size: max(12px, 3.3cqmin); }
-  .vB .list { display: flex; flex-direction: column; border-top: 1px solid var(--s-line); }
-  .vB .list > * { border-bottom: 1px solid var(--s-line); }
-  .vB .navrow { display: flex; justify-content: space-between; width: 100%; border: 0; background: transparent; padding: 3cqmin 0; font-size: max(14px, 4cqmin); font-family: var(--legible); }
-  .vB .startbar { padding: 4cqmin; border-top: 1px solid var(--s-line); }
-  .vB .startbar .btn-s { width: 100%; padding-block: 1em; }
-
-  /* ---------- Variant C: Frame ---------- */
-  .vC { box-shadow: inset 0 0 0 7px var(--frame, var(--ok)); }
-  .vC.st-paused { --frame: var(--pause); }
-  .vC.st-fail { --frame: var(--fail); }
-  .vC .strip { display: flex; gap: 2cqmin; overflow-x: auto; padding: 5cqmin 20cqmin 2cqmin 5cqmin; min-height: 18cqmin; align-items: center; }
-  .vC .strip .tile { flex: none; max-width: 38cqmin; border: 0; border-left: 4px solid; background: var(--s-raise); border-radius: 6px; padding: 1.6cqmin 2.4cqmin; text-align: left; font-size: max(11px, 3.1cqmin); color: #c3cbd6; font-family: var(--legible); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .vC .strip .tile.claim { border-color: var(--claim); } .vC .strip .tile.question { border-color: var(--question); }
-  .vC .strip .tile.o { opacity: .6; }
-  .vC .strip .none { color: #4d5868; font-size: max(12px, 3.3cqmin); }
-  .vC .menuC { position: absolute; top: 4.5cqmin; right: 4.5cqmin; }
-  .vC .center { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4cqmin; padding: 0 6cqmin; min-height: 0; }
-  .vC .pausezone { flex: 0 0 26%; border: 0; border-top: 1px solid var(--s-line); background: #121821; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqmin; margin: 0 7px 7px; border-radius: 0 0 18px 18px; font-family: var(--legible); }
-  .vC.st-paused .pausezone { background: #221f18; }
-  .vC .pausezone .state { font-size: max(18px, 6cqmin); font-weight: 700; display: flex; align-items: center; gap: .5em; }
-  .vC .pausezone .hint { color: var(--s-muted); font-size: max(12px, 3.4cqmin); }
-  .vC .reccorner { position: absolute; left: 5cqmin; bottom: calc(26% + 3cqmin); }
-  .vC .startC { flex: 1; display: flex; flex-direction: column; padding: 6cqmin; gap: 4cqmin; }
-  .vC .bigtext { flex: 1; border: 0; background: transparent; color: var(--ok); font-size: max(40px, 16cqmin); font-weight: 700; font-family: var(--legible); text-align: left; line-height: 1; display: flex; flex-direction: column; justify-content: center; gap: 2cqmin; }
-  .vC .bigtext small { font-size: max(13px, 3.8cqmin); color: var(--s-muted); font-weight: 400; }
-  .vC .chips { display: flex; flex-wrap: wrap; gap: 2cqmin; }
-  .vC .chip { border: 1px solid var(--s-line); background: transparent; border-radius: 99px; padding: .5em 1em; font-size: max(13px, 3.6cqmin); font-family: var(--legible); color: var(--s-muted); }
-  .vC .chip[aria-pressed="true"] { background: var(--s-raise2); color: var(--s-ink); border-color: #4a5566; }
-  .vC .chip.recchip[aria-pressed="true"] { color: var(--rec); border-color: #5a2a2a; background: #2a1718; }
-  .vC .receipt { font-family: var(--mono); font-size: max(11px, 3.2cqmin); color: var(--s-muted); border-top: 1px dashed var(--s-line); padding-top: 3cqmin; display: grid; grid-template-columns: 1fr auto; gap: .3em 1em; font-variant-numeric: tabular-nums; }
-
-  /* archive + log */
-  .sess { display: flex; flex-direction: column; gap: 2.4cqmin; }
-  .sess h3 { margin: 0; font-size: max(14px, 4cqmin); display: flex; justify-content: space-between; gap: 2cqmin; }
+  .receipt { font-family: var(--mono); color: var(--s-muted); display: grid; grid-template-columns: 1fr auto; gap: .4em 1em; font-variant-numeric: tabular-nums; font-size: 13px; width: min(100%, 420px); }
+  .sess { display: flex; flex-direction: column; gap: 8px; }
+  .sess h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
   .sess h3 small { color: var(--s-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
-  .marks { display: flex; gap: 2cqmin; grid-column: 2; margin-top: 1cqmin; }
-  .mark { border: 1px solid var(--s-line); background: transparent; border-radius: 99px; padding: .2em .8em; font-size: max(11px, 3cqmin); color: var(--s-muted); font-family: var(--legible); }
+  .marks { display: flex; gap: 6px; grid-column: 2; margin-top: 4px; }
+  .mark { border: 1px solid var(--s-line); background: transparent; border-radius: 99px; padding: .15em .8em; font-size: 11px; color: var(--s-muted); font-family: var(--legible); }
   .mark[aria-pressed="true"] { background: #3a2226; border-color: #7a3a40; color: #ffb3b3; }
-  textarea.note { width: 100%; min-height: 16cqmin; background: var(--s-raise); color: var(--s-ink); border: 1px solid var(--s-line); border-radius: 8px; padding: 2cqmin; font: max(13px, 3.6cqmin)/1.4 var(--legible); resize: vertical; }
-  .logt { width: 100%; border-collapse: collapse; font-size: max(11px, 3.1cqmin); font-variant-numeric: tabular-nums; }
-  .logt td { padding: 1.6cqmin 1cqmin; border-bottom: 1px solid var(--s-line); vertical-align: top; }
+  textarea.note { width: 100%; min-height: 60px; background: var(--s-raise); color: var(--s-ink); border: 1px solid var(--s-line); border-radius: 8px; padding: 8px; font: 13px/1.4 var(--legible); resize: vertical; }
+  .logt { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .logt td { padding: 6px 4px; border-bottom: 1px solid var(--s-line); vertical-align: top; }
   .logt td:first-child { font-family: var(--mono); color: var(--s-muted); white-space: nowrap; }
   .logt .k { color: var(--fail); }
   .logt small { color: var(--s-muted); display: block; }
@@ -237,7 +226,6 @@
   .plog .ts { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .plog .heard { color: var(--muted); font-style: italic; }
   .later { color: var(--later); font-weight: 600; }
-
   .switcher { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 4px;
               background: #111; color: #fff; border-radius: 99px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.3); z-index: 10; font-family: var(--ui); max-width: calc(100% - 32px); }
   .switcher button { border: 0; background: #2a2a2a; color: #fff; border-radius: 99px; width: 40px; height: 40px; font-size: 16px; flex: none; }
@@ -245,13 +233,14 @@
 </style>
 
 <div class="layout">
-  <div class="stage"><div class="device"><div id="screen"></div></div></div>
+  <div class="stage"><div class="device" id="device"><div id="screen"></div></div></div>
 
   <aside class="panel">
     <div class="group">
-      <span class="eyebrow">Carl · prototype · throwaway</span>
+      <span class="eyebrow">Carl · prototype · throwaway · round 2</span>
       <h1>What should the first version's screen look like?</h1>
-      <p>The phone runs a scripted Finnish dinner. Tap <b>Start</b> on it to begin: the scene clock starts with the session. Tap cards away, Pause, End and tap the red recording mark as anyone at the table would. Flip between three session screens with the bar at the bottom (or ← →).</p>
+      <p>Your first answers are built in: B's session screen with a one-row top bar and a smaller card history, A's Start screen, End with a confirm step, the striped indicator and English. New: three landscape layouts. On a phone, turn it sideways for L1–L3.</p>
+      <p>Tap <b>Start</b> on the phone to begin; the scripted Finnish dinner starts with the session. Flip layouts with the bar at the bottom (or ← →).</p>
     </div>
 
     <div class="group">
@@ -264,15 +253,9 @@
     </div>
 
     <div class="group">
-      <span class="eyebrow">Screen</span>
+      <span class="eyebrow">Layout</span>
       <div class="seg" id="variant"></div>
       <p id="variantNote"></p>
-    </div>
-
-    <div class="group">
-      <span class="eyebrow">Language of Carl's own words (labels, buttons)</span>
-      <div class="seg" id="lang"></div>
-      <p>Cards follow the conversation, which is Finnish here.</p>
     </div>
 
     <div class="group">
@@ -297,12 +280,10 @@
     <div class="group">
       <span class="eyebrow">What to react to</span>
       <ol class="questions">
-        <li><b>Session layout.</b> A, B or C, or which parts of each?</li>
-        <li><b>Where the card history lives:</b> behind a handle (A), always under the card (B) or as a strip of titles (C)?</li>
-        <li><b>End:</b> hold to end (A), tap then confirm (B) or inside the ⋯ menu (C)? Anyone at the table can reach it.</li>
-        <li><b>Can't hear / can't check:</b> a striped pill (A, B) or the screen's whole frame changing colour (C)?</li>
-        <li><b>Start screen:</b> which one, and is anything missing or too much?</li>
-        <li><b>Carl's own words:</b> Finnish, English or both?</li>
+        <li><b>Landscape:</b> L1, L2 or L3, or which parts of each?</li>
+        <li><b>Portrait top bar:</b> is one row right now, and is the smaller history the right size?</li>
+        <li><b>Rotation:</b> should Carl follow the phone (portrait and landscape both), or be landscape only?</li>
+        <li><b>Start screen in landscape:</b> Start on the left, the switches and cost on the right. Anything missing?</li>
       </ol>
     </div>
 
@@ -313,31 +294,13 @@
   </aside>
 </div>
 
-<div class="switcher" aria-label="Screen variant">
-  <button id="prev" aria-label="Previous screen">←</button>
+<div class="switcher" aria-label="Layout">
+  <button id="prev" aria-label="Previous layout">←</button>
   <span id="switchLabel"></span>
-  <button id="next" aria-label="Next screen">→</button>
+  <button id="next" aria-label="Next layout">→</button>
 </div>
 
 <script>
-/* ======================================================================
-   Words. Carl's own UI text in Finnish and English.
-   ====================================================================== */
-const W = {
-  listening: ["Kuuntelee", "Listening"], paused: ["Tauolla", "Paused"],
-  cantHear: ["Ei kuule", "Can't hear"], cantCheck: ["Ei voi tarkistaa", "Can't check"],
-  recording: ["Tallennetaan", "Recording"], pause: ["Tauko", "Pause"], resume: ["Jatka", "Resume"],
-  end: ["Lopeta", "End"], holdEnd: ["Pidä: lopeta", "Hold to end"], claim: ["Väite", "Claim"], question: ["Kysymys", "Question"],
-  probably: ["Todennäköisesti", "Probably"], settled: ["Ratkesi pöydässä", "Settled at the table"],
-  waiting: ["odottaa", "waiting"], earlier: ["Aiemmat kortit", "Earlier cards"], close: ["Sulje", "Close"],
-  start: ["Aloita", "Start"], record: ["Tallenna tämä istunto", "Record this session"], recordSub: ["Testikäyttö, vaatii ilmoituksen", "Test use; needs the disclosure"],
-  location: ["Sijainti", "Location"], liveLine: ["Tekstirivi", "Transcript line"], archive: ["Korttiarkisto", "Card archive"], log: ["Loki", "Log"],
-  month: ["Tämä kuu", "This month"], last: ["Edellinen istunto", "Last session"],
-  endQ: ["Lopetetaanko istunto?", "End the session?"], cancel: ["Peru", "Cancel"], menu: ["Valikko", "Menu"],
-  tapPause: ["napauta: tauko", "tap to pause"], tapResume: ["napauta: jatka", "tap to resume"],
-  nothingYet: ["Ei vielä kortteja", "No cards yet"],
-  startHint: ["Carl kuulee vasta tästä eteenpäin", "Carl hears nothing before this"],
-};
 const CARDS = {
   einstein: { kind: "claim", band: "plain", gist: "Einstein ja matematiikka", fact: "Einstein ei reputtanut matematiikkaa. Hän menestyi siinä ja opiskeli itse differentiaalilaskentaa 15-vuotiaana.", src: "Wikipedia · Albert Einstein" },
   amelie: { kind: "question", band: "plain", gist: "Kuka esitti Amélieta", fact: "Amélieta esitti Audrey Tautou vuoden 2001 elokuvassa.", src: "IMDb · Amélie (2001)" },
@@ -348,11 +311,9 @@ const CARDS = {
   sibelius: { kind: "claim", band: "hedged", gist: "Sibeliuksen viimeinen sinfonia", fact: "Sibelius sävelsi seitsemän sinfoniaa; kahdeksas jäi keskeneräiseksi ja hän poltti sen.", src: "Sibelius.fi · Sinfoniat" },
   everest: { kind: "claim", band: "plain", gist: "Mount Everestin korkeus", fact: "", src: "" },
 };
+/* Carl adds the hedge prefix in the card's language (Finnish here). */
+const HEDGE = "Todennäköisesti";
 
-/* ======================================================================
-   Scene script (seconds from Start). say / cand (with check time) / settle
-   (before = dropped, agree = mark on screen) / outage.
-   ====================================================================== */
 const SCRIPT = [
   { t: 1, say: "No, miten Rooman-matka meni?" },
   { t: 3, say: "Hyvin. Tiesitkö muuten, että Einstein reputti koulussa matematiikan?" },
@@ -366,7 +327,7 @@ const SCRIPT = [
   { t: 33, say: "Ei näe, se on myytti. Astronautit sanoo, ettei näe." },
   { t: 34, settle: "wall" },
   { t: 40, outage: "hear", why: "connection", dur: 6 },
-  { t: 43, say: "(sanottu yhteyden ollessa poikki)", lost: true },
+  { t: 43, say: "(said while the connection was down)", lost: true },
   { t: 49, say: "Mikä on nykyään Helsingin korkein rakennus?" },
   { t: 51, say: "Ei hajuakaan. Joku Kalasatamassa?" },
   { t: 52, cand: "tallest", ready: 5 },
@@ -382,7 +343,7 @@ const SCRIPT = [
   { t: 86, settle: "everest", before: true },
   { t: 90, outage: "check", why: "fact-checking", dur: 10 },
   { t: 104, tap: "pause" },
-  { t: 107, say: "(tauolla: ei kuulla eikä tallenneta)", lost: true },
+  { t: 107, say: "(paused: not heard or kept)", lost: true },
   { t: 114, tap: "resume" },
   { t: 116, say: "No niin. Kenen vuoro on maksaa?" },
 ];
@@ -399,35 +360,30 @@ const WATCH = [
   [104, "Someone taps Pause; resumed at 1:54."],
 ];
 
-/* ======================================================================
-   State.
-   ====================================================================== */
 const store = {
-  get(k, d) { try { return localStorage.getItem("carl-screen-" + k) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem("carl-screen-" + k, v); } catch {} },
+  get(k, d) { try { return localStorage.getItem("carl-screen2-" + k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("carl-screen2-" + k, v); } catch {} },
 };
 const VARIANTS = {
-  A: { name: "Stage", note: "The card alone in the middle. Indicator on top, a big Pause at the bottom, End held down for a second. The history hides behind an \"Earlier cards\" handle." },
-  B: { name: "Split", note: "A header bar with the indicator, transcript line, Pause and End (tap, then confirm). The current card fills the top half; the history is always visible below it." },
-  C: { name: "Frame", note: "The screen's frame colour is the indicator. The bottom quarter is one big Pause button. Earlier cards are a strip of titles at the top; End lives in the ⋯ menu." },
+  P: { name: "Portrait", land: false, note: "B's session screen: indicator, recording mark, Pause, End and ⋯ on one row; the current card takes most of the screen; the card history scrolls in the bottom 30% in small type." },
+  L1: { name: "Side column", land: true, note: "The same one-row top bar across the width. The current card on the left, the card history as a scrolling column on the right (30%). The transcript line fits in the top bar." },
+  L2: { name: "Control rail", land: true, note: "No top bar: indicator, recording mark, Pause and End stacked in a narrow rail on the left. Card in the middle, card history on the right. The card gets the full height." },
+  L3: { name: "Bottom shelf", land: true, note: "One-row top bar; the current card uses the full width; the card history is a shelf of small cards along the bottom, newest on the left, scrolled sideways." },
 };
 const hv = location.hash.replace("#", "");
-const knobs = {
-  variant: VARIANTS[hv] ? hv : store.get("variant", "A"),
-  lang: store.get("lang", "fi"), later: store.get("later", "on"), speed: Number(store.get("speed", "1")),
-};
-const L = (k) => { const [fi, en] = W[k]; return knobs.lang === "fi" ? fi : knobs.lang === "en" ? en : `${fi} · ${en}`; };
+const knobs = { variant: VARIANTS[hv] ? hv : store.get("variant", "P"), later: store.get("later", "on"), speed: Number(store.get("speed", "1")) };
+if (!VARIANTS[knobs.variant]) knobs.variant = "P";
 const showLater = () => knobs.later === "on";
 const LATERTAG = () => `<span class="laterbadge">later</span>`;
 
 const OLD_LOG = [
-  { when: "ke 23.9. 20.14", stage: "fact-finding B", kind: "timeout", model: "gemini-3.8-flash · Perplexity", code: "—", cand: "C4" },
-  { when: "ke 23.9. 20.51–20.52", stage: "speech-to-text", kind: "dropped", model: "soniox stt-rt-v5", code: "1006", outage: "can't hear · 3 utterances skipped" },
+  { when: "Wed 23 Sep 20:14", stage: "fact-finding B", kind: "timeout", model: "gemini-3.8-flash · Perplexity", code: "—", cand: "C4" },
+  { when: "Wed 23 Sep 20:51–20:52", stage: "speech-to-text", kind: "dropped", model: "soniox stt-rt-v5", code: "1006", outage: "can't hear · 3 utterances skipped" },
 ];
 const ARCHIVE = [
-  { id: "a1", when: "ke 23.9. klo 19.02", listen: "1 h 41 min", cards: [
+  { id: "a1", when: "Wed 23 Sep, 19:02", listen: "1 h 41 min", cards: [
     { kind: "claim", band: "plain", gist: "Tampereen ja Helsingin väliset junat", fact: "Nopein juna kulkee välin noin 1 h 26 min.", src: "VR · Aikataulut", marks: {} },
-    { kind: "question", band: "hedged", gist: "Muumien ensimmäinen kirja", fact: "Todennäköisesti: Muumit ja suuri tulva, 1945.", src: "Moomin.com", marks: { pointless: true } } ], note: "" },
+    { kind: "question", band: "hedged", gist: "Muumien ensimmäinen kirja", fact: "Muumit ja suuri tulva, 1945.", src: "Moomin.com", marks: { pointless: true } } ], note: "" },
 ];
 
 let S;
@@ -435,8 +391,8 @@ function fresh() {
   return {
     phase: "start", t: 0, cursor: 0, rec: false, recStopped: false, loc: true, live: false,
     paused: false, outages: [], cards: [], heardText: "", speakingUntil: 0, plog: [], faillog: [],
-    overlay: null, menu: false, histOpen: false, zoom: null, holdStart: null, endConfirm: false,
-    lastSession: { when: "ke 23.9.", dur: "1 h 41 min", eur: "0,86", perh: "0,51" }, monthEur: 4.82, clearConfirm: false,
+    overlay: null, menu: false, endConfirm: false, listened: 0,
+    lastSession: { when: "Wed 23 Sep", dur: "1 h 41 min", eur: "0.86", perh: "0.51" }, monthEur: 4.82, clearConfirm: false,
   };
 }
 S = fresh();
@@ -445,6 +401,7 @@ const note = (text, kind = "event") => S.plog.push({ t: S.t, text, kind });
 const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
+/* ---------- simulation ---------- */
 const activeOutage = () => S.outages.find((o) => S.t >= o.from && S.t < o.to);
 function indState() {
   if (S.paused) return "paused";
@@ -456,13 +413,11 @@ const recOn = () => S.rec && !S.recStopped && !S.paused && !(activeOutage() && a
 const shown = () => S.cards.find((c) => c.status === "shown");
 const waitingCards = () => S.cards.filter((c) => c.status === "waiting").sort((a, b) => a.utt - b.utt);
 const history = () => S.cards.filter((c) => c.status === "history").sort((a, b) => b.utt - a.utt);
-
 function toHistory(c, why) { c.status = "history"; note(why); }
 function pace() {
   for (const c of S.cards) if (c.status === "checking" && S.t >= c.readyAt) { c.status = "waiting"; note(`Card ready: “${CARDS[c.id].gist}” (${(c.readyAt - c.utt).toFixed(0)} s after the utterance).`); }
   const cur = shown();
-  const w = waitingCards();
-  if (cur && w.length && S.t >= cur.shownAt + MIN_SHOW) toHistory(cur, `“${CARDS[cur.id].gist}” gives way to a waiting card after ${Math.round(S.t - cur.shownAt)} s on screen.`);
+  if (cur && waitingCards().length && S.t >= cur.shownAt + MIN_SHOW) toHistory(cur, `“${CARDS[cur.id].gist}” gives way to a waiting card after ${Math.round(S.t - cur.shownAt)} s on screen.`);
   for (const c of waitingCards()) {
     if (S.t - c.utt > LATE) { toHistory(c, `“${CARDS[c.id].gist}” is a late card (${Math.round(S.t - c.utt)} s): straight into the card history.`); continue; }
     if (!shown()) { c.status = "shown"; c.shownAt = S.t; note(`On screen: “${CARDS[c.id].gist}”.`); }
@@ -482,17 +437,13 @@ function applyEvent(e) {
     if (!c) return;
     if (c.status === "checking" || c.status === "waiting") { c.status = "dropped"; note(`The table settled “${CARDS[c.id].gist}” before its card was shown. Dropped, nothing shown.`); }
     else if (c.status === "shown") { c.settled = true; note(`The table agrees with “${CARDS[c.id].gist}” on screen: marked settled.`); }
-  } else if (e.outage) {
-    startOutage(e.outage, e.why, e.dur);
-  } else if (e.tap) {
-    setPaused(e.tap === "pause", "Someone at the table");
-  }
+  } else if (e.outage) startOutage(e.outage, e.why, e.dur);
+  else if (e.tap) setPaused(e.tap === "pause", "Someone at the table");
 }
 function startOutage(kind, why, dur) {
   const o = { kind, why, from: S.t, to: S.t + dur, skipped: 0 };
-  S.outages.push(o);
+  S.outages.push(o); S.faillog.push(o);
   note(kind === "hear" ? `Connection dropped: can't hear for ${dur} s.` : `Fact-checking down (2 failed candidates in a row): can't check for ${dur} s.`);
-  S.faillog.push(o);
 }
 function setPaused(v, who) {
   if (S.paused === v) return;
@@ -507,201 +458,151 @@ function advance(dt) {
   S.t = end; pace();
 }
 
-/* ======================================================================
-   Rendering pieces.
-   ====================================================================== */
+/* ---------- rendering pieces ---------- */
+const IND = { listening: "Listening", paused: "Paused", cantHear: "Can't hear", cantCheck: "Can't check" };
 function indicator() {
   const st = indState();
-  const cls = st === "listening" ? "listening" : st === "paused" ? "paused" : "fail";
-  return `<span class="ind ${cls}"><span class="dot"></span>${L(st)}</span>`;
+  return `<span class="ind ${st === "listening" ? "listening" : st === "paused" ? "paused" : "fail"}"><span class="dot"></span>${IND[st]}</span>`;
 }
-function recMark() { return recOn() ? `<button class="rec" data-act="recmark" style="font-family:inherit"><span class="dot"></span>${L("recording")}</button>` : ""; }
-function liveLine(cls = "") {
+const recMark = () => recOn() ? `<button class="rec" data-act="recmark"><span class="dot"></span>Recording</button>` : "";
+function liveLine() {
   if (!S.live || !showLater()) return "";
-  const txt = S.paused ? "—" : S.heardText ? `“${esc(S.heardText)}”` : "…";
-  return `<div class="live ${cls}">${txt}</div>`;
+  return `<div class="live">${S.paused ? "—" : S.heardText ? `“${esc(S.heardText)}”` : "…"}</div>`;
+}
+const menuBtn = () => showLater() ? `<button class="iconbtn" data-act="menu" aria-label="Menu">⋯</button>` : "";
+const pauseBtn = () => `<button class="sbtn ${S.paused ? "pausing" : ""}" data-act="pause">${S.paused ? "Resume" : "Pause"}</button>`;
+function topBar(withLive) {
+  if (S.endConfirm) return `<div class="bar1 confirm"><b>End the session?</b><span class="sp"></span><button class="sbtn" data-act="endno">Cancel</button><button class="sbtn danger" data-act="endyes">End</button></div>`;
+  const live = withLive ? liveLine() : "";
+  return `<div class="bar1">${indicator()}${recMark()}${live ? `<span class="sp" style="padding:0 6px">${live}</span>` : `<span class="sp"></span>`}${pauseBtn()}<button class="sbtn" data-act="endask">End</button>${menuBtn()}</div>`;
 }
 function bigCard(c) {
-  const d = CARDS[c.id], fresh = S.t - c.shownAt < 0.5 ? "enter" : "";
-  const hedge = d.band === "hedged" ? `<span class="hedge">${L("probably")}</span>` : "";
-  const fact = d.band === "hedged" ? `${L("probably")}: ${d.fact}` : d.fact;
-  const settled = c.settled && showLater() ? `<span class="settledmark">✓ ${L("settled")}${LATERTAG()}</span>` : "";
-  return `<div class="card ${d.band} ${fresh}" data-act="tapcard">
-    <div class="kind ${d.kind}"><span class="dot"></span>${L(d.kind)} ${hedge}</div>
+  const d = CARDS[c.id], fr = S.t - c.shownAt < 0.5 ? "enter" : "";
+  const hedge = d.band === "hedged" ? `<span class="hedge">Hedged</span>` : "";
+  const fact = d.band === "hedged" ? `${HEDGE}: ${d.fact}` : d.fact;
+  const settled = c.settled && showLater() ? `<span class="settledmark">✓ Settled at the table${LATERTAG()}</span>` : "";
+  return `<div class="card ${d.band} ${fr}" data-act="tapcard">
+    <div class="kind ${d.kind}"><span class="dot"></span>${d.kind === "claim" ? "Claim" : "Question"} ${hedge}</div>
     <div class="gist">${esc(d.gist)}</div><div class="fact">${esc(fact)}</div><div class="src">${esc(d.src)}</div>${settled}</div>`;
 }
 function paceNote() {
-  const w = waitingCards().length, cur = shown();
-  if (!w || !cur) return "";
-  return `<div class="pace"><span>+${w} ${L("waiting")}</span><div class="bar" data-bar></div></div>`;
+  const w = waitingCards().length;
+  if (!w || !shown()) return "";
+  return `<div class="pace"><span>+${w} waiting</span><div class="bar" data-bar></div></div>`;
 }
-function histRows(list) {
-  if (!list.length) return `<div class="empty">${L("nothingYet")}</div>`;
-  return `<div class="hist">${list.map((c, i) => {
-    const d = CARDS[c.id], f = d.band === "hedged" ? `${L("probably")}: ${d.fact}` : d.fact;
-    return `<div class="hrow ${d.band} o${Math.min(i, 3)}"><div class="glyph ${d.kind}">${d.kind === "claim" ? "≠" : "?"}</div>
-      <div class="g">${esc(d.gist)}</div><div class="f">${esc(f)}</div><div class="s">${esc(d.src)}${c.settled && showLater() ? ` · ✓ ${L("settled")}` : ""}</div></div>`;
-  }).join("")}</div>`;
+const current = () => { const c = shown(); return c ? bigCard(c) + paceNote() : ""; };
+function row(d, c, i, extra = "") {
+  const f = d.band === "hedged" ? `${HEDGE}: ${d.fact}` : d.fact;
+  return `<div class="hrow ${d.band} o${Math.min(i, 3)}"><div class="glyph ${d.kind}">${d.kind === "claim" ? "≠" : "?"}</div>
+    <div class="g">${esc(d.gist)}</div><div class="f">${esc(f)}</div><div class="s">${esc(d.src)}${c && c.settled && showLater() ? " · ✓ Settled" : ""}</div>${extra}</div>`;
+}
+function histRows() {
+  const h = history();
+  return h.length ? `<div class="hist">${h.map((c, i) => row(CARDS[c.id], c, i)).join("")}</div>` : `<div class="empty">No cards yet</div>`;
 }
 function toggle(key, label, sub = "", cls = "", later = false) {
   return `<button class="toggle ${cls}" role="switch" aria-checked="${S[key]}" data-act="toggle" data-key="${key}"><span>${label}${later ? LATERTAG() : ""}${sub ? `<small>${sub}</small>` : ""}</span><span class="sw"></span></button>`;
 }
-const costLine = () => `≈ €${S.monthEur.toFixed(2).replace(".", ",")}`;
-const lastLine = () => `${S.lastSession.when} · ${S.lastSession.dur} · ≈ €${S.lastSession.eur} (€${S.lastSession.perh}/h)`;
 
-/* ---------- Variant A: Stage ---------- */
-function startA() {
-  return `<div class="scr vA">
-    <div class="top">${showLater() ? `<button class="textbtn" data-act="archive">${L("archive")}${LATERTAG()}</button>` : ""}<span class="sp"></span>${showLater() ? `<button class="textbtn" data-act="log">${L("log")}${LATERTAG()}</button>` : ""}</div>
-    <div class="startA"><button class="bigstart" data-act="start">${L("start")}</button></div>
-    <div class="opts">${toggle("rec", L("record"), L("recordSub"), "rectoggle")}${toggle("loc", L("location"))}${showLater() ? toggle("live", L("liveLine"), "", "", true) : ""}</div>
-    <div class="cost">${L("month")} <b>${costLine()}</b><br>${L("last")}: ${lastLine()}</div></div>`;
-}
-function sessionA() {
-  const cur = shown(), h = history().length;
-  return `<div class="scr vA">
-    <div class="top">${indicator()}${recMark()}<span class="sp"></span>${showLater() ? `<button class="iconbtn" data-act="menu" aria-label="${L("menu")}">⋯</button>` : ""}</div>
-    ${liveLine("liveA")}
-    <div class="center">${cur ? bigCard(cur) + paceNote() : ""}</div>
-    ${h ? `<button class="handle" data-act="hist">⌃ ${L("earlier")} (${h})</button>` : ""}
-    <div class="bottom">
-      <button class="btn-s ${S.paused ? "pausing" : ""}" data-act="pause">${S.paused ? L("resume") : L("pause")}</button>
-      <button class="btn-s ghost hold" data-act="hold"><span class="fill" data-fill></span><span>${L("holdEnd")}</span></button>
-    </div>
-    ${S.histOpen ? `<div class="overlay" data-act="closehist"><div class="sheet" data-stop><h2>${L("earlier")}</h2>${histRows(history())}<button class="btn-s" data-act="closehist">${L("close")}</button></div></div>` : ""}
-  </div>`;
-}
-
-/* ---------- Variant B: Split ---------- */
-function startB() {
-  return `<div class="scr vB">
-    <header><div class="r"><b style="font-size:max(18px,5.4cqmin)">Carl</b></div></header>
-    <div class="startB">
-      <div class="month"><small>${L("month")}</small><span class="big">${costLine()}</span><small>${L("last")}: ${lastLine()}</small></div>
-      <div class="list">${toggle("rec", L("record"), L("recordSub"), "rectoggle")}${toggle("loc", L("location"))}${showLater() ? toggle("live", L("liveLine"), "", "", true) : ""}
-        ${showLater() ? `<button class="navrow" data-act="archive"><span>${L("archive")}${LATERTAG()}</span><span>›</span></button><button class="navrow" data-act="log"><span>${L("log")}${LATERTAG()}</span><span>›</span></button>` : ""}</div>
-    </div>
-    <div class="startbar"><button class="btn-s primary" data-act="start">${L("start")}</button></div></div>`;
-}
-function sessionB() {
-  const cur = shown();
-  return `<div class="scr vB">
-    <header>
-      <div class="r">${indicator()}${recMark()}<span class="sp"></span>${showLater() ? `<button class="iconbtn" data-act="menu" aria-label="${L("menu")}">⋯</button>` : ""}</div>
-      ${S.endConfirm ? `<div class="confirmbar"><span class="sp">${L("endQ")}</span><button class="smallbtn" data-act="endno">${L("cancel")}</button><button class="smallbtn" style="background:var(--rec);color:#1c0909;border-color:var(--rec)" data-act="endyes">${L("end")}</button></div>`
-        : `<div class="r"><span class="sp">${liveLine()}</span><button class="smallbtn ${S.paused ? "pausing" : ""}" data-act="pause">${S.paused ? L("resume") : L("pause")}</button><button class="smallbtn" data-act="endask">${L("end")}</button></div>`}
-    </header>
-    <div class="cur">${cur ? bigCard(cur) + paceNote() : ""}</div>
-    <div class="ledger"><h3>${L("earlier")}</h3>${histRows(history())}</div></div>`;
-}
-
-/* ---------- Variant C: Frame ---------- */
-function startC() {
-  const chip = (k, label, cls = "", later = false) => `<button class="chip ${cls}" aria-pressed="${S[k]}" data-act="toggle" data-key="${k}">${S[k] ? "● " : "○ "}${label}${later ? LATERTAG() : ""}</button>`;
-  return `<div class="scr vC" style="--frame:#2a3340">
-    ${showLater() ? `<div class="menuC"><button class="iconbtn" data-act="menu" aria-label="${L("menu")}">⋯</button></div>` : ""}
-    <div class="startC">
-      <button class="bigtext" data-act="start">${L("start")} →<small>${L("startHint")}</small></button>
-      <div class="chips">${chip("rec", L("record"), "recchip")}${chip("loc", L("location"))}${showLater() ? chip("live", L("liveLine"), "", true) : ""}</div>
-      <div class="receipt"><span>${L("month")}</span><span>${costLine()}</span><span>${L("last")}</span><span>${S.lastSession.dur} · ≈ €${S.lastSession.eur}</span></div>
+/* ---------- screens ---------- */
+function startScreen() {
+  return `<div class="scr startS">
+    <div class="top">${showLater() ? `<button class="textbtn" data-act="archive">Card archive${LATERTAG()}</button>` : ""}<span class="sp"></span>${showLater() ? `<button class="textbtn" data-act="log">Log${LATERTAG()}</button>` : ""}</div>
+    <div class="grid">
+      <div class="go"><button class="bigstart" data-act="start">Start</button></div>
+      <div class="side">
+        <div class="opts">${toggle("rec", "Record this session", "Test use; read the disclosure to the table first", "rectoggle")}${toggle("loc", "Location")}${showLater() ? toggle("live", "Transcript line", "", "", true) : ""}</div>
+        <div class="cost">This month <b>≈ €${S.monthEur.toFixed(2)}</b><br>Last session: ${S.lastSession.when} · ${S.lastSession.dur} · ≈ €${S.lastSession.eur} (€${S.lastSession.perh}/h)</div>
+      </div>
     </div></div>`;
 }
-function sessionC() {
-  const st = indState(), cur = shown(), h = history();
-  const stCls = st === "paused" ? "st-paused" : st === "listening" ? "" : "st-fail";
-  const tiles = h.length ? h.map((c, i) => `<button class="tile ${CARDS[c.id].kind} ${i ? "o" : ""}" data-act="zoom" data-id="${c.id}">${esc(CARDS[c.id].gist)}</button>`).join("") : `<span class="none">${L("nothingYet")}</span>`;
-  const z = S.zoom && S.cards.find((c) => c.id === S.zoom);
-  return `<div class="scr vC ${stCls}">
-    <div class="strip">${tiles}</div>
-    <div class="menuC"><button class="iconbtn" data-act="menu" aria-label="${L("menu")}">⋯</button></div>
-    ${liveLine() ? `<div style="padding:0 6cqmin">${liveLine()}</div>` : ""}
-    <div class="center">${cur ? bigCard(cur) + paceNote() : ""}</div>
-    <div class="reccorner">${recMark()}</div>
-    <button class="pausezone" data-act="pause"><span class="state" style="color:var(--frame,var(--ok))"><span class="dot"></span>${L(st)}</span><span class="hint">${S.paused ? L("tapResume") : L("tapPause")}</span></button>
-    ${z ? `<div class="overlay" data-act="unzoom"><div class="sheet">${bigCard({ ...z, shownAt: -9 })}<button class="btn-s" data-act="unzoom">${L("close")}</button></div></div>` : ""}
-  </div>`;
+function sessionP() {
+  return `<div class="scr vP">${topBar(false)}
+    <div class="cur">${current()}${liveLine()}</div>
+    <div class="ledger"><h3 class="histhead">Earlier cards</h3>${histRows()}</div></div>`;
 }
-
-/* ---------- shared screens ---------- */
+function sessionL1() {
+  return `<div class="scr vL1">${topBar(true)}
+    <div class="main"><div class="cur">${current()}</div><div class="ledger"><h3 class="histhead">Earlier cards</h3>${histRows()}</div></div></div>`;
+}
+function sessionL2() {
+  const ctrl = S.endConfirm
+    ? `<span class="ask">End the session?</span><button class="sbtn danger" data-act="endyes">End</button><button class="sbtn" data-act="endno">Cancel</button>`
+    : `${pauseBtn()}<button class="sbtn" data-act="endask">End</button>`;
+  return `<div class="scr vL2">
+    <div class="rail"><div class="railtop">${menuBtn()}</div>${indicator()}${recMark()}<span class="sp"></span>${ctrl}</div>
+    <div class="cur">${current()}${liveLine()}</div>
+    <div class="ledger"><h3 class="histhead">Earlier cards</h3>${histRows()}</div></div>`;
+}
+function sessionL3() {
+  const h = history();
+  return `<div class="scr vL3">${topBar(true)}
+    <div class="cur">${current()}</div>
+    <div class="shelf">${h.length ? h.map((c, i) => row(CARDS[c.id], c, i)).join("") : `<div class="empty">Earlier cards will line up here</div>`}</div></div>`;
+}
 function disclosure() {
   const locFi = S.loc ? " sekä puhelimen sijainnin" : "", locEn = S.loc ? " and the phone's location" : "";
-  return `<div class="full"><header><button class="iconbtn" data-act="back" aria-label="Back">←</button><h2>${L("record")}</h2></header>
+  return `<div class="full"><header><button class="iconbtn" data-act="back" aria-label="Back">←</button><h2>Record this session</h2></header>
     <div class="body">
-      <p style="margin:0;color:var(--s-muted);font-size:max(13px,3.6cqmin)">Lue tämä ääneen pöydälle · Read this aloud to the table</p>
-      <p style="margin:0;font-size:max(17px,5cqmin);line-height:1.35">Tämä on testi. Carl tallentaa keskustelun äänen ja tekstin${locFi}. Ääni ja raakalokit poistuvat 6 kuukauden kuluttua; korjattu teksti ilman nimiä säilyy siihen asti, kunnes poistan sen. Vain minä ja testattavat tekoälypalvelut käsittelevät niitä. Kuka tahansa voi pyytää lopettamaan tallennuksen.</p>
-      <p style="margin:0;color:#b9c6d6;font-size:max(14px,4cqmin);line-height:1.35">This is a test. Carl records the conversation's audio and text${locEn}. Audio and raw logs are deleted after 6 months; the corrected text, without names, stays until I delete it. Only I and the AI services being tested handle them. Anyone can ask to stop the recording.</p>
+      <p style="margin:0;color:var(--s-muted);font-size:13px">Read this aloud to the table</p>
+      <p style="margin:0;font-size:17px;line-height:1.35">Tämä on testi. Carl tallentaa keskustelun äänen ja tekstin${locFi}. Ääni ja raakalokit poistuvat 6 kuukauden kuluttua; korjattu teksti ilman nimiä säilyy siihen asti, kunnes poistan sen. Vain minä ja testattavat tekoälypalvelut käsittelevät niitä. Kuka tahansa voi pyytää lopettamaan tallennuksen.</p>
+      <p style="margin:0;color:#b9c6d6;font-size:15px;line-height:1.35">This is a test. Carl records the conversation's audio and text${locEn}. Audio and raw logs are deleted after 6 months; the corrected text, without names, stays until I delete it. Only I and the AI services being tested handle them. Anyone can ask to stop the recording.</p>
     </div>
-    <div style="padding:4cqmin;display:flex;flex-direction:column;gap:2.4cqmin;border-top:1px solid var(--s-line)">
-      <button class="btn-s danger" data-act="go-rec">● Kaikki suostuivat, aloita tallennus</button>
-      <button class="btn-s" data-act="go-norec">Aloita ilman tallennusta</button>
-    </div></div>`;
+    <div class="foot"><button class="btn-s danger" data-act="go-rec">● Everyone agreed, start recording</button><button class="btn-s" data-act="go-norec">Start without recording</button></div></div>`;
 }
-function stopRecSheet() {
-  return `<div class="overlay"><div class="sheet"><h2>Lopetetaanko tallennus?</h2>
-    <p>Kaikki tähän mennessä tallennettu poistetaan heti. Istunto jatkuu ilman tallennusta, eikä tallennusta voi enää laittaa takaisin päälle.</p>
-    <p style="color:var(--s-muted)">Stop recording? Everything recorded so far is deleted now. The session carries on unrecorded; recording can't be turned back on.</p>
-    <div class="row"><button class="btn-s danger" data-act="stoprec">Lopeta ja poista</button><button class="btn-s" data-act="closeov">${L("cancel")}</button></div></div></div>`;
-}
+const stopRecSheet = () => `<div class="overlay"><div class="sheet"><h2>Stop recording?</h2>
+  <p>Everything recorded so far is deleted now. The session carries on unrecorded, and recording can't be turned back on.</p>
+  <div class="row"><button class="btn-s danger" data-act="stoprec">Stop and delete</button><button class="btn-s" data-act="closeov">Keep recording</button></div></div></div>`;
 function menuPop() {
   const items = [];
-  if (S.phase === "session" && showLater()) items.push(`<button data-act="toggle" data-key="live">${S.live ? "✓ " : ""}${L("liveLine")}${LATERTAG()}</button>`);
-  if (showLater()) items.push(`<button data-act="log">${L("log")}${LATERTAG()}</button>`);
-  if (S.phase === "start" && showLater()) items.push(`<button data-act="archive">${L("archive")}${LATERTAG()}</button>`);
-  if (S.phase === "session" && knobs.variant === "C") items.push(S.endConfirm ? `<button data-act="endyes" style="color:var(--rec)">${L("endQ")} ✓</button>` : `<button data-act="endask">${L("end")}…</button>`);
-  return `<div class="menu" data-stop>${items.join("")}</div>`;
+  if (S.phase === "session") items.push(`<button data-act="toggle" data-key="live">${S.live ? "✓ " : ""}Transcript line${LATERTAG()}</button>`);
+  items.push(`<button data-act="log">Log${LATERTAG()}</button>`);
+  return `<div class="menu ${knobs.variant === "L2" ? "left" : ""}" data-stop>${items.join("")}</div>`;
 }
 function ended() {
-  return `<div class="full"><div class="body" style="justify-content:center;gap:5cqmin">
-    <h2 style="margin:0;font-size:max(22px,7cqmin)">Istunto päättyi</h2>
-    <div class="receipt" style="font-family:var(--mono);color:var(--s-muted);display:grid;grid-template-columns:1fr auto;gap:.4em 1em;font-variant-numeric:tabular-nums">
-      <span>Kuuntelua (ilman taukoja)</span><span>${fmt(S.listened)}</span><span>Kortteja</span><span>${S.cards.filter((c) => c.status === "history" || c.status === "shown").length}</span>
-      <span>Kustannus</span><span>≈ €0,02</span>${S.rec ? `<span>Tallennus</span><span>${S.recStopped ? "lopetettu ja poistettu" : "tallessa"}</span>` : ""}</div>
-    ${showLater() ? `<p style="margin:0;color:var(--s-muted)">Kortit siirtyivät korttiarkistoon.</p>` : ""}
+  return `<div class="full"><div class="body" style="justify-content:center;align-items:flex-start">
+    <h2 style="margin:0;font-size:22px">Session ended</h2>
+    <div class="receipt"><span>Listening time (without pauses)</span><span>${fmt(S.listened)}</span><span>Cards</span><span>${history().length}</span>
+      <span>Cost</span><span>≈ €0.02</span>${S.rec ? `<span>Recording</span><span>${S.recStopped ? "stopped and deleted" : "kept"}</span>` : ""}</div>
+    ${showLater() ? `<p style="margin:0;color:var(--s-muted)">The cards moved to the card archive.</p>` : ""}
     <button class="btn-s primary" data-act="tostart">OK</button></div></div>`;
 }
 function archive() {
   const sessions = [...(S.archived ? [S.archived] : []), ...ARCHIVE];
-  return `<div class="full"><header><button class="iconbtn" data-act="back" aria-label="Back">←</button><h2>${L("archive")}${LATERTAG()}</h2></header>
+  const marks = (s, c, i) => `<div class="marks"><button class="mark" aria-pressed="${!!c.marks.wrong}" data-act="mark" data-s="${s.id}" data-i="${i}" data-m="wrong">Wrong</button><button class="mark" aria-pressed="${!!c.marks.pointless}" data-act="mark" data-s="${s.id}" data-i="${i}" data-m="pointless">Pointless</button></div>`;
+  return `<div class="full"><header><button class="iconbtn" data-act="back" aria-label="Back">←</button><h2>Card archive${LATERTAG()}</h2></header>
     <div class="body">${sessions.map((s) => `<div class="sess"><h3>${s.when}<small>${s.listen}</small></h3>
-      ${s.cards.length ? `<div class="hist">${s.cards.map((c, i) => `<div class="hrow ${c.band}"><div class="glyph ${c.kind}">${c.kind === "claim" ? "≠" : "?"}</div>
-        <div class="g">${esc(c.gist)}</div><div class="f">${esc(c.fact)}</div><div class="s">${esc(c.src)}</div>
-        <div class="marks"><button class="mark" aria-pressed="${!!c.marks.wrong}" data-act="mark" data-s="${s.id}" data-i="${i}" data-m="wrong">Väärä</button><button class="mark" aria-pressed="${!!c.marks.pointless}" data-act="mark" data-s="${s.id}" data-i="${i}" data-m="pointless">Turha</button></div></div>`).join("")}</div>` : `<div class="empty" style="text-align:left">${L("nothingYet")}</div>`}
-      <textarea class="note" id="note-${s.id}" data-s="${s.id}" placeholder="Hetket, joissa Carlin olisi pitänyt sanoa jotain…"></textarea></div>`).join("")}</div></div>`;
+      ${s.cards.length ? `<div class="hist">${s.cards.map((c, i) => row(c, null, 0, marks(s, c, i))).join("")}</div>` : `<div class="empty">No cards</div>`}
+      <textarea class="note" id="note-${s.id}" data-s="${s.id}" placeholder="Moments Carl should have spoken…"></textarea></div>`).join("")}</div></div>`;
 }
 function logScreen() {
-  const rows = [...S.faillog.map((o) => ({ when: `tänään ${fmt(o.from)}–${fmt(o.to)}`, stage: o.kind === "hear" ? "connection" : o.why, kind: o.kind === "hear" ? "dropped" : "timeout", model: o.kind === "hear" ? "—" : "typesafe-jev", code: o.kind === "hear" ? "1006" : "504", outage: `${o.kind === "hear" ? "can't hear" : "can't check"} · ${o.skipped} utterances skipped` })).reverse(), ...(S.logCleared ? [] : OLD_LOG)];
-  return `<div class="full"><header><button class="iconbtn" data-act="back" aria-label="Back">←</button><h2>${L("log")}${LATERTAG()}</h2>
-    ${S.clearConfirm ? `<button class="btn-s danger" data-act="clearyes" style="padding:.5em 1em">Tyhjennä?</button>` : `<button class="btn-s ghost" data-act="clearask" style="padding:.5em 1em">Tyhjennä</button>`}</header>
-    <div class="body"><p style="margin:0;color:var(--s-muted);font-size:max(12px,3.3cqmin)">Hetket, jolloin Carl ei kuullut tai voinut tarkistaa. Merkinnät poistuvat 30 päivän kuluttua.</p>
-    ${rows.length ? `<table class="logt"><tbody>${rows.map((r) => `<tr><td>${r.when}</td><td><b>${r.stage}</b> · <span class="k">${r.kind}</span><small>${r.model} · ${r.code}${r.cand ? ` · ${r.cand}` : ""}</small>${r.outage ? `<small>${r.outage}</small>` : ""}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">Loki on tyhjä.</div>`}</div></div>`;
+  const rows = [...S.faillog.map((o) => ({ when: `Today ${fmt(o.from)}–${fmt(o.to)}`, stage: o.kind === "hear" ? "connection" : o.why, kind: o.kind === "hear" ? "dropped" : "timeout", model: o.kind === "hear" ? "—" : "typesafe-jev", code: o.kind === "hear" ? "1006" : "504", outage: `${o.kind === "hear" ? "can't hear" : "can't check"} · ${o.skipped} utterances skipped` })).reverse(), ...(S.logCleared ? [] : OLD_LOG)];
+  return `<div class="full"><header><button class="iconbtn" data-act="back" aria-label="Back">←</button><h2>Log${LATERTAG()}</h2>
+    ${S.clearConfirm ? `<button class="sbtn danger" data-act="clearyes">Clear the log?</button>` : `<button class="sbtn" data-act="clearask">Clear</button>`}</header>
+    <div class="body"><p style="margin:0;color:var(--s-muted);font-size:12px">Moments Carl couldn't hear or check. Entries are deleted after 30 days.</p>
+    ${rows.length ? `<table class="logt"><tbody>${rows.map((r) => `<tr><td>${r.when}</td><td><b>${r.stage}</b> · <span class="k">${r.kind}</span><small>${r.model} · ${r.code}${r.cand ? ` · ${r.cand}` : ""}</small>${r.outage ? `<small>${r.outage}</small>` : ""}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">The log is empty.</div>`}</div></div>`;
 }
 
-/* ======================================================================
-   Page shell.
-   ====================================================================== */
+/* ---------- page shell ---------- */
 let lastHtml = "";
 function renderScreen() {
-  const v = knobs.variant;
   let html;
-  if (S.phase === "start") html = { A: startA, B: startB, C: startC }[v]();
+  if (S.phase === "start") html = startScreen();
   else if (S.phase === "disclosure") html = disclosure();
   else if (S.phase === "ended") html = ended();
-  else html = { A: sessionA, B: sessionB, C: sessionC }[v]();
+  else html = { P: sessionP, L1: sessionL1, L2: sessionL2, L3: sessionL3 }[knobs.variant]();
   if (S.overlay === "archive") html += archive();
   if (S.overlay === "log") html += logScreen();
   if (S.overlay === "stoprec") html += stopRecSheet();
   if (S.menu) html += menuPop();
   const scr = document.getElementById("screen");
-  const speaking = S.phase === "session" && !S.paused && S.t < S.speakingUntil;
-  scr.classList.toggle("speaking", speaking);
+  scr.classList.toggle("speaking", S.phase === "session" && !S.paused && S.t < S.speakingUntil);
   if (html !== lastHtml) {
     scr.innerHTML = html; lastHtml = html;
     for (const n of scr.querySelectorAll("textarea.note")) { const s = n.dataset.s === "now" ? S.archived : ARCHIVE.find((x) => x.id === n.dataset.s); if (s) n.value = s.note; }
   }
   const cur = shown(), bar = scr.querySelector("[data-bar]");
   if (bar && cur) bar.style.transform = `scaleX(${Math.max(0, 1 - (S.t - cur.shownAt) / MIN_SHOW).toFixed(3)})`;
-  const fill = scr.querySelector("[data-fill]");
-  if (fill) fill.style.transform = `scaleX(${S.holdStart ? Math.min(1, (performance.now() - S.holdStart) / 1200) : 0})`;
 }
 function renderPanel() {
   document.getElementById("clock").textContent = S.phase === "session" ? `${fmt(S.t)} / ${fmt(SCENE_END)}` : S.phase === "start" ? "Tap Start" : S.phase === "disclosure" ? "Disclosure" : "Ended";
@@ -717,6 +618,7 @@ function renderPanel() {
   }
   document.getElementById("switchLabel").textContent = `${knobs.variant} · ${VARIANTS[knobs.variant].name}`;
   document.getElementById("variantNote").textContent = VARIANTS[knobs.variant].note;
+  document.getElementById("device").classList.toggle("landscape", VARIANTS[knobs.variant].land);
 }
 function draw() { renderScreen(); renderPanel(); }
 
@@ -727,9 +629,9 @@ function beginSession(rec) {
 }
 function endSession(why) {
   S.cards.filter((c) => c.status === "shown").forEach((c) => (c.status = "history"));
-  S.archived = { id: "now", when: "tänään", listen: fmt(S.listened), cards: history().map((c) => ({ ...CARDS[c.id], marks: {} })), note: "" };
+  S.archived = { id: "now", when: "Today", listen: fmt(S.listened), cards: history().map((c) => ({ ...CARDS[c.id], marks: {} })), note: "" };
   S.phase = "ended"; S.menu = false; S.endConfirm = false; note(why);
-  S.monthEur += 0.02; S.lastSession = { when: "tänään", dur: fmt(S.listened), eur: "0,02", perh: "0,50" };
+  S.monthEur += 0.02; S.lastSession = { when: "Today", dur: fmt(S.listened), eur: "0.02", perh: "0.50" };
 }
 
 const screen = document.getElementById("screen");
@@ -737,7 +639,6 @@ screen.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]");
   if (S.menu && !e.target.closest(".menu") && !(el && el.dataset.act === "menu")) { S.menu = false; draw(); if (!el) return; }
   if (!el) return;
-  if (e.target.closest("[data-stop]") && el.dataset.act.startsWith("close") && !e.target.closest("button")) return;
   const a = el.dataset.act;
   if (a === "toggle") {
     const k = el.dataset.key; if (k === "rec" && S.phase !== "start") return;
@@ -747,19 +648,12 @@ screen.addEventListener("click", (e) => {
   else if (a === "go-rec") beginSession(true);
   else if (a === "go-norec") { S.rec = false; beginSession(false); }
   else if (a === "back") { if (S.overlay) { S.overlay = null; S.clearConfirm = false; } else S.phase = "start"; }
-  else if (a === "tapcard") {
-    if (S.zoom) return;
-    const c = shown(); if (c) { c.status = "history"; note(`Someone tapped “${CARDS[c.id].gist}” away.`); pace(); }
-  }
+  else if (a === "tapcard") { const c = shown(); if (c) { c.status = "history"; note(`Someone tapped “${CARDS[c.id].gist}” away.`); pace(); } }
   else if (a === "pause") setPaused(!S.paused, "Someone");
-  else if (a === "recmark") { S.overlay = "stoprec"; }
+  else if (a === "recmark") S.overlay = "stoprec";
   else if (a === "stoprec") { S.recStopped = true; S.overlay = null; note("Recording stopped: everything recorded so far is deleted. The session carries on unrecorded."); }
   else if (a === "closeov") S.overlay = null;
   else if (a === "menu") S.menu = !S.menu;
-  else if (a === "hist") S.histOpen = true;
-  else if (a === "closehist") { if (e.target.closest(".sheet") && !e.target.closest("button")) return; S.histOpen = false; }
-  else if (a === "zoom") S.zoom = el.dataset.id;
-  else if (a === "unzoom") { if (e.target.closest(".sheet") && !e.target.closest("button")) return; S.zoom = null; }
   else if (a === "endask") S.endConfirm = true;
   else if (a === "endno") S.endConfirm = false;
   else if (a === "endyes") endSession("Someone ended the session.");
@@ -778,9 +672,6 @@ screen.addEventListener("input", (e) => {
   const n = e.target.closest("textarea.note"); if (!n) return;
   const s = n.dataset.s === "now" ? S.archived : ARCHIVE.find((x) => x.id === n.dataset.s); if (s) s.note = n.value;
 });
-screen.addEventListener("pointerdown", (e) => { if (e.target.closest("[data-act='hold']")) { S.holdStart = performance.now(); e.preventDefault(); } });
-const cancelHold = () => { S.holdStart = null; };
-screen.addEventListener("pointerup", cancelHold); screen.addEventListener("pointerleave", cancelHold); screen.addEventListener("pointercancel", cancelHold);
 
 function seg(id, items, key, onPick) {
   const el = document.getElementById(id);
@@ -793,13 +684,12 @@ function seg(id, items, key, onPick) {
   };
 }
 function setVariant(v) {
-  knobs.variant = v; store.set("variant", v); S.histOpen = false; S.zoom = null; S.menu = false; S.endConfirm = false;
+  knobs.variant = v; store.set("variant", v); S.menu = false; S.endConfirm = false;
   try { history.replaceState(null, "", "#" + v); } catch {}
   seg("variant", Object.entries(VARIANTS).map(([k, x]) => [k, `${k} · ${x.name}`]), "variant", () => setVariant(knobs.variant));
   draw();
 }
 seg("speed", [[1, "1×"], [2, "2×"], [4, "4×"]], "speed");
-seg("lang", [["fi", "Suomi"], ["en", "English"], ["both", "Both"]], "lang");
 seg("later", [["on", "Show them"], ["off", "First version only"]], "later");
 setVariant(knobs.variant);
 document.getElementById("play").onclick = () => { playing = !playing; draw(); };
@@ -823,10 +713,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 setInterval(() => {
-  if (S.holdStart && performance.now() - S.holdStart >= 1200) { S.holdStart = null; endSession("Someone held End: the session ended."); }
-  if (playing && S.phase === "session" && S.t < SCENE_END) {
-    const dt = 0.1 * knobs.speed; advance(dt); if (!S.paused) S.listened += dt;
-  }
+  if (playing && S.phase === "session" && S.t < SCENE_END) { const dt = 0.1 * knobs.speed; advance(dt); if (!S.paused) S.listened += dt; }
   draw();
 }, 100);
 draw();
