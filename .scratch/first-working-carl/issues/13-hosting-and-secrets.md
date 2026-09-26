@@ -1,7 +1,7 @@
 # Hosting and secrets
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 05, 06, 16
 
 ## Question
