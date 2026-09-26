@@ -1488,7 +1488,8 @@ Sources: [Provisional models for each stage][t07],
    [Next version](#15-next-version).
 5. **Implementation tickets:** when coding starts, each step becomes one ticket
    in a new `.scratch/<build-effort>/` folder. A step too big for one agent
-   session is split there.
+   session is split there. The tickets are in
+   [`.scratch/build-first-working-carl/`](../build-first-working-carl/issues/).
 
 ### Early checks
 
