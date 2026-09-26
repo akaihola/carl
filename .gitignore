@@ -1,0 +1,7 @@
+# Local copies of the secrets (see the First working Carl spec, Secrets)
+.secrets.*
+
+# Raw provider responses from the step-0 smoke test stay on the owner's computer
+.scratch/build-first-working-carl/smoke-test/out/
+
+__pycache__/

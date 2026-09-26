@@ -1,0 +1,206 @@
+# Hand-written Finnish and English cases for the step-0 provider smoke test.
+#
+# `conversation` lines are "LABEL: text", oldest first. The last line is the
+# one being judged (decision) or checked (fact-finding). Excerpts in the
+# verdict cases are written for the test, not copied from a real page.
+
+[place]
+# Where the table is. The date and time come from the clock at run time.
+neighbourhood = "Kallio"
+city = "Helsinki"
+region = "Uusimaa"
+country = "FI"
+country_name = "Finland"
+timezone = "Europe/Helsinki"
+
+# --- Decision model: none / claim / open question / same as Cn -------------
+
+[[decision]]
+id = "en-claim"
+conversation = [
+  "A1: We had a talk at work about gifted kids today.",
+  "A2: Einstein failed maths at school, you know. There's hope for all of us.",
+]
+expected = "claim"
+
+[[decision]]
+id = "fi-claim"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+]
+expected = "claim"
+
+[[decision]]
+id = "fi-open-question"
+conversation = [
+  "A1: Katsoin eilen taas Casablancan.",
+  "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä.",
+]
+expected = "open question"
+
+[[decision]]
+id = "en-opinion"
+conversation = [
+  "A1: Honestly, this risotto is the best thing you've cooked all year.",
+]
+expected = "none"
+
+[[decision]]
+id = "fi-small-talk"
+conversation = [
+  "A1: Otatko vielä kahvia?",
+  "A2: Joo, puoli kupillista, kiitos.",
+]
+expected = "none"
+
+[[decision]]
+id = "en-repeat"
+earlier_candidates = ["C1: Albert Einstein failed mathematics at school."]
+conversation = [
+  "A1: Einstein failed maths at school.",
+  "A3: No way.",
+  "A1: He did fail maths, though. I read it somewhere.",
+]
+expected = "same as C1"
+
+[[decision]]
+id = "fi-same-topic-new-claim"
+earlier_candidates = ["C1: Albert Einstein failed mathematics at school."]
+conversation = [
+  "A1: Einstein reputti matikan koulussa.",
+  "A2: No ei ehkä matikassa, mutta fysiikassa se kyllä reputti.",
+]
+expected = "claim"
+
+# --- Fact-finding models: outcome, restatement, draft card ------------------
+
+[[finding]]
+id = "en-myth"
+kind = "claim"
+card_language = "English"
+conversation = [
+  "A1: We had a talk at work about gifted kids today.",
+  "A2: Einstein failed maths at school, you know. There's hope for all of us.",
+]
+expected = "claim is wrong"
+
+[[finding]]
+id = "fi-wrong-year"
+kind = "claim"
+card_language = "Finnish"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+]
+expected = "claim is wrong"
+expected_in_fact = "1952"
+
+[[finding]]
+id = "fi-open-question"
+kind = "open question"
+card_language = "Finnish"
+conversation = [
+  "A1: Katsoin eilen taas Casablancan.",
+  "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä.",
+]
+expected = "question answered"
+expected_in_fact = "Bogart"
+
+[[finding]]
+id = "fi-local-question"
+kind = "open question"
+card_language = "Finnish"
+conversation = [
+  "A1: Tää Kallion kirkko on kyllä hieno.",
+  "A2: Milloin se on rakennettu? Joskus 1900-luvun alussa varmaan.",
+]
+expected = "question answered"
+expected_in_fact = "1912"
+
+[[finding]]
+id = "en-right"
+kind = "claim"
+card_language = "English"
+conversation = [
+  "A1: Water boils at a lower temperature high up in the mountains. That's why pasta takes longer up there.",
+]
+expected = "claim is right"
+
+# --- Fact-checking model, verdicts -------------------------------------------
+
+[[verdict]]
+id = "en-supported"
+conversation = ["A2: Einstein failed maths at school, you know."]
+card_title = "Einstein didn't fail maths"
+card_fact = "Albert Einstein never failed mathematics; he had mastered calculus before he was 15."
+source_title = "Albert Einstein - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/Albert_Einstein"
+excerpt = "Einstein excelled at physics and mathematics from an early age. A persistent myth says he failed mathematics, but he had mastered differential and integral calculus before he was fifteen."
+expected = "supported"
+
+[[verdict]]
+id = "fi-supported"
+conversation = ["A2: Joo, Helsingin olympialaiset oli vuonna 1956. Isä kävi katsomassa."]
+card_title = "Helsingin olympialaiset 1952"
+card_fact = "Helsingin kesäolympialaiset pidettiin vuonna 1952, ei 1956."
+source_title = "Kesäolympialaiset 1952 – Wikipedia"
+source_url = "https://fi.wikipedia.org/wiki/Kes%C3%A4olympialaiset_1952"
+excerpt = "Vuoden 1952 kesäolympialaiset eli XV olympiadin kisat järjestettiin Helsingissä 19. heinäkuuta – 3. elokuuta 1952."
+expected = "supported"
+
+[[verdict]]
+id = "fi-not-supported"
+conversation = ["A2: Joo, Helsingin olympialaiset oli vuonna 1956. Isä kävi katsomassa."]
+card_title = "Helsingin olympialaiset 1948"
+card_fact = "Helsingin kesäolympialaiset pidettiin vuonna 1948, ei 1956."
+source_title = "Kesäolympialaiset 1952 – Wikipedia"
+source_url = "https://fi.wikipedia.org/wiki/Kes%C3%A4olympialaiset_1952"
+excerpt = "Vuoden 1952 kesäolympialaiset eli XV olympiadin kisat järjestettiin Helsingissä 19. heinäkuuta – 3. elokuuta 1952."
+expected = "not supported"
+
+[[verdict]]
+id = "fi-card-en-excerpt"
+conversation = [
+  "A1: Katsoin eilen taas Casablancan.",
+  "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä.",
+]
+card_title = "Rick Casablancassa"
+card_fact = "Casablancan Rick Blainea näytteli Humphrey Bogart."
+source_title = "Casablanca (film) - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/Casablanca_(film)"
+excerpt = "Casablanca is a 1942 American romantic drama film directed by Michael Curtiz and starring Humphrey Bogart, Ingrid Bergman, and Paul Henreid. Bogart plays Rick Blaine, the owner of an upscale nightclub and gambling den in Casablanca."
+expected = "supported"
+
+[[verdict]]
+id = "en-doesnt-answer"
+conversation = ["A3: Who played Rick in Casablanca? It's on the tip of my tongue."]
+card_title = "Casablanca's premiere"
+card_fact = "Casablanca premiered in New York City on 26 November 1942."
+source_title = "Casablanca (film) - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/Casablanca_(film)"
+excerpt = "The film had its world premiere on November 26, 1942, in New York City and was released nationally in the United States on January 23, 1943."
+expected = "doesn't answer the candidate"
+
+# --- Fact-checking model, agreement call -------------------------------------
+
+[[same_fact]]
+id = "fi-en-same"
+candidate = "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä."
+card_1 = "Rick Casablancassa: Casablancan Rick Blainea näytteli Humphrey Bogart."
+card_2 = "Rick in Casablanca: Humphrey Bogart played Rick Blaine in Casablanca (1942)."
+expected = "same fact"
+
+[[same_fact]]
+id = "fi-contradict"
+candidate = "A2: Joo, Helsingin olympialaiset oli vuonna 1956."
+card_1 = "Helsingin olympialaiset 1952: Helsingin kesäolympialaiset pidettiin vuonna 1952, ei 1956."
+card_2 = "Helsingin olympialaiset 1948: Helsingin kesäolympialaiset pidettiin vuonna 1948, ei 1956."
+expected = "contradict"
+
+[[same_fact]]
+id = "en-compatible"
+candidate = "A2: Einstein failed maths at school, you know."
+card_1 = "Einstein didn't fail maths: Einstein had mastered calculus before he was 15."
+card_2 = "Einstein's entrance exam: Einstein failed the general part of the ETH Zurich entrance exam in 1895, while scoring well in maths and physics."
+expected = "compatible but different"
