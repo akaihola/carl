@@ -1,7 +1,7 @@
 # The screen
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: 21, 22
 
 ## Question
