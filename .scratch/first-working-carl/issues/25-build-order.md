@@ -1,7 +1,7 @@
 # Build order
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 20, 23, 24
 
 ## Question
