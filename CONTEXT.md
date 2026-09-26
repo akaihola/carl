@@ -28,6 +28,14 @@ _Avoid_: Login, account, password
 The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down). In a recording session it carries a recording mark whenever audio is actually being kept, so not while paused. While the month is over the monthly budget, it also carries a warning mark.
 _Avoid_: Status light, recording badge
 
+**Start screen**:
+What Carl shows when no session is running: the Start button, the "Record this session", location and transcript-line switches, the month's running cost and the last session's cost, and the way into the card archive and the Log.
+_Avoid_: Home, landing page
+
+**Top bar**:
+The one row along the top of the session screen that holds the listening indicator, its recording mark, Pause, End and a ⋯ menu. The same row asks "End the session?" before End takes effect.
+_Avoid_: Header, toolbar, status bar
+
 **Pause**:
 A state anyone at the table can switch on with one tap, in which Carl hears and keeps nothing until someone taps again.
 _Avoid_: Mute, stop
