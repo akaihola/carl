@@ -1,7 +1,7 @@
 # Decision model context and candidate de-duplication
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01, 07
 
 ## Question
