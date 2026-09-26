@@ -1,7 +1,7 @@
 # Turning a recording session into owner-correctable Markdown
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: 08, 11
 
 ## Question
