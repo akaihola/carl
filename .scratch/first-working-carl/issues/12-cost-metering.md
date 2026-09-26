@@ -1,7 +1,7 @@
 # Metering running cost against the monthly budget
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 06, 07
 
 ## Question
