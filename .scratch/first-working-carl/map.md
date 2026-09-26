@@ -8,7 +8,7 @@ A decided plan for the first working version of Carl at
 `.scratch/first-working-carl/spec.md`, clear enough that implementation can
 start without open questions. That version is a web page, opened on the
 owner's phone, that runs the whole pipeline end to end (mic → speech-to-text →
-decision model → fact-checking model → message-writing model → fact card on
+decision model → fact-finding model → fact-checking model → fact card on
 screen) with provisional models behind the swappable interfaces `AGENTS.md`
 requires, and includes development mode, so real dinners can be recorded as
 **recording sessions** to start the **test corpus**.
@@ -54,6 +54,7 @@ requires, and includes development mode, so real dinners can be recorded as
 - [Scaleway as Carl's host](issues/16-scaleway-hosting.md): Cloudflare still fits better; Scaleway serverless caps requests at 60 min and can't do owner-only WebSocket access; an Instance (~€0.43–6.55/month + IPv4) is a Hetzner-like option; Object Storage lifecycle meets 6-month deletion; an L4 GPU for Parakeet costs ~€1.75/session, Vast.ai is cheaper but a poor home for private audio
 - [Running Parakeet v3 for Carl's speech-to-text](issues/15-parakeet-v3.md): Parakeet v3 alone doesn't fit (offline-only, no diarization, weak code-switching); NVIDIA's Nemotron streaming ASR + diarization is the self-hosted pair to try (weaker Finnish); not viable in the phone's browser; free on the owner's GPU machine; Vast.ai is no cheaper than Soniox
 - [What runs in the browser and what runs on a server](issues/06-browser-and-server-split.md): thin page (mic, screen, wake lock, location, taps), whole pipeline and all keys on a server; a network drop loses its gap; 2-min reconnect grace before a session ends, server holds the cards and re-sends them; a server restart resumes from saved state; Pause stops the mic and closes the speech-to-text connection
+- [Provisional models for each stage](issues/07-provisional-models.md): no message-writing model; decision (GPT-6 Luna) and fact-checking (TypeSafe Jev, swap Gemini 3.5 Flash-Lite) give typed answers only; two fact-finding models search and write draft cards in parallel (GPT-6 Luna + OpenAI search, Gemini 3.8 Flash via Perplexity's Agent API); Soniox for speech-to-text; no Anthropic models; config file per deploy, stored with each recording session; ~$0.35–0.55/h
 
 ## Not yet specified
 
@@ -72,7 +73,7 @@ requires, and includes development mode, so real dinners can be recorded as
   signals so far: a dropped page–server connection, the 2-minute reconnect
   grace period, and a server restart.
 - **Prompts and their one source of truth.** Where the decision,
-  fact-checking and message-writing prompts live, how card language is
+  fact-finding and fact-checking prompts live, how card language is
   chosen for mixed Finnish/English talk.
 - **The screen.** Turning the [fact card prototype](../purpose-and-goal/prototypes/fact-card-prototype.html)
   into the real UI: Start screen, budget warning, card archive view, "Log" menu.

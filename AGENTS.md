@@ -33,15 +33,18 @@ The full product spec, including success criteria, is
   - **Speech-to-text** – streaming transcription with speaker diarization.
   - **Decision model** – cheap and fast; runs on every final utterance and
     decides whether it holds a checkable claim or an unanswered question.
-  - **Fact-checking model** – stronger and slower; runs only on candidates and
-    returns a verdict, answer, source and confidence.
-  - **Message-writing model** – turns a confident verdict into a plain fact
-    card, or a likely one into a hedged fact card, shown to the whole table.
+    Typed answers only (a choice, boolean or score, with probabilities), so
+    Jev-like models fit.
+  - **Fact-finding model** – searches the web for each candidate and writes a
+    draft card: the corrected fact or missing answer, its source and a
+    supporting excerpt, ready to show.
+  - **Fact-checking model** – judges each draft card against its excerpt and
+    returns a verdict. Typed answers only, like the decision model.
 
 ## Pipeline
 
 ```
-mic → speech-to-text → decision → fact-checking → message writing → card on screen
+mic → speech-to-text → decision → fact-finding → fact-checking → card on screen
 ```
 
 Act only on final transcript segments, keep the context passed to the decision

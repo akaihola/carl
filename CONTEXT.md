@@ -49,18 +49,23 @@ _Avoid_: Memory lapse, unanswered question
 ### The pipeline
 
 **Decision model**:
-The cheap, fast stage that runs on every utterance and decides whether it is a candidate.
+The cheap, fast stage that runs on every utterance and decides, as a typed answer rather than written text, whether it is a candidate.
 _Avoid_: Detection, detector, classifier
 
+**Fact-finding model**:
+The search stage that runs only on candidates, finds out whether a claim is wrong or what answers an open question, and writes a draft card.
+_Avoid_: Researcher, answerer, message writer
+
+**Draft card**:
+A fact card as the fact-finding model wrote it, with the source excerpt that backs it, before the fact-checking model has judged it. It is never shown.
+_Avoid_: Proposed card, candidate card
+
 **Fact-checking model**:
-The stronger, slower stage that runs only on candidates and returns a verdict.
+The stage that judges each draft card, as a typed answer rather than written text, and returns a verdict.
 _Avoid_: Verifier, verification
 
 **Verdict**:
-The fact-checking model's result for a candidate: outcome, answer, source and confidence.
-
-**Message-writing model**:
-The stage that turns a confident verdict into a fact card.
+The fact-checking model's typed judgement of a draft card (supported by its source, not supported, or not answering the candidate) with a probability for each.
 
 **Fact card**:
 The short message shown on screen: a title, a one-sentence fact and a source.

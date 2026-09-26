@@ -214,7 +214,7 @@ Sources: [09](issues/09-session-lifecycle.md), [10](issues/10-spec-open-issues.m
 - Anyone who was at the table may ask to see a session's cards, marks and
   notes, or have them deleted, and the owner honours it.
 - The **failure log** records moments Carl couldn't hear or check: time, stage
-  (speech-to-text, decision, fact-checking, message writing, connection) and
+  (speech-to-text, decision, fact-finding, fact-checking, connection) and
   error, with no conversation content. It opens from a "Log" menu at
   any time, entries expire after 30 days, and the owner can clear it.
 
@@ -277,7 +277,7 @@ listening time. The corpus is the gate before Carl runs at a real table.
   (wrong, nitpick, opinion, contested, already settled, not checkable), adds
   missed candidates, and fixes transcript errors.
 - The corpus keeps the corrected Markdown until the owner deletes it, and the
-  audio for 6 months. The decision, fact-checking and message-writing stages
+  audio for 6 months. The decision, fact-finding and fact-checking stages
   can be replayed on the whole corpus; speech-to-text only on the last
   6 months of audio.
 
