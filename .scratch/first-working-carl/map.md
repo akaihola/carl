@@ -56,6 +56,7 @@ requires, and includes development mode, so real dinners can be recorded as
 - [What runs in the browser and what runs on a server](issues/06-browser-and-server-split.md): thin page (mic, screen, wake lock, location, taps), whole pipeline and all keys on a server; a network drop loses its gap; 2-min reconnect grace before a session ends, server holds the cards and re-sends them; a server restart resumes from saved state; Pause stops the mic and closes the speech-to-text connection
 - [Provisional models for each stage](issues/07-provisional-models.md): no message-writing model; decision (GPT-6 Luna) and fact-checking (TypeSafe Jev, swap Gemini 3.5 Flash-Lite) give typed answers only; two fact-finding models search and write draft cards in parallel (GPT-6 Luna + OpenAI search, Gemini 3.8 Flash via Perplexity's Agent API); Soniox for speech-to-text; no Anthropic models; config file per deploy, stored with each recording session; ~$0.35–0.55/h
 - [Search providers' terms and Luna web search](issues/17-search-terms-and-luna.md): OpenAI's and Perplexity's docs don't forbid storing or analysing results (unlike Google), but both vendors' full terms are unverified; OpenAI requires visible, clickable citations; Luna's model page lists OpenAI web search (Responses API, effort `none` = fast search); Gemini 3.8 Flash + `web_search` + JSON schema on Perplexity needs a test call; only Perplexity returns source snippets, OpenAI citations carry no excerpt
+- [How audio is streamed and how speaker labels reach the decision model](issues/08-audio-and-speaker-labels.md): 16 kHz PCM chunks over one WebSocket (echo cancellation and noise suppression off); Soniox endpointing at 1,500 ms, stream kept open through the reconnect grace period, finalised then closed at Pause; utterances split at speaker changes with 1–2-word false switches merged and a ~30 s cap; speaker labels are scoped to their stream, with a marker at each Pause or gap
 
 ## Not yet specified
 
@@ -72,7 +73,8 @@ requires, and includes development mode, so real dinners can be recorded as
 - **Can't-hear-or-check state.** Which signals from each stage flip the
   listening indicator, and what the failure log records per stage. Known
   signals so far: a dropped page–server connection, the 2-minute reconnect
-  grace period, and a server restart.
+  grace period, a server restart, and the speech-to-text connection dropping
+  while the server reopens it with backoff.
 - **Prompts and their one source of truth.** Where the decision,
   fact-finding and fact-checking prompts live, how card language is
   chosen for mixed Finnish/English talk.

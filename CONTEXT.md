@@ -34,6 +34,10 @@ _Avoid_: Mute, stop
 One final (not interim) transcript segment attributed to a single speaker.
 _Avoid_: Sentence, segment, chunk
 
+**Speaker label**:
+The anonymous tag speech-to-text gives each utterance's speaker. It means the same person only within one unbroken stretch of listening; after a Pause or a gap, labels start afresh.
+_Avoid_: Speaker name, speaker ID, voice
+
 **Candidate**:
 An utterance the decision model flags as worth fact-checking; either a claim or an open question.
 _Avoid_: Detection, hit, trigger
