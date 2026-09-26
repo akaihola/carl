@@ -1,7 +1,7 @@
 # Search providers' terms and Luna web search
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: 
 
 ## Question
