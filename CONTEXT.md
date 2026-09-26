@@ -50,6 +50,10 @@ _Avoid_: Detection, hit, trigger
 An utterance that asserts the same thing, or asks the same question, as an earlier candidate in the same session, in any language or wording. It gets nothing new, unless the earlier candidate failed at a stage; then it is checked as a new candidate.
 _Avoid_: Duplicate, re-trigger
 
+**Settled**:
+What a candidate becomes when a later utterance at the table corrects its claim, answers its open question or ends its disagreement, the candidate's own speaker included. A settled candidate gets no card if its card isn't on screen yet; a card on screen is marked "Settled at the table" only if the table's answer agrees with it. The settling utterance is judged as a candidate in its own right, so a false correction still gets checked.
+_Avoid_: Resolved, answered, closed
+
 **Claim**:
 A candidate stating something that can be checked as true or false against a public source, given where and when the table is. Opinions, predictions, private facts and contested questions are not claims.
 _Avoid_: Statement, assertion
@@ -84,7 +88,7 @@ The short message shown on screen: a title, a one-sentence fact and a source.
 _Avoid_: Correction, banner, contribution
 
 **Card history**:
-The session's earlier fact cards, kept on screen out of the way of the current card, newest first.
+The session's earlier fact cards, kept on screen out of the way of the current card, ordered by the time of their utterance, newest first.
 _Avoid_: Feed, log, ledger
 
 **Card archive**:
@@ -112,7 +116,7 @@ The time from the end of an utterance to its fact card on screen.
 _Avoid_: Latency, delay
 
 **Late card**:
-A fact card ready more than 20 s after its utterance. It skips the screen and goes straight into the card history, at its place by utterance time.
+A fact card that can't reach the screen within 20 s of its utterance, because it was ready too late or waited too long behind another card. It skips the screen and goes straight into the card history, at its place by utterance time.
 _Avoid_: Stale card, expired card
 
 **Failure log**:

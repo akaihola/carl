@@ -63,6 +63,7 @@ requires, and includes development mode, so real dinners can be recorded as
 - [Metering running cost against the monthly budget](issues/12-cost-metering.md): a price table in the config file turns each call's usage fields into USD (the provider's own figure wins when it reports one); unknown usage is estimated and flagged; per-use charges only, by Helsinki calendar month; per-session cost summaries and a month-to-date total kept indefinitely in the server store; Start screen shows the month total and the last session in ≈€; checked against provider bills by hand
 - [Hosting and secrets](issues/13-hosting-and-secrets.md): following drum-transcribe, one Scaleway Serverless Container in Python (scaled to zero, max scale 1) at `faktat.vempai.men`, proxied by Cloudflare with the drum-transcribe "Starting up…" Worker; a WebSocket handover at ~50 min beats Scaleway's 60-min cap (measured early); several access passes (scrypt entries + 1-year HMAC cookie); one Scaleway bucket with a scoped key holds recordings, corpus, session state, failures (30-day rule) and costs; keys as container secret variables and in the password manager, provider spend limits set; one deploy by hand, staging runs locally under `dev/`; config baked into the image
 - [Turning a recording session into owner-correctable Markdown](issues/14-recording-to-markdown.md): readable transcript with a fenced YAML block per candidate (verdict summary, reason code, card, check time) right under its utterance; the owner fills `mark`/`note` on shown cards (deserved or the spec's reasons), silent candidates (ok / should show) and repeats (ok / bad match), adds `carl-missed` blocks, merges speaker labels in the header and fixes the transcript only around candidates; script `generate` / `fetch` / `put` (with `check`), never overwriting a started correction
+- [Tracking a candidate until its card](issues/18-tracking-candidate-until-card.md): a separate typed settle call runs per utterance while candidates are live; a settle drops a candidate before its card, and the settling utterance is checked on its own (so false corrections get cards); an on-screen card is marked "Settled at the table" only if the table agrees with it; no queue, one task per candidate with a cap of 8 and a 60 s timeout; the 20 s late-card cut-off is measured at display time; the page paces cards (at least 8 s each when another waits, in utterance order) and reports shown times
 
 ## Not yet specified
 
@@ -79,8 +80,10 @@ requires, and includes development mode, so real dinners can be recorded as
   listening indicator, and what the failure log records per stage. Known
   signals so far: a dropped page–server connection, the 2-minute reconnect
   grace period, a server restart, and the speech-to-text connection dropping
-  while the server reopens it with backoff.
-- **Prompts and their one source of truth.** Where the decision,
+  while the server reopens it with backoff. Known failure-log entries so far
+  also include `overload` (more than 8 live candidates) and the 60 s
+  candidate timeout.
+- **Prompts and their one source of truth.** Where the decision, settle,
   fact-finding and fact-checking prompts live, how card language is
   chosen for mixed Finnish/English talk. The fact-finders' prompts should ask
   for primary or reference sources, and the source blocklist needs a home in
