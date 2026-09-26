@@ -1,7 +1,7 @@
 # Development mode and the recording-session disclosure
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 
 
 ## Question
