@@ -1,7 +1,7 @@
 # Tracking a candidate until its card
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 09, 10
 
 ## Question
