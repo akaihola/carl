@@ -60,6 +60,7 @@ requires, and includes development mode, so real dinners can be recorded as
 - [Decision model context and candidate de-duplication](issues/09-decision-context-and-dedup.md): one call per utterance (only pure backchannel skipped) with up to 10 utterances / 2 min of earlier context; choices `none / claim / open question / same as Cn` over the session's earlier candidates listed by Carl's own ids, each shown by the fact-finder's new standalone restatement; same = same assertion or question, not same topic; a repeat gets nothing unless the earlier one failed; thresholds in config
 - [Splitting verdict confidence into plain, hedged and silent](issues/10-confidence-bands.md): wait for both fact-finders (~12 s after the first); plain needs agreement (a typed same-fact call) plus a verified excerpt (Perplexity snippet match or a downloaded page) and p(supported) ≥ 0.85; one verified card or a weaker pair is hedged (≥ 0.6) with a fixed "Todennäköisesti:"/"Probably:" prefix; contradictions, unverified excerpts and blocklisted sources show nothing; no category caps; each band recorded with a reason code
 - [Where the card archive, failure log and recording sessions are kept](issues/11-storage-expiry-deletion.md): recordings in EU object storage under `recordings/<id>/` (raw PCM in ~1-min chunks + JSONL event log, written as the session runs), deleted by a 180-day lifecycle rule with no backups; corrected Markdown at `corpus/<id>.md`, no expiry; failure log in a small server store with 30-day expiry, page buffers its own failures; card archive later in the phone's IndexedDB, pulled from the server at End; an owner-only script lists, fetches and deletes whole sessions; host-default encryption only
+- [Metering running cost against the monthly budget](issues/12-cost-metering.md): a price table in the config file turns each call's usage fields into USD (the provider's own figure wins when it reports one); unknown usage is estimated and flagged; per-use charges only, by Helsinki calendar month; per-session cost summaries and a month-to-date total kept indefinitely in the server store; Start screen shows the month total and the last session in ≈€; checked against provider bills by hand
 
 ## Not yet specified
 
@@ -82,7 +83,8 @@ requires, and includes development mode, so real dinners can be recorded as
   for primary or reference sources, and the source blocklist needs a home in
   config.
 - **The screen.** Turning the [fact card prototype](../purpose-and-goal/prototypes/fact-card-prototype.html)
-  into the real UI: Start screen, budget warning, card archive view, "Log" menu.
+  into the real UI: Start screen (with the month's running total and the
+  last session's cost), card archive view, "Log" menu.
 - **Build order.** How the plan slices into implementation steps once the
   architecture is decided.
 
@@ -94,4 +96,8 @@ requires, and includes development mode, so real dinners can be recorded as
 - **A replay and scoring harness** for the test corpus: belongs with that
   comparison map. This version only has to record what a replay will need.
 - **Writing the code.** This map ends at a plan.
+- **Setting the monthly budget and its warning mark:** excluded from the first
+  version by [What "done" means](issues/01-done-for-first-version.md); its
+  behaviour is already fixed by the product spec, and metering keeps the
+  month-to-date total it needs (see [Metering running cost](issues/12-cost-metering.md)).
 - **Public-product concerns:** onboarding, billing, multi-tenant accounts.
