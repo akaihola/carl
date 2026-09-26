@@ -1,7 +1,7 @@
 # Location in the pipeline and the test corpus
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 19
 
 ## Question
