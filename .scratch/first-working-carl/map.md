@@ -67,32 +67,8 @@ requires, and includes development mode, so real dinners can be recorded as
 
 ## Not yet specified
 
-- **Location.** How the phone's precise location reaches the stages (raw
-  coordinates or a place name, via which service, how often updated), and how
-  it is rounded to neighbourhood or town for the test corpus.
-- **Development mode vs normal mode.** Not a separate deployment (see
-  [Hosting and secrets](issues/13-hosting-and-secrets.md)): whether it is a
-  Start-screen switch or something else, and how the recording-session disclosure and
-  objection flow look on screen, including someone objecting mid-session
-  (end and delete the whole session with the owner's script, or a
-  stop-recording tap).
-- **Can't-hear-or-check state.** Which signals from each stage flip the
-  listening indicator, and what the failure log records per stage. Known
-  signals so far: a dropped page–server connection, the 2-minute reconnect
-  grace period, a server restart, and the speech-to-text connection dropping
-  while the server reopens it with backoff. Known failure-log entries so far
-  also include `overload` (more than 8 live candidates) and the 60 s
-  candidate timeout.
-- **Prompts and their one source of truth.** Where the decision, settle,
-  fact-finding and fact-checking prompts live, how card language is
-  chosen for mixed Finnish/English talk. The fact-finders' prompts should ask
-  for primary or reference sources, and the source blocklist needs a home in
-  config.
-- **The screen.** Turning the [fact card prototype](../purpose-and-goal/prototypes/fact-card-prototype.html)
-  into the real UI: Start screen (with the month's running total and the
-  last session's cost), card archive view, "Log" menu.
-- **Build order.** How the plan slices into implementation steps once the
-  architecture is decided.
+Nothing: every patch has graduated into a ticket (location, development mode,
+the can't-hear-or-check state, prompts, the screen, build order).
 
 ## Out of scope
 
