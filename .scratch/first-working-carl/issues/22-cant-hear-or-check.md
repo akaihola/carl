@@ -1,7 +1,7 @@
 # The can't-hear-or-check state and the failure log
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 
 
 ## Question
