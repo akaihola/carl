@@ -59,6 +59,7 @@ requires, and includes development mode, so real dinners can be recorded as
 - [How audio is streamed and how speaker labels reach the decision model](issues/08-audio-and-speaker-labels.md): 16 kHz PCM chunks over one WebSocket (echo cancellation and noise suppression off); Soniox endpointing at 1,500 ms, stream kept open through the reconnect grace period, finalised then closed at Pause; utterances split at speaker changes with 1–2-word false switches merged and a ~30 s cap; speaker labels are scoped to their stream, with a marker at each Pause or gap
 - [Decision model context and candidate de-duplication](issues/09-decision-context-and-dedup.md): one call per utterance (only pure backchannel skipped) with up to 10 utterances / 2 min of earlier context; choices `none / claim / open question / same as Cn` over the session's earlier candidates listed by Carl's own ids, each shown by the fact-finder's new standalone restatement; same = same assertion or question, not same topic; a repeat gets nothing unless the earlier one failed; thresholds in config
 - [Splitting verdict confidence into plain, hedged and silent](issues/10-confidence-bands.md): wait for both fact-finders (~12 s after the first); plain needs agreement (a typed same-fact call) plus a verified excerpt (Perplexity snippet match or a downloaded page) and p(supported) ≥ 0.85; one verified card or a weaker pair is hedged (≥ 0.6) with a fixed "Todennäköisesti:"/"Probably:" prefix; contradictions, unverified excerpts and blocklisted sources show nothing; no category caps; each band recorded with a reason code
+- [Where the card archive, failure log and recording sessions are kept](issues/11-storage-expiry-deletion.md): recordings in EU object storage under `recordings/<id>/` (raw PCM in ~1-min chunks + JSONL event log, written as the session runs), deleted by a 180-day lifecycle rule with no backups; corrected Markdown at `corpus/<id>.md`, no expiry; failure log in a small server store with 30-day expiry, page buffers its own failures; card archive later in the phone's IndexedDB, pulled from the server at End; an owner-only script lists, fetches and deletes whole sessions; host-default encryption only
 
 ## Not yet specified
 
@@ -67,7 +68,9 @@ requires, and includes development mode, so real dinners can be recorded as
   it is rounded to neighbourhood or town for the test corpus.
 - **Development mode vs normal mode.** Whether the dev version is a separate
   deployment, a switch, or a URL, and how the recording-session disclosure and
-  objection flow look on screen.
+  objection flow look on screen, including someone objecting mid-session
+  (end and delete the whole session with the owner's script, or a
+  stop-recording tap).
 - **Can't-hear-or-check state.** Which signals from each stage flip the
   listening indicator, and what the failure log records per stage. Known
   signals so far: a dropped page–server connection, the 2-minute reconnect
