@@ -25,7 +25,7 @@ A secret passphrase that lets a browser open Carl. The owner can issue several a
 _Avoid_: Login, account, password
 
 **Listening indicator**:
-The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down). While the month is over the monthly budget, it also carries a warning mark.
+The always-visible on-screen sign that Carl is listening, that it is paused, or that it can't hear or check (connection lost, a stage down). In a recording session it carries a recording mark whenever audio is actually being kept, so not while paused. While the month is over the monthly budget, it also carries a warning mark.
 _Avoid_: Status light, recording badge
 
 **Pause**:
@@ -130,7 +130,7 @@ _Avoid_: Cost cap, limit, quota
 ### Testing
 
 **Recording session**:
-A session run in development mode that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record. Its audio, raw transcript and model-call logs are deleted 6 months after it was recorded; its corrected Markdown stays in the test corpus.
+A session run in development mode that records audio, the full transcript and the full log of every model call for the test corpus. It is visibly marked, disclosed on its own, and anyone's objection means it doesn't record: recording can be stopped mid-session, which deletes what it recorded so far and turns it into a normal session for good. Its audio, raw transcript and model-call logs are deleted 6 months after it was recorded; its corrected Markdown stays in the test corpus.
 _Avoid_: Debug session, test session
 
 **Test corpus**:
