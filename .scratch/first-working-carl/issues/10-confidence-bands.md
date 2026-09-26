@@ -1,7 +1,7 @@
 # Splitting verdict confidence into plain, hedged and silent
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 07
 
 ## Question
