@@ -30,7 +30,7 @@ card: "Einstein ei reputtanut matematiikkaa. Hän hallitsi differentiaali- ja in
 source: https://fi.wikipedia.org/wiki/Albert_Einstein
 restated: {A: "Einstein failed mathematics at school.", B: "Albert Einstein reputti matematiikan koulussa."}
 verdict: {A: wrong, B: wrong, same_fact: 0.93, supported: [0.96, 0.91], verified: [download], reason: plain:agreed}
-mark:                    # deserved | wrong | nitpick | opinion | contested | settled | not checkable
+mark:                    # deserved | wrong | nitpick | opinion | contested | already settled | not checkable
 note:
 ```
 
