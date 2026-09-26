@@ -11,3 +11,4 @@ How does a verdict's confidence map to a plain fact card, a hedged fact card or 
 ## Comments
 
 - From [Provisional models for each stage](07-provisional-models.md#answer): the verdict is now the fact-checking model's typed judgement of a draft card, with a probability per choice (Jev natively; logprobs for the Gemini swap). Two fact-finders (GPT-6 Luna and Gemini 3.8 Flash) write draft cards in parallel. With no text generated after fact-checking, a hedged fact card's "probably"/"maybe" must come from a fixed hedge form or mark rather than from rewriting.
+- From [Search providers' terms and Luna web search](17-search-terms-and-luna.md#answer): OpenAI's citations carry no source text, so fact-finder A's excerpt is written by the model and can't be matched against the source without fetching the page; Perplexity's `search_results` snippets can be matched word for word. Decide whether an unmatched excerpt can still reach a plain card.
