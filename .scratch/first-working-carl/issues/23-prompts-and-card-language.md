@@ -1,7 +1,7 @@
 # Prompts, card language and the source blocklist
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 
 
 ## Question
