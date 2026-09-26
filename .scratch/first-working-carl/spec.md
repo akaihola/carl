@@ -31,6 +31,7 @@ decided and adds no decisions of its own.
 13. [Config file contents](#13-config-file-contents)
 14. [Build order](#14-build-order)
 15. [Next version](#15-next-version)
+16. [Decided at arrival](#16-decided-at-arrival)
 
 ## 1. Purpose and scope
 
@@ -145,8 +146,19 @@ A single WebSocket connects the page and the server.
 - Binary frames carry audio.
 - JSON text frames carry Start, Pause, End, the heartbeat, cards and the
   listening indicator's state.
-- The heartbeat keeps the link open through quiet stretches and Pause.
+- Both sides send a heartbeat every 3 s (config) when they have sent nothing
+  else in that time. It keeps the link open through quiet stretches and Pause.
+- A side that hears nothing from the other for 10 s (config) treats the
+  connection as dropped (see [Can't hear](#cant-hear)).
+- At session start the server sends the page the config values the page
+  needs itself: the heartbeat and silence times, the pacing and late-card
+  times, and the location thresholds.
 - The browser sends its access-pass cookie on the WebSocket upgrade.
+- **Speech-to-text always goes through the server,** even though most
+  providers would let the browser connect directly with a short-lived token.
+  Relaying works with every provider, self-hosted ones included. The recording,
+  the reconnect grace period and Pause's finalise also need the audio and the
+  stream on the server.
 
 ### Hosting
 
@@ -226,7 +238,7 @@ storage only and has an expiry date.
 | --- | --- | --- |
 | `recordings/<id>/` | A recording session's raw audio chunks and JSONL event log, plus the config, prompts and commit it ran with | 180 days (lifecycle rule) |
 | `corpus/<id>.md` | A recording session's owner-corrected Markdown | Until the owner deletes it |
-| `sessions/<id>/state.json` | Session state, used to resume after a restart | Deleted at End |
+| `sessions/<id>/state.json` | Session state, used to resume after a restart | Deleted at End. A 1-day lifecycle rule removes any left behind |
 | `failures/` | The failure log | 30 days (lifecycle rule) |
 | `costs/` | One cost summary per session, and one month-to-date object | Indefinitely |
 
@@ -273,7 +285,8 @@ the server needs no admin route.
 | Command | What it does |
 | --- | --- |
 | `list` | Lists recording sessions by date, time and duration |
-| `fetch <id>` | Downloads a session: its recording, to answer an access request, or `corpus/<id>.md`, to correct it |
+| `export <id>` | Downloads everything kept for a session, to answer an access request: the audio joined into one WAV file, the event log, and the corpus Markdown if there is one |
+| `fetch <id>` | Downloads `corpus/<id>.md`, to correct it |
 | `delete <id>` | Removes `recordings/<id>/` and `corpus/<id>.md` |
 | `generate <id>` | Writes `corpus/<id>.md` from the recording's event log |
 | `put <file>` | Runs `check`, then uploads over `corpus/<id>.md` |
@@ -327,8 +340,10 @@ config file selects.
 **Speech-to-text**
 
 - `open(languages [fi, en], audio format)` returns a stream of interim and
-  final events. Each word carries a **speaker label**, a start time and an end
-  time.
+  final events. Each word carries a **speaker label**, a start time, an end
+  time and a language code. The card language is counted from these codes.
+  An adapter for a provider that transcribes one language per stream tags
+  every word with that stream's language.
 - `close()` ends the stream.
 - Splitting final segments into utterances happens in the pipeline, not in the
   adapter.
@@ -582,8 +597,9 @@ answer as it is. Both thresholds are in the config file.
   - `disputes` adds no mark. The disputing utterance isn't checked
     separately, because the card on screen already answers it.
 - A card in the card history never changes.
-- **The first version builds the settle call and the drop rule.** The
-  "Settled at the table" mark comes in the next version.
+- **The first version builds the whole settle call,** `agrees` and `disputes`
+  included. `agrees` is recorded but shows nothing until the next version adds
+  the "Settled at the table" mark.
 
 ### Candidates run side by side
 
@@ -729,8 +745,9 @@ Sources: [Splitting verdict confidence into plain, hedged and silent][t10],
 ### Card language
 
 - The **card language** is the language with the most words over the last
-  **10 minutes** of final utterances. Carl counts words using Soniox's
-  per-token language tags. Carl works it out itself; no model decides it.
+  **10 minutes** of final utterances. Carl counts words by the language code
+  each word carries (Soniox tags every token). Carl works it out itself; no
+  model decides it.
 - If that window holds fewer than **about 50 words**, or the count is a tie,
   the candidate utterance's own language is used.
 - There is no setting for it. The window and the word minimum are in the
@@ -748,7 +765,8 @@ Sources: [Splitting verdict confidence into plain, hedged and silent][t10],
 | The source excerpt | The source's own, word for word | The source |
 | The Claim/Question label: Väite or Claim, Kysymys or Question | Card language | Carl |
 | The hedge prefix: "Todennäköisesti:" or "Probably:" | Card language | Carl |
-| The "Hedged" tag, and the "Ratkesi pöydässä" / "Settled at the table" mark (next version) | Card language | Carl |
+| The hedged tag: "Varauksin" or "Hedged" | Card language | Carl |
+| The settled mark: "Ratkesi pöydässä" or "Settled at the table" (next version) | Card language | Carl |
 | Everything else Carl shows: top bar, listening indicator, buttons, Start screen, dialogs, the Log | English | Carl |
 | The recording disclosure | Finnish, with English below | Carl |
 | The prompts | English, naming the language to write in | – |
@@ -815,7 +833,8 @@ are what was decided. The prototype's details aren't a specification.
 - Switches:
   - "Record this session", off by default every time (see
     [section 9](#9-recording-sessions-disclosure-and-the-test-corpus));
-  - Location, remembered on the phone.
+  - Location, on the first time Carl is opened and then remembered on the
+    phone.
 - "This month ≈ €…", and the last session's date, length, cost and €/h.
 - Nothing is heard before Start is tapped.
 - With recording on, Start opens the disclosure screen first.
@@ -823,7 +842,8 @@ are what was decided. The prototype's details aren't a specification.
 ### The session screen
 
 - **The top bar** is one row: the listening indicator, the recording mark,
-  then Pause, End and a ⋯ menu at the right end.
+  then Pause and End at the right end. The ⋯ menu joins them in the next
+  version, when it has something to hold.
 - **The listening indicator** is a pill:
   - green "Listening", with a pulsing dot while someone speaks;
   - amber "Paused";
@@ -838,21 +858,25 @@ are what was decided. The prototype's details aren't a specification.
   mouse too. Anyone at the table may end the session.
 - **The current card** takes the rest of the screen and shows:
   - the coloured Claim/Question label;
-  - for a **hedged fact card**, a "Hedged" tag next to the label, and the hedge
-    prefix before the fact;
+  - for a **hedged fact card**, a "Varauksin" / "Hedged" tag next to the
+    label, and the hedge prefix before the fact;
   - the title (the claim's gist in a few words);
   - the one-sentence fact;
   - the source, as a clearly visible, clickable link, which OpenAI's terms
     require of a citation that is shown.
 
-  Tapping anywhere on the card moves on. When another card is waiting,
-  "+N waiting" and a shrinking 8 s bar show under it.
+  Tapping the source opens it in a new tab and leaves the card where it is.
+  Tapping anywhere else on the card moves on. Opening a source hides Carl's
+  page, which counts as losing the microphone until the page is back (see
+  [Can't hear](#cant-hear)). When another card is waiting, "+N waiting" and a
+  shrinking 8 s bar show under the card.
 - **The card history** is always visible and scrollable, in small type.
   - In landscape it is a column on the right, about 30% of the width. In
     portrait it is a strip along the bottom, about 30% of the height.
   - Each card is a row, newest on top by utterance time, with older rows
     dimmer.
   - A claim is marked ≠ and a question ?. A hedged card has a dashed edge.
+  - Each row's source is a link too, opened the same way.
   - A card that has been tapped away joins the card history.
 - Between cards, only the top bar and the card history are on screen.
 
@@ -891,8 +915,8 @@ whether the recording was kept. It leads back to the Start screen.
   - The card archive is a list of sessions, with Wrong/Pointless marks and a
     note of missed moments.
   - The Log lists entries and outages, with a Clear that asks first.
-- The ⋯ menu's items. In the prototype these are the transcript-line switch and
-  the Log.
+- The ⋯ menu in the top bar, holding the transcript-line switch and the Log,
+  as in the prototype.
 
 Sources: [The screen][t24], [Tracking a candidate until its card][t18],
 [Development mode and the recording-session disclosure][t21],
@@ -1074,8 +1098,8 @@ its shape.
 
 - Anyone recorded may ask to hear or read their session, or to have it
   deleted. The owner honours a request without asking why.
-- The owner uses the script's `list`, `fetch <id>` and `delete <id>`. Delete
-  removes the whole session: `recordings/<id>/` and `corpus/<id>.md`.
+- The owner uses the script's `list`, `export <id>` and `delete <id>`.
+  Delete removes the whole session: `recordings/<id>/` and `corpus/<id>.md`.
 - The providers' own copies are outside Carl's control.
   - The documentation names each stage's provider and links to its retention
     terms.
@@ -1112,7 +1136,9 @@ The indicator switches to "Can't hear" when:
 
 - **the page–server connection drops.** The page switches as soon as the
   WebSocket closes, or when no server message (heartbeat or other) has arrived
-  for **10 s**. A server restart shows up this way;
+  for **10 s**. A server restart shows up this way. The server likewise
+  treats 10 s without any message from the page as a dropped connection, and
+  starts the reconnect grace period;
 - **the microphone is lost.** The microphone track ends or is muted: permission
   is revoked, a phone call takes the microphone, or the page is hidden;
 - **the speech-to-text connection drops,** while the server reopens it with
@@ -1152,8 +1178,10 @@ arriving.
 - The 60 s candidate timeout is logged against the stage the candidate was
   stuck in, and counts as a failure of that stage.
 - **Utterances during a decision outage are dropped,** not retried later,
-  because a card minutes late is worthless. The outage's log entry counts them.
-  A repeat said after recovery is checked as usual.
+  because a card minutes late is worthless. Each utterance still gets its
+  decision call, since only a successful call can end the outage; an utterance
+  whose call fails is dropped. The outage's log entry counts the dropped
+  utterances. A repeat said after recovery is checked as usual.
 
 ### The failure log
 
@@ -1208,6 +1236,10 @@ microphone actually stopping does.
     candidates, cards shown, the running cost and the current place name.
   - After a restart, the page reconnects as above and the session carries on.
   - Checks lost in the restart go into the failure log as `lost-in-restart`.
+  - At every start, the server looks in `sessions/` and gives each session's
+    page the 2-minute grace period to reconnect. A session whose page doesn't
+    come back is ended as usual. A 1-day lifecycle rule on `sessions/` removes
+    any state still left behind, since it holds recent conversation.
 - **The handover at about 50 minutes** (see [Hosting](#hosting)) is planned and
   loses nothing. Until build step 7 builds it, the reconnect grace period
   covers Scaleway's 60-minute cut. The cut then loses a second or two of audio,
@@ -1264,7 +1296,9 @@ Sources: [The can't-hear-or-check state and the failure log][t22],
 
   Per-call costs also go into a recording's event log.
 - **Currency:** costs are stored in USD, as billed. They are shown in euros at a
-  fixed rate from the config file, marked "≈".
+  fixed rate from the config file, marked "≈". The rate starts as the European
+  Central Bank's reference rate on the day the config file is first written,
+  and is updated by hand when it drifts by more than about 5%.
 - **What the owner sees:**
   - the Start screen shows the month-to-date total and the last session's line
     (date, length, cost, €/h);
@@ -1318,17 +1352,20 @@ Sources: [Metering running cost against the monthly budget][t12],
 
 - While the session runs, the page runs `watchPosition`. It stops while the
   session is paused.
-- The page sends a new fix only when:
+- After its first fix, the page sends a new one only when:
   - the phone has moved more than **500 m** from the last fix it sent; or
-  - the accuracy has improved from poor to good.
+  - the accuracy has moved up a level. The levels are the cuts under
+    [Off, denied, poor fix, geocoder down](#off-denied-poor-fix-geocoder-down):
+    no location, town only, and the full place name.
 - The server geocodes again only when a new fix falls outside the last result's
   neighbourhood, and at most once a minute. At a dinner table, that means one
   geocoding call per session.
 
 ### Off, denied, poor fix, geocoder down
 
-- **The off switch** is on the Start screen, and the phone remembers it. When it
-  is off, the page never asks for location, and stages get only the date, time
+- **The Location switch** is on the Start screen. It is on the first time Carl
+  is opened, and the phone remembers it after that. When it is off, the page
+  never asks for location, and stages get only the date, time
   and timezone. The timezone comes from the phone.
 - **Permission denied** works the same as off, and Carl doesn't ask again. It
   is noted once in the recording session's event log. It isn't a failure-log
@@ -1357,13 +1394,16 @@ Sources: [Location in the pipeline and the test corpus][t20],
 ## 13. Config file contents
 
 The config file is committed and baked into the image, and changing it means a
-redeploy. Each recording session stores a copy. The tickets place these
-settings in it:
+redeploy. Each recording session stores a copy. Anything the test corpus or an
+early measurement might tune goes in it:
 
 | Setting | Starting value |
 | --- | --- |
 | Each stage's provider, model and parameters, including Soniox's `language_hints: [fi, en]` | See [Provisional models](#provisional-models) |
 | Soniox `max_endpoint_delay_ms` | 1,500 ms |
+| False speaker switch | 2 words or fewer |
+| Longest utterance | About 30 s, then split at the next sentence end |
+| Backchannel and filler list | joo, niin, aha, mm, jaa, okei, yeah, right, uh-huh, wow… |
 | Decision context window | Up to 10 utterances, from no more than the last 2 min |
 | Repeat threshold (the `same as` choices together) | 0.5 |
 | Candidate threshold (`claim` + `open question`) | 0.5 |
@@ -1380,35 +1420,34 @@ settings in it:
 | Card-language window | 10 min |
 | Card-language word minimum | About 50 words |
 | Least time on screen while another card waits | 8 s |
-| "Can't hear": no server message (page) | 10 s |
+| Late-card cut-off | 20 s after the utterance, measured when the card would reach the screen |
+| Heartbeat, each way | Every 3 s when nothing else was sent |
+| Silence before a side treats the connection as dropped | 10 s |
+| Reconnect grace period | 2 min |
+| WebSocket handover | About 50 min |
 | "Can't hear": no audio (server) | 5 s |
 | "Can't check": decision model | 3 failed calls in a row |
 | "Can't check": fact-finding, fact-checking | 2 failed candidates in a row |
 | Movement before a new location fix is sent | 500 m |
+| Location accuracy | Worse than 1 km: town only. Worse than 20 km: none |
 | Geocoding again | Only outside the last neighbourhood, at most once a minute |
 | Price table | Per model: input, cached and output tokens; per search; per audio hour |
-| USD → € rate | A fixed rate |
+| USD → € rate | The European Central Bank's reference rate on the day the file is first written |
 
-The tickets also fix these numbers without saying they go in the config file:
+These stay out of the config file. They follow a provider's limit, a usage
+policy, a data format or a security choice, not anything the corpus would tune:
 
-| Value | Setting |
-| --- | --- |
-| Late-card cut-off | 20 s after the utterance, measured when the card would reach the screen |
-| Reconnect grace period | 2 min |
-| WebSocket handover | About 50 min |
-| Soniox reopen backoff | 1, 2, 4… up to 30 s |
-| Soniox stream rotation | Before its 300-minute limit, at a segment end |
-| False speaker switch | 2 words or fewer |
-| Longest utterance | About 30 s, then split at the next sentence end |
-| Audio chunk, page to server | About 100 ms |
-| Recording audio objects, event-log flush | About 1 min each, about every 10 s |
-| Backchannel and filler list | joo, niin, aha, mm, jaa, okei, yeah, right, uh-huh, wow… |
-| Location accuracy | Worse than 1 km: town only. Worse than 20 km: none |
-| Nominatim rate | At most 1 request a second |
-| Loading page | Shown after 2.5 s without an answer |
-| Wrong access pass | Answered after 1 s |
-| Access-pass cookie | 1 year |
-| Bucket lifecycle rules | `recordings/` 180 days, `failures/` 30 days |
+| Value | Setting | Where |
+| --- | --- | --- |
+| Soniox reopen backoff | 1, 2, 4… up to 30 s | Code |
+| Soniox stream rotation | Before its 300-minute limit, at a segment end | Code |
+| Audio chunk, page to server | About 100 ms | Code |
+| Recording audio objects, event-log flush | About 1 min each, about every 10 s | Code |
+| Nominatim rate | At most 1 request a second | Code |
+| Wrong access pass | Answered after 1 s | Code |
+| Access-pass cookie | 1 year | Code |
+| Loading page | Shown after 2.5 s without an answer | The Worker |
+| Bucket lifecycle rules | `recordings/` 180 days, `failures/` 30 days, `sessions/` 1 day | The bucket |
 
 Sources: [Provisional models for each stage][t07],
 [How audio is streamed and how speaker labels reach the decision model][t08],
@@ -1421,7 +1460,7 @@ Sources: [Provisional models for each stage][t07],
 [The can't-hear-or-check state and the failure log][t22],
 [Prompts, card language and the source blocklist][t23],
 [What runs in the browser and what runs on a server][t06],
-[product spec][product].
+[product spec][product], [Decided at arrival](#16-decided-at-arrival).
 
 ## 14. Build order
 
@@ -1473,7 +1512,7 @@ Sources: [Provisional models for each stage][t07],
    - the Python server and page shell, from drum-transcribe's pieces: the
      access-pass gate, the loading Worker, the Dockerfile and the deploy
      commands;
-   - the bucket, with its 180- and 30-day rules;
+   - the bucket, with its 180-, 30- and 1-day rules;
    - the config file and the `prompts/` folder;
    - pytest in GitHub Actions;
    - a WebSocket with a heartbeat;
@@ -1490,7 +1529,8 @@ Sources: [Provisional models for each stage][t07],
      wake lock;
    - the 2-minute reconnect grace period;
    - speech-to-text cost metering and the month's total;
-   - the owner script's `list`, `fetch` and `delete`;
+   - the "Session ended" summary (its card count shows from step 4 on);
+   - the owner script's `list`, `export` and `delete`;
    - the dev file source.
 
    *Leaves:* dinners recorded, with no checks yet.
@@ -1509,8 +1549,8 @@ Sources: [Provisional models for each stage][t07],
 5. **Second fact-finder:** both fact-finders in parallel, the wait of about
    12 s, A's page download, the agreement call and the plain band.
    *Leaves:* the full split into plain, hedged and nothing.
-6. **Tracking candidates:** the settle call with the drop rule (the mark comes
-   later), the cap of 8, the 60 s timeout, and cards sent again after a
+6. **Tracking candidates:** the whole settle call with the drop rule (`agrees`
+   is recorded; the mark comes later), the cap of 8, the 60 s timeout, and cards sent again after a
    reconnect.
 7. **Robustness:**
    - "Can't hear" and "Can't check";
@@ -1521,7 +1561,7 @@ Sources: [Provisional models for each stage][t07],
 
    Until this step, the reconnect grace period covers the 60-minute cut, losing
    a second or two of audio, marked as a gap.
-8. **Corpus and costs:** `generate`, `put` and `check`, run then over every
+8. **Corpus and costs:** `generate`, `fetch`, `put` and `check`, run then over every
    dinner recorded so far; the per-session cost summary; the Start screen's
    last-session line.
 9. **Acceptance:** one 2-hour recorded dinner runs end to end. This is **done**.
@@ -1535,6 +1575,8 @@ Deferred from the first version, in no particular order:
 - **The "Settled at the table" / "Ratkesi pöydässä" mark.** The settle call
   that feeds it is already in the first version.
 - **The live transcript line,** with its switch.
+- **The ⋯ menu** in the top bar, holding the transcript-line switch and the
+  Log.
 - **The Log menu:** viewing and clearing the failure log. The first version
   already writes the log.
 - **Ending a session after 30 minutes without an utterance,** paused or not.
@@ -1566,6 +1608,49 @@ Sources: [Build order][t25],
 [Metering running cost against the monthly budget][t12],
 [Development mode and the recording-session disclosure][t21],
 [The screen][t24], [product spec][product].
+
+## 16. Decided at arrival
+
+Assembling this spec turned up conflicts between tickets and gaps that no
+ticket settled. They were settled on 2026-09-26, while the spec was being
+assembled. None has a ticket of its own, so this list is their record. The
+sections above already follow them.
+
+**The owner's rulings**
+
+- The fact-checking model never sees the fact-finders' restatement.
+  [Decision model context and candidate de-duplication][t09] stands over an
+  aside in [Location in the pipeline and the test corpus][t20].
+- The words Carl adds to a card (label, hedged tag, settled mark) follow the
+  card language, as in [Prompts, card language and the source blocklist][t23].
+  Everything else Carl shows is in English.
+- Speech-to-text goes through the server rather than straight from the browser,
+  because relaying works with any provider.
+
+**Judgement calls the owner asked for.** Each is cheap to change.
+
+| Gap | Decision | Why |
+| --- | --- | --- |
+| The hedged tag in Finnish | "Varauksin" | Short enough to read across the table, and it means "hedged" |
+| Tapping a card's source | Opens the source in a new tab, and the card stays. A tap anywhere else moves on | OpenAI requires a shown citation to be clickable, and a separate target keeps the card's tap-to-move-on |
+| The settle call in the first version | The whole call, with `agrees` and `disputes` for the card on screen. `agrees` is recorded but not shown | The next version's mark becomes a screen-only change, and the test corpus gets the data now |
+| Decision calls during a decision outage | Every utterance still gets one. An utterance whose call fails is dropped | There are no health checks, so only a successful call can end the outage |
+| The heartbeat | Every 3 s each way when nothing else was sent. 10 s of silence means a dropped connection, on both sides | The page reports "Can't hear" only after three missed beats, and the server notices a dead link it wasn't told about |
+| Page-side thresholds | The server sends them to the page at session start | The config file stays the one source of every threshold |
+| Location defaults | The switch is on the first time, then remembered. A fix is sent when accuracy moves up a level (none, town, full place). The 1 km and 20 km cuts are in the config file | The product spec's disclosure line assumes location is on unless switched off, and the levels are the ones the stages already use |
+| Word language in the speech-to-text interface | Every word carries a language code. A one-language-per-stream provider tags every word with the stream's language | Card language needs it, whichever provider is plugged in |
+| The owner script's `fetch` | `export <id>` gets everything for an access request, with the audio as one WAV. `fetch <id>` gets only the corpus Markdown | Correcting shouldn't download hundreds of megabytes of audio, and someone asking to hear a session needs a playable file |
+| Session state left behind | At every start the server waits the grace period for each session's page, then ends it. A 1-day lifecycle rule on `sessions/` is the backstop | The state holds recent conversation, so it mustn't linger |
+| The ⋯ menu | Not in the first version | Both its items belong to the next version |
+| The "Session ended" summary | Built with the recorder (step 2), card count from step 4 | Everything else it shows exists from step 2 |
+| The USD → € rate | The European Central Bank's reference rate on the day the config file is first written, updated by hand when it drifts more than about 5% | Costs are shown only as approximate ("≈") |
+| Config file or code | Anything the corpus or a measurement might tune goes in the config file. Provider limits, usage policies, data formats and security choices stay in code, the Worker or the bucket | That keeps the config file to what the comparison will tune |
+
+Every other conflict between tickets went to the later ticket, as the
+introduction says. The recording disclosure keeps the exact wording from
+[Development mode and the recording-session disclosure][t21]. Providers' own
+logs are left to the documentation (see
+[Access and deletion requests](#access-and-deletion-requests)).
 
 [product]: ../purpose-and-goal/spec.md
 [context]: ../../CONTEXT.md
