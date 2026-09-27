@@ -23,6 +23,7 @@ FILLS: dict[str, frozenset[str]] = {
     "decision": frozenset(),  # typed prompts name their fields in backticks
     "fact-finding": frozenset({"candidate_kind", "card_language", "place_and_time", "conversation", "candidate"}),
     "fact-checking": frozenset(),
+    "same-fact": frozenset(),
 }
 
 

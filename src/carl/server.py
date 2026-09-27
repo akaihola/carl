@@ -210,6 +210,7 @@ async def close_sockets(app: web.Application) -> None:
     """On a restart or scale-down, end the sessions, so their recordings are
     written out, and let pages go at once so they reconnect."""
     await app[SESSIONS].end_all("server shutdown")
+    await app[SESSIONS].close()
     for ws in set(app[SOCKETS]):
         await ws.close(code=WSCloseCode.GOING_AWAY, message=b"server shutdown")
 

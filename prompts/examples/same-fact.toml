@@ -1,0 +1,79 @@
+# Hand-written example cases for prompts/same-fact.md, the agreement call,
+# in Finnish and English (First working Carl spec, section 7, Testing
+# prompts). `carl examples same-fact` asks the configured fact-checking model
+# whether each pair of draft cards states the same fact, with the fields a
+# candidate's check gives it, and prints the answer and its probabilities
+# next to the expected one. Run it by hand after a prompt change, never in
+# CI: it costs money (well under a cent for all of them) and needs the
+# network.
+#
+# `candidate` is the candidate's line as Carl writes it. `card_1` (fact-finder
+# A's) and `card_2` (B's) are each "title: fact" as the fact-finders wrote
+# them, in the card language, or not, since a card isn't translated.
+# `expected` is the answer: same fact, compatible but different or
+# contradict.
+
+# The date and time come from the clock at run time, in this timezone.
+timezone = "Europe/Helsinki"
+
+# --- Same fact -----------------------------------------------------------------
+
+[[cases]]
+id = "fi-en-same"
+candidate = "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä."
+card_1 = "Rick Casablancassa: Casablancan Rick Blainea näytteli Humphrey Bogart."
+card_2 = "Rick in Casablanca: Humphrey Bogart played Rick Blaine in Casablanca (1942)."
+expected = "same fact"
+
+[[cases]]
+id = "fi-same"
+candidate = "A2: Joo, vuonna 1956. Isä kävi katsomassa."
+card_1 = "Helsingin olympialaiset: Helsinki isännöi kesäolympialaiset vuonna 1952, ei vuonna 1956."
+card_2 = "Helsingin olympialaiset 1952: Helsingin kesäolympialaiset järjestettiin vuonna 1952."
+expected = "same fact"
+
+[[cases]]
+id = "en-same"
+candidate = "A2: Einstein failed maths at school, you know."
+card_1 = "Einstein didn't fail maths: Albert Einstein never failed mathematics; he excelled at it from an early age."
+card_2 = "The Einstein maths myth: The story that Einstein failed mathematics is a myth; he was top of his class in it."
+expected = "same fact"
+
+# --- Compatible but different -----------------------------------------------------
+
+[[cases]]
+id = "en-compatible"
+candidate = "A2: Einstein failed maths at school, you know."
+card_1 = "Einstein didn't fail maths: Einstein had mastered calculus before he was 15."
+card_2 = "Einstein's entrance exam: Einstein failed the general part of the ETH Zurich entrance exam in 1895, while scoring well in maths and physics."
+expected = "compatible but different"
+
+[[cases]]
+id = "fi-compatible"
+candidate = "A2: Tuntematon sotilas ilmestyi joskus kuusikymmentäluvulla."
+card_1 = "Tuntematon sotilas 1954: Väinö Linnan Tuntematon sotilas ilmestyi joulukuussa 1954."
+card_2 = "Tuntematon sotilas valkokankaalla: Edvin Lainen ohjaama Tuntematon sotilas sai ensi-iltansa joulukuussa 1955."
+expected = "compatible but different"
+
+# --- Contradict ------------------------------------------------------------------------
+
+[[cases]]
+id = "fi-contradict"
+candidate = "A2: Joo, Helsingin olympialaiset oli vuonna 1956."
+card_1 = "Helsingin olympialaiset 1952: Helsingin kesäolympialaiset pidettiin vuonna 1952, ei 1956."
+card_2 = "Helsingin olympialaiset 1948: Helsingin kesäolympialaiset pidettiin vuonna 1948, ei 1956."
+expected = "contradict"
+
+[[cases]]
+id = "en-contradict"
+candidate = "A3: Who played Rick in Casablanca? It's on the tip of my tongue."
+card_1 = "Rick in Casablanca: Humphrey Bogart played Rick Blaine in Casablanca."
+card_2 = "Casablanca's Rick: Claude Rains played Rick in Casablanca."
+expected = "contradict"
+
+[[cases]]
+id = "en-fi-contradict"
+candidate = "A1: The Eiffel Tower is about 200 metres tall, isn't it?"
+card_1 = "The Eiffel Tower's height: The Eiffel Tower is 330 metres tall."
+card_2 = "Eiffel-tornin korkeus: Eiffel-torni on 250 metriä korkea."
+expected = "contradict"

@@ -260,6 +260,46 @@ async def run_fact_checking(config: Config, prompts: dict[str, Prompt], path: Pa
     return good == len(cases)
 
 
+async def run_same_fact(config: Config, prompts: dict[str, Prompt], path: Path, only: Sequence[str] = ()) -> bool:
+    """The agreement prompt's cases: whether two draft cards state the same
+    fact, asked with the fields a candidate's check gives the agreement
+    call. True if every answer came out as expected."""
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    cases = pick(data["cases"], only)
+    typed = TypedPrompt.load(prompts["same-fact"])
+    stage = config.stages.fact_checking
+    when = date_time(data["timezone"])
+    print(f"same-fact: prompts/same-fact.md {typed.version}, {stage.provider} {stage.model}")
+    print(f"  date_time: {when}")
+    async with http_session() as http:
+        model = make_typed_model(stage, config, os.environ, http)
+
+        async def ask(case: dict[str, Any]) -> TypedAnswer | ModelError:
+            fields = checks.agreement_fields(case["candidate"], case["card_1"], case["card_2"], when)
+            try:
+                return await model.ask(typed.fill(fields), stage=checks.STAGE)
+            except ModelError as e:
+                return e
+
+        answers = await asyncio.gather(*(ask(case) for case in cases))
+    good, cost, estimated = 0, 0.0, False
+    for case, answer in zip(cases, answers, strict=True):
+        record = answer.record
+        cost += record.charged_usd
+        estimated |= record.estimated
+        if isinstance(answer, ModelError):
+            print(f"  ERROR {case['id']:<18} {answer.kind}: {record.error_text[:200]}  {took(record)}")
+            continue
+        ok = answer.answer == case["expected"]
+        good += ok
+        expected = "" if ok else f"  expected {case['expected']}"
+        print(f"  {'ok   ' if ok else 'MISS '} {case['id']:<18} {answer.answer:<25} "
+              f"p: {probabilities(answer.probs):<56} {took(record)}{expected}")
+    print(f"{good} of {len(cases)} as expected, ${cost:.6f} in all{' (partly estimated)' if estimated else ''}, "
+          f"model {answers[0].record.model if answers else '-'}")
+    return good == len(cases)
+
+
 def took(record: CallRecord) -> str:
     """A call's time and what it counts toward the totals, with Carl's own figure when that differs."""
     cost = f"${record.charged_usd:.5f}"
@@ -272,4 +312,5 @@ RUNNERS: dict[str, Callable[[Config, dict[str, Prompt], Path, Sequence[str]], Aw
     "decision": run_decision,
     "fact-finding": run_fact_finding,
     "fact-checking": run_fact_checking,
+    "same-fact": run_same_fact,
 }

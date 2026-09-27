@@ -598,3 +598,8 @@ class Sessions:
     async def end_all(self, reason: str) -> None:
         for session in list(self.live.values()):
             await session.end(reason)
+
+    async def close(self) -> None:
+        """At shutdown, once every session has ended: close what the checks hold open."""
+        if self.checker is not None:
+            await self.checker.close()
