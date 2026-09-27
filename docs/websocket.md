@@ -4,7 +4,7 @@ One WebSocket at `/api/ws`, behind the access pass (First working Carl spec,
 [One WebSocket](../.scratch/first-working-carl/spec.md#one-websocket)).
 Binary frames carry audio from the page. JSON text frames carry everything
 else, each an object with a `type`. Either side ignores a `type` it doesn't
-know. This page lists the messages as of build step 4.
+know. This page lists the messages as of build step 7.
 
 ## Always
 
@@ -51,6 +51,26 @@ page's connection drops, with the speech-to-text stream kept open.
 | --- | --- | --- |
 | page → server | `{"type": "rejoin", "session": "<id>"}` | After a reconnect, the page asks to carry on with its session |
 | server → page | `session` or `ended` | The session carries on, or it had already ended. The `ended` summary is `null` when the server no longer knows the session, as after a restart |
+
+## Can't hear, can't check
+
+(Spec section 10.) The server holds the listening indicator's problem
+state; the page adds what only it can see.
+
+| Direction | Message | Meaning |
+| --- | --- | --- |
+| server → page | `{"type": "indicator", "problem": "cant_hear", "reason": "stt-reopening"}` | Sent when the state changes, and after `start` and `rejoin`. `problem` is `null`, `cant_hear` or `cant_check` ("Can't hear" wins when both apply). `reason` is a code for the log, never shown |
+| page → server | `{"type": "mic", "state": "lost", "detail": "ended"}` / `{"type": "mic", "state": "back"}` | The microphone track ended or was muted, or permission was revoked (`detail`), or it is live again. The page shows "Can't hear" itself at once |
+| page → server | `{"type": "page_events", "events": [{"kind": "gap", "start": "…", "end": "…"}, {"kind": "mic-lost", "start": "…", "end": "…", "detail": "muted"}, {"kind": "hidden", "start": "…", "end": "…"}, {"kind": "wake-lock", "at": "…", "state": "refused"}, {"kind": "card-render-failed", "at": "…", "id": "C3"}]}` | What the page buffered while it couldn't tell the server, sent after a rejoin |
+
+### The handover
+
+At about `handover_s` (50 minutes) into a WebSocket's life, the page opens
+a second one and sends `rejoin` on it while the first is still open. Once
+the second answers `session`, the page sends the audio on it and closes the
+first. The server treats this like any rejoin: the session moves to the new
+socket, and the old socket's close is no drop. A second socket that fails to
+open counts as a dropped connection.
 
 ## Stopping a recording
 
