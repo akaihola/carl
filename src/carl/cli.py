@@ -5,12 +5,14 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 from .config import ConfigError, load_config
 from .gate import MIN_PASS_LENGTH, GateError, Passes, generate_passphrase, hash_password
 from .prompts import PromptError, load_prompts
+from .storage import make_store
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -57,22 +59,43 @@ def serve_command(args: argparse.Namespace) -> int:
         config = load_config(args.config)
         prompts = load_prompts(args.prompts)
         passes = Passes.from_env()
-    except (ConfigError, PromptError, GateError) as e:
+        if not os.environ.get("SONIOX_API_KEY"):
+            raise ConfigError("SONIOX_API_KEY not set: Carl can't hear without speech-to-text")
+        store = make_store()
+    except (ConfigError, PromptError, GateError, RuntimeError) as e:
         print(f"carl: can't start: {e}", file=sys.stderr)
         return 2
 
     from aiohttp import web
 
     from .server import create_app
+    from .session import Sessions
+    from .stt import make_speech_to_text
+
+    stt = make_speech_to_text(config.stages.speech_to_text, os.environ)
+    sessions = Sessions(config, prompts, store, stt, commit())
 
     logging.getLogger(__name__).info(
-        "commit %s, config %s, prompts %s",
-        os.environ.get("CARL_COMMIT", "unknown"),
+        "commit %s, config %s, prompts %s, store %s",
+        sessions.commit,
         config.version,
         ", ".join(f"{p.name} {p.version}" for p in prompts.values()) or "none yet",
+        type(store).__name__,
     )
-    web.run_app(create_app(config, prompts, passes), host=args.host, port=args.port, print=None)
+    web.run_app(create_app(config, prompts, passes, sessions), host=args.host, port=args.port, print=None)
     return 0
+
+
+def commit() -> str:
+    """The build's git commit: baked into the image, or read from the checkout."""
+    if os.environ.get("CARL_COMMIT"):
+        return os.environ["CARL_COMMIT"]
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5)
+        dirty = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5).stdout
+        return out.stdout.strip() + ("-dirty" if dirty.strip() else "") if out.returncode == 0 else "unknown"
+    except OSError:
+        return "unknown"
 
 
 if __name__ == "__main__":

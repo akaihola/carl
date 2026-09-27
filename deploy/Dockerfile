@@ -26,7 +26,7 @@ COPY --from=build /app/.venv /app/.venv
 COPY config.toml ./
 COPY prompts ./prompts
 ARG GIT_COMMIT=unknown
-ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 PORT=8080 CARL_COMMIT=${GIT_COMMIT}
+ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 PORT=8080 CARL_COMMIT=${GIT_COMMIT} CARL_CLOUD=1
 USER nobody
 EXPOSE 8080
 CMD ["carl", "serve", "--host", "0.0.0.0"]

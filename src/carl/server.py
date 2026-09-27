@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import weakref
+from dataclasses import asdict
 from importlib import resources
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -23,6 +24,7 @@ from .config import Config
 from .gate import Passes
 from .link import Link
 from .prompts import Prompt
+from .session import Session, Sessions
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ CONFIG = web.AppKey("config", Config)
 PROMPTS = web.AppKey("prompts", dict[str, Prompt])
 PASSES = web.AppKey("passes", Passes)
 SOCKETS = web.AppKey("sockets", weakref.WeakSet[web.WebSocketResponse])
+SESSIONS = web.AppKey("sessions", Sessions)
 
 # The page makes no third-party calls, and this says so to the browser.
 PAGE_CSP = (
@@ -74,11 +77,12 @@ PASS_PAGE = """<!doctype html>
 """
 
 
-def create_app(config: Config, prompts: dict[str, Prompt], passes: Passes) -> web.Application:
+def create_app(config: Config, prompts: dict[str, Prompt], passes: Passes, sessions: Sessions) -> web.Application:
     app = web.Application(middlewares=[headers, access_pass])
     app[CONFIG] = config
     app[PROMPTS] = prompts
     app[PASSES] = passes
+    app[SESSIONS] = sessions
     app[SOCKETS] = weakref.WeakSet()
     app.on_shutdown.append(close_sockets)
     app.router.add_get("/api/health", health)
@@ -173,19 +177,25 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     ws = web.WebSocketResponse(max_msg_size=MAX_FRAME_BYTES)
     await ws.prepare(request)
     request.app[SOCKETS].add(ws)
+    sessions = request.app[SESSIONS]
     link = Link(ws, config.connection.heartbeat_s, config.connection.silence_s)
     log.info("page connected")
-    await link.send({"type": "hello", "config": config.page_values()})
+    await link.send({"type": "hello", "config": config.page_values(), "costs": await sessions.month_costs()})
     keep_alive = asyncio.create_task(link.keep_alive())
+    page = Page(link, sessions)
     try:
         async for message in ws:
             link.heard()
             if message.type is WSMsgType.BINARY:
-                link.audio_bytes += len(message.data)  # audio: used from step 2 on
+                link.audio_bytes += len(message.data)
+                if page.session is not None:
+                    await page.session.audio(message.data)
             elif message.type is WSMsgType.TEXT:
-                await on_message(link, message.data)
+                await page.on_message(message.data)
     finally:
         keep_alive.cancel()
+        if page.session is not None:
+            await page.session.detach(link)
         log.info(
             "page %s after %.0f s, %d audio bytes",
             "dropped" if link.dropped else "disconnected",
@@ -196,17 +206,73 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
 
 
 async def close_sockets(app: web.Application) -> None:
-    """On a restart or scale-down, let pages go at once so they reconnect."""
+    """On a restart or scale-down, end the sessions, so their recordings are
+    written out, and let pages go at once so they reconnect."""
+    await app[SESSIONS].end_all("server shutdown")
     for ws in set(app[SOCKETS]):
         await ws.close(code=WSCloseCode.GOING_AWAY, message=b"server shutdown")
 
 
-async def on_message(link: Link, data: str) -> None:
-    try:
-        message = json.loads(data)
-        kind = message["type"]
-    except (ValueError, TypeError, KeyError):
-        log.warning("ignored a text frame that isn't a message: %.80r", data)
-        return
-    if kind != "heartbeat":
-        log.info("ignored a %r message", kind)
+class Page:
+    """One page's connection: its messages, and the session it drives."""
+
+    def __init__(self, link: Link, sessions: Sessions) -> None:
+        self.link, self.sessions = link, sessions
+        self.session: Session | None = None
+
+    async def on_message(self, data: str) -> None:
+        try:
+            message = json.loads(data)
+            kind = message["type"]
+        except (ValueError, TypeError, KeyError):
+            log.warning("ignored a text frame that isn't a message: %.80r", data)
+            return
+        handler = getattr(self, "on_" + str(kind).replace("-", "_"), None)
+        if handler is None:
+            log.info("ignored a %r message", kind)
+            return
+        await handler(message)
+
+    async def on_heartbeat(self, message: dict) -> None:
+        pass
+
+    async def on_start(self, message: dict) -> None:
+        if self.session is not None and self.session.state != "ended":
+            await self.link.send(self.session.state_message())
+            return
+        self.session = await self.sessions.start(self.link, message)
+        await self.link.send(self.session.state_message())
+
+    async def on_rejoin(self, message: dict) -> None:
+        session_id = str(message.get("session", ""))
+        session = self.sessions.get(session_id)
+        if session is None:
+            summary = self.sessions.ended.get(session_id)
+            await self.link.send({"type": "ended", "session": session_id, "summary": summary and asdict(summary)})
+            return
+        self.session = session
+        await session.attach(self.link)
+        await self.link.send(session.state_message())
+
+    async def on_pause(self, message: dict) -> None:
+        if self.session is not None:
+            await self.session.pause()
+            await self.link.send(self.session.state_message())
+
+    async def on_resume(self, message: dict) -> None:
+        if self.session is not None:
+            await self.session.resume()
+            await self.link.send(self.session.state_message())
+
+    async def on_end(self, message: dict) -> None:
+        if self.session is not None:
+            session, self.session = self.session, None
+            summary = await session.end("end")
+            await self.link.send(summary.message(session.id))
+
+    async def on_stop_recording(self, message: dict) -> None:
+        session_id = str(message.get("session", ""))
+        if await self.sessions.stop_recording(session_id):
+            await self.link.send({"type": "recording_stopped", "session": session_id})
+            if self.session is not None and self.session.id == session_id:
+                await self.link.send(self.session.state_message())

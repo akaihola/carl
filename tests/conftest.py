@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import ipaddress
 import socket
@@ -10,6 +11,9 @@ import pytest
 from carl.config import Config, load_config
 from carl.gate import COOKIE, Passes, hash_password
 from carl.server import create_app
+from carl.session import Sessions
+from carl.storage import MemoryStore
+from carl.stt import SttEvent, Word
 
 ROOT = Path(__file__).resolve().parents[1]
 PASSWORD = "bakodi-sulema-rotike-fanupa"
@@ -47,15 +51,80 @@ def passes(entries) -> Passes:
     return Passes(entries, TOKEN_SECRET)
 
 
-def quick(config: Config, heartbeat_s: float = 0.05, silence_s: float = 0.3) -> Config:
+def quick(config: Config, heartbeat_s: float = 0.05, silence_s: float = 0.3, grace_s: float = 120) -> Config:
     """The config with a heartbeat fast enough for a test."""
-    connection = dataclasses.replace(config.connection, heartbeat_s=heartbeat_s, silence_s=silence_s)
+    connection = dataclasses.replace(
+        config.connection, heartbeat_s=heartbeat_s, silence_s=silence_s, reconnect_grace_s=grace_s
+    )
     return dataclasses.replace(config, connection=connection)
 
 
+class ScriptedStream:
+    """A speech-to-text stream that says what a test tells it to."""
+
+    def __init__(self) -> None:
+        self.audio = bytearray()
+        self.queue: asyncio.Queue[SttEvent] = asyncio.Queue()
+        self.finalized = self.keepalives = 0
+        self.closed = False
+
+    async def send_audio(self, chunk: bytes) -> None:
+        self.audio += chunk
+
+    async def keepalive(self) -> None:
+        self.keepalives += 1
+
+    async def finalize(self) -> None:
+        self.finalized += 1
+        await self.queue.put(SttEvent(endpoint=True, raw={"finalized": True}))
+
+    async def close(self) -> None:
+        self.closed = True
+        await self.queue.put(SttEvent(finished=True, raw={"finished": True}))
+
+    async def events(self):
+        while True:
+            event = await self.queue.get()
+            yield event
+            if event.finished:
+                return
+
+    def say(self, speaker: str, text: str, start_ms: int = 0, endpoint: bool = True, language: str = "fi") -> None:
+        words = tuple(
+            Word(w, start_ms + 400 * i, start_ms + 400 * i + 300, speaker, language, True)
+            for i, w in enumerate(text.split())
+        )
+        self.queue.put_nowait(SttEvent(words=words, endpoint=endpoint, raw={"said": text}))
+
+
+class ScriptedStt:
+    def __init__(self) -> None:
+        self.streams: list[ScriptedStream] = []
+
+    async def open(self, languages: list[str]) -> ScriptedStream:
+        self.streams.append(ScriptedStream())
+        return self.streams[-1]
+
+
 @pytest.fixture
-async def client(aiohttp_client, config, passes):
-    return await aiohttp_client(create_app(quick(config), {}, passes))
+def store() -> MemoryStore:
+    return MemoryStore()
+
+
+@pytest.fixture
+def stt() -> ScriptedStt:
+    return ScriptedStt()
+
+
+@pytest.fixture
+def app_config(config) -> Config:
+    return quick(config)
+
+
+@pytest.fixture
+async def client(aiohttp_client, app_config, passes, store, stt):
+    sessions = Sessions(app_config, {}, store, stt, "test")
+    return await aiohttp_client(create_app(app_config, {}, passes, sessions))
 
 
 @pytest.fixture

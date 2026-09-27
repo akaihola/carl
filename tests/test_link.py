@@ -26,7 +26,9 @@ async def test_the_upgrade_needs_carls_own_origin(unlocked):
 async def test_the_page_gets_its_config_at_the_start(unlocked, config):
     ws = await unlocked.ws_connect("/api/ws")
     hello = await ws.receive_json(timeout=1)
-    assert hello == {"type": "hello", "config": quick(config).page_values()}
+    assert hello["type"] == "hello"
+    assert hello["config"] == quick(config).page_values()
+    assert hello["costs"] == {"month_usd": 0, "month_eur": 0}
     await ws.close()
 
 
