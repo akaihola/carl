@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
 
 def serve_command(args: argparse.Namespace) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # The first line: how much of a cold start is Scaleway's and how much Carl's.
+    logging.getLogger(__name__).info("starting")
     try:
         config = load_config(args.config)
         prompts = load_prompts(args.prompts)

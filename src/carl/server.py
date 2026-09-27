@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 from aiohttp import WSCloseCode, WSMsgType, web
 
-from . import gate
+from . import gate, probe
 from .config import Config
 from .gate import Passes
 from .link import Link
@@ -86,6 +86,7 @@ def create_app(config: Config, prompts: dict[str, Prompt], passes: Passes) -> we
     app.router.add_get("/api/ws", websocket)
     app.router.add_get("/", index)
     app.router.add_static("/static", WEB)
+    probe.setup(app)
     return app
 
 

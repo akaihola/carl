@@ -103,3 +103,19 @@ def test_the_page_links_only_files_that_exist():
             for link in re.findall(r"""(?:href|src)="/static/([^"]+)"|url\(([^)]+)\)|from "\./([^"]+)\"""", path.read_text()):
                 target = next(filter(None, link))
                 assert (WEB / target).is_file() or (path.parent / target).is_file(), (path, target)
+
+
+async def test_the_cpu_probe_is_behind_the_gate(client):
+    assert (await client.post("/api/probe?seconds=1")).status == 401
+    assert (await client.get("/api/probe")).status == 401
+
+
+async def test_the_cpu_probe_ticks(unlocked):
+    started = await unlocked.post("/api/probe?seconds=0.35")
+    assert started.status == 200
+    assert (await unlocked.post("/api/probe?seconds=1")).status == 409
+    await asyncio.sleep(0.5)
+    state = await (await unlocked.get("/api/probe")).json()
+    assert not state["running"]
+    assert 3 <= len(state["ticks"]) <= 5
+    assert {"t", "late_ms", "work_ms"} <= set(state["ticks"][0])

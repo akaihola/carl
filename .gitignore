@@ -8,3 +8,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 .wrangler/
+
+# The connection test's raw results
+.scratch/build-first-working-carl/connection-test/out/
