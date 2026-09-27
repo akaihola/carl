@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import re
 import secrets
@@ -32,7 +33,7 @@ from typing import Any, Literal
 
 from . import costs as costs_module
 from .config import Config
-from .costs import Costs
+from .costs import Costs, SessionCosts, stopped_line
 from .link import Link
 from .outages import FailureLog, Health, now_iso
 from .prompts import Prompt
@@ -201,6 +202,9 @@ class Session:
     saving_stopped: bool = False
     suspended: bool = False  # saved at a shutdown for the next instance, not ended
     open_on_rejoin: bool = False  # resumed after a restart: its stream opens when the page is back
+    spend: SessionCosts = field(default_factory=SessionCosts)  # its costs, per stage and provider
+    recording_stopped_at: float | None = None
+    costs_written: str | None = None  # its cost summary as last written, the times aside
 
     def __post_init__(self) -> None:
         self.health = Health(self)
@@ -266,6 +270,7 @@ class Session:
         self.health.last_audio = time.monotonic()
         self.spawn(self.health.watch_audio())
         self.start_saving()
+        await self.write_costs()
         await self.open_stream()
 
     async def carry_on(self, saved_at: str | None = None) -> None:
@@ -315,6 +320,7 @@ class Session:
             self.save_now.clear()
             if not self.saving_stopped:
                 await self.sessions.states.save(self)
+                await self.write_costs()
 
     async def stop_saving(self) -> None:
         """Stop saving, and wait for a save under way, so none lands after a delete."""
@@ -342,6 +348,7 @@ class Session:
         self.log("session suspended", reason="server shutdown")
         if self.sessions.states is not None:
             await self.sessions.states.save(self, force=True)
+        await self.write_costs(force=True)
         if self.recorder is not None:
             self.recorder.audio_break()
             await self.recorder.close()
@@ -349,6 +356,45 @@ class Session:
             if task is not asyncio.current_task():
                 task.cancel()
         log.info("session %s saved for the next instance", self.id)
+
+    # --- Cost -----------------------------------------------------------------------
+
+    async def add_cost(self, stage: str, provider: str, model: str, usd: float, *, estimated: bool = False,
+                       when: datetime | None = None, own_usd: float | None = None) -> None:
+        """Charge a cost to this session and to its month. `own_usd` is
+        Carl's own figure when `usd` is the provider's."""
+        self.cost_usd += usd
+        self.spend.add(stage, provider, usd, estimated, own_usd)
+        try:
+            await self.sessions.costs.charge(stage, provider, model, usd, estimated=estimated, when=when)
+        except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal
+            log.exception("session %s: couldn't write a charge of $%.6f", self.id, usd)
+
+    def cost_summary(self, ended: float | None = None) -> dict[str, Any]:
+        """The session's cost summary (`carl.costs`): no conversation content."""
+        now = time.time() if ended is None else ended
+        listening = self.listening_s + (now - self.listening_since if self.listening_since is not None else 0.0)
+        summary: dict[str, Any] = {
+            "session": self.id, "started": iso_time(self.started), "timezone": self.timezone,
+            "ended": None if ended is None else iso_time(ended), "duration_s": round(now - self.started, 1),
+            "listening_s": round(listening, 1), "usd": round(self.cost_usd, costs_module.USD_DIGITS),
+            "estimated_usd": round(self.spend.estimated_usd, costs_module.USD_DIGITS),
+            "eur": round(costs_module.to_eur(self.config, self.cost_usd), costs_module.USD_DIGITS),
+            **self.spend.event(),
+            "recording": "stopped" if self.recording_stopped else "kept" if self.record else "none",
+        }
+        if self.recording_stopped_at is not None:
+            summary["recording_stopped"] = stopped_line(self.recording_stopped_at, self.timezone)
+        return summary
+
+    async def write_costs(self, ended: float | None = None, force: bool = False) -> None:
+        """Keep the cost summary current: written when the costs or the recording changed, and at End."""
+        summary = self.cost_summary(ended)
+        key = json.dumps({k: v for k, v in summary.items() if k not in ("duration_s", "listening_s")},
+                         sort_keys=True)
+        if force or ended is not None or key != self.costs_written:
+            await self.sessions.costs.write_session(summary)
+            self.costs_written = key
 
     async def audio(self, chunk: bytes) -> None:
         if self.state != "listening" or self.suspended:
@@ -391,6 +437,7 @@ class Session:
     async def end(self, reason: str) -> Summary:
         if self.summary is not None:
             return self.summary
+        ended_at = time.time()
         was_listening = self.state == "listening"
         self.state = "ended"
         if was_listening:
@@ -423,6 +470,8 @@ class Session:
         cards = None if self.sessions.checker is None else sum(c.state != "withdrawn" for c in self.cards.values())
         self.summary = Summary(round(self.listening_s, 1), round(self.cost_usd, 6),
                                round(costs_module.to_eur(self.config, self.cost_usd), 6), recording, cards, month)
+        await self.write_costs(ended=ended_at)
+        await self.sessions.costs.set_last_session(self.cost_summary(ended_at))
         log.info("session %s ended (%s) after %.0f s listening", self.id, reason, self.listening_s)
         self.sessions.finished(self)
         return self.summary
@@ -430,7 +479,10 @@ class Session:
     async def stop_recording(self) -> None:
         """The one-way stop: delete everything recorded so far, and record nothing more."""
         self.recording_stopped = True
+        if self.recording_stopped_at is None:
+            self.recording_stopped_at = time.time()
         self.save_soon()
+        await self.write_costs()
         if self.recorder is not None:
             deleted = await self.recorder.stop_and_delete()  # kept until the delete succeeds
             self.recorder = None
@@ -708,12 +760,8 @@ class Session:
         if seconds <= 0:
             return
         stage = self.config.stages.speech_to_text
-        usd = costs_module.stream_cost(self.config, stage, seconds)
-        self.cost_usd += usd
-        try:
-            await self.sessions.costs.charge("speech-to-text", stage.provider, stage.model, usd)
-        except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal
-            log.exception("session %s: couldn't write a charge of $%.6f", self.id, usd)
+        await self.add_cost("speech-to-text", stage.provider, stage.model,
+                            costs_module.stream_cost(self.config, stage, seconds))
 
 
 class Sessions:
@@ -785,6 +833,7 @@ class Sessions:
         deleted = await self.store.delete_prefix(f"recordings/{session_id}/")
         if (summary := self.ended.get(session_id)) is not None and summary.recording == "kept":
             summary.recording = "stopped"
+        await self.costs.recording_stopped(session_id, time.time())
         log.info("recording %s stopped after its session ended: %d objects deleted", session_id, deleted)
         return True
 
@@ -795,6 +844,14 @@ class Sessions:
             log.exception("couldn't read the month's cost")
             return None
         return round(costs_module.to_eur(self.config, month["usd"]), 2)
+
+    async def last_session(self) -> dict[str, Any] | None:
+        """The last ended session's line for the Start screen, or None."""
+        try:
+            return await self.costs.last_session()
+        except Exception:  # noqa: BLE001
+            log.exception("couldn't read the last session's line")
+            return None
 
     async def month_costs(self) -> dict[str, float | None]:
         try:

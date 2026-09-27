@@ -287,12 +287,8 @@ async def account(sessions: Sessions, session: Session, heard: Heard, question: 
     event = record.event()
     event.pop("request", None)
     session.log("model call", utterance=heard.id, choices=list(question.choices), **event)
-    session.cost_usd += record.charged_usd
-    try:
-        await sessions.costs.charge(record.stage, record.provider, sessions.config.stages.decision.model,
-                                    record.charged_usd, estimated=record.estimated, when=record.started_at)
-    except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal
-        log.exception("session %s: couldn't write a charge of $%.6f", session.id, record.charged_usd)
+    await session.add_cost(record.stage, record.provider, sessions.config.stages.decision.model, record.charged_usd,
+                           estimated=record.estimated, when=record.started_at, own_usd=record.cost_usd)
 
 
 def install(sessions: Sessions, environ: Mapping[str, str]) -> None:

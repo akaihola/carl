@@ -49,12 +49,11 @@ split it into further tickets in this folder before starting.
 
 ## Done when
 
-- [ ] pytest passes in GitHub Actions on push to `main`, with fake adapters
+- [x] pytest passes in GitHub Actions on push to `main`, with fake adapters
       and no live provider calls: `generate` on fixture event logs (a normal
       session, a repeat, a late card, a stopped recording, a gap), every
       `check` rule, and the cost summary maths.
-      *(The corpus part is done: `tests/test_corpus.py`. The cost summary
-      maths waits for the cost summary.)*
+      *(`tests/test_corpus.py` and `tests/test_cost_summary.py`.)*
 - [ ] Every recording made so far has a generated `corpus/<id>.md`, and one
       has been corrected by the owner and put back through `check`.
       *(For the owner: `carl owner generate --all`, then `fetch`, correct,
@@ -65,10 +64,12 @@ split it into further tickets in this folder before starting.
 
 ## Answer
 
-Partly built on 2026-09-27: the corpus Markdown, `check`, the owner
-script's `generate`, `fetch`, `check`, `put` and `month`. **Still to do:**
-the per-session cost summary in `costs/` and the Start screen's
-last-session line, and running `generate` over the recorded dinners.
+Built on 2026-09-27: the corpus Markdown, `check`, the owner script's
+`generate`, `fetch`, `check`, `put` and `month`, and on the server the
+per-session cost summary and the last-session line for the Start screen
+(see "The cost summary" below; the page shows the line). **Still for the
+owner:** running `generate` over the recorded dinners and correcting one,
+and the phone session.
 
 **`src/carl/corpus.py`**, with tests in `tests/test_corpus.py`:
 
@@ -136,3 +137,44 @@ last-session line, and running `generate` over the recorded dinners.
   status is still `not started`.
 - `month [YYYY-MM]`: the month's total per provider and per stage from
   `costs/month-YYYY-MM.json`, in USD as billed, with the estimated part.
+
+**The cost summary** (`src/carl/costs.py`, `Session.add_cost`,
+`Session.cost_summary`; tests in `tests/test_cost_summary.py`):
+
+- Every charge now goes through the session (`add_cost`): the
+  speech-to-text stream's time, decision and settle calls, both
+  fact-finders, verdicts and the agreement call. Each updates the session's
+  tally (`SessionCosts`) as well as the month's total.
+- `costs/sessions/<id>.json`, kept indefinitely, with no conversation
+  content: the session id, start (UTC) and timezone, end, duration and
+  listening time, the total in USD and ≈€ with its estimated part, the cost
+  per stage and per provider (each `usd`, `estimated_usd`, `charges`), the
+  provider's own figure less Carl's where the provider gives one
+  (`provider_difference_usd`, Perplexity's and OpenRouter's), and whether
+  the recording was kept, stopped or never made. Figures keep 8 decimals,
+  since a decision call costs about $0.00005.
+- It is written at Start, kept current with the state saves when the costs
+  change (so a crash loses at most a few seconds of it), written at a
+  shutdown's suspend, and for good at End. A resumed session carries its
+  tally on (it is part of `state.json`).
+- A stopped recording leaves only its line: `recording: "stopped"` and
+  `recording_stopped: "recording stopped and deleted at hh:mm"`, in the
+  session's own timezone. A stop that reaches the server after the session
+  ended adds the line to the summary already written.
+- At End, `costs/last-session.json` gets the Start screen's line, and every
+  `hello` carries it as `costs.last_session`: `started`, `timezone`,
+  `listening_s`, `cost_eur` and `eur_per_hour` (≈€ per listening hour,
+  `null` for a session under a minute), or `null` before the first session.
+  A new instance reads it from the store.
+
+**The Start screen's last-session line** (`src/carl/web/`): under the month
+line, "Last session: Mon 28 Sep, 1 h 30 min, ≈ €0.46 (≈ €0.31/h)" from the
+hello's `costs.last_session`, the date in the session's own timezone (the
+page's where the browser doesn't know it), the €/h part left out when
+null, the whole line when `last_session` is null. Each part keeps
+together, so the line wraps only between them. It follows every hello,
+the handover's included. A session that ends on the page shows at once
+from its summary (date from Start, `listening_s`, `cost_eur`, no €/h) until
+the next hello brings the server's line; a summary's own `last_session`
+would win if the server adds one. Checked with Playwright against a mock
+at 900x420, 640x360, 420x900 and 360x740.

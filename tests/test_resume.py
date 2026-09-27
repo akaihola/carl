@@ -103,7 +103,8 @@ async def test_the_state_is_saved_as_it_changes(sessions, store, monkeypatch):
     real = store.put
 
     async def put(key, data):
-        puts.append(key)
+        if key.startswith("sessions/"):
+            puts.append(key)
         await real(key, data)
 
     monkeypatch.setattr(store, "put", put)

@@ -182,7 +182,8 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     sessions = request.app[SESSIONS]
     link = Link(ws, config.connection.heartbeat_s, config.connection.silence_s)
     log.info("page connected")
-    await link.send({"type": "hello", "config": config.page_values(), "costs": await sessions.month_costs()})
+    costs = await sessions.month_costs() | {"last_session": await sessions.last_session()}
+    await link.send({"type": "hello", "config": config.page_values(), "costs": costs})
     keep_alive = asyncio.create_task(link.keep_alive())
     page = Page(link, sessions)
     try:

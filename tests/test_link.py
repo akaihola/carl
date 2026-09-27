@@ -28,7 +28,7 @@ async def test_the_page_gets_its_config_at_the_start(unlocked, config):
     hello = await ws.receive_json(timeout=1)
     assert hello["type"] == "hello"
     assert hello["config"] == quick(config).page_values()
-    assert hello["costs"] == {"month_usd": 0, "month_eur": 0}
+    assert hello["costs"] == {"month_usd": 0, "month_eur": 0, "last_session": None}
     await ws.close()
 
 

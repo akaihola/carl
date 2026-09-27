@@ -47,6 +47,7 @@ import time
 from dataclasses import asdict
 from typing import Any
 
+from .costs import SessionCosts
 from .decision import Candidate
 from .language import CardLanguage
 from .location import Place
@@ -117,6 +118,7 @@ def snapshot(session: Session, now: float | None = None) -> dict[str, Any]:
             "filed_received": c.filed_received, "late": c.late,
         } for c in session.cards.values()],
         "disputing": session.disputing,
+        "spend": session.spend.event(), "recording_stopped_at": session.recording_stopped_at,
     }
 
 
@@ -148,6 +150,8 @@ def restore(sessions: Sessions, data: dict[str, Any], saved_at: float) -> Sessio
             c["id"], c["content"], c["utterance_time"], candidates.get(c["id"]), c["state"], c["sent"], c["shown_at"],
             c["shown_received"], c["filed_at"], c["filed_received"], c["late"])
     session.disputing = dict(data["disputing"])
+    session.spend = SessionCosts.from_event(data["spend"])
+    session.recording_stopped_at = data["recording_stopped_at"]
     return session
 
 
