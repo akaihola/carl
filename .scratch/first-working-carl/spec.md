@@ -1064,13 +1064,16 @@ its shape.
    Every file records its format version.
 2. **Transcript:** readable lines such as `**A2** · 00:04:31 · text`, with time
    counted from Start. Small talk and skipped backchannel are included, and
-   "paused" and "gap" markers sit at stream boundaries.
+   "paused" and "gap" markers sit at stream boundaries. A line followed by
+   another ends in ` \`, a Markdown hard line break, so a rendered run shows
+   one utterance per line.
 3. **Candidates:** a fenced `yaml carl-candidate` block right after each
    candidate's utterance, filled in by the generator. It holds:
    - Carl's id (C1…), the kind, whether it was shown (`plain`, `hedged` or
      `no`), whether it was late, and the check time;
    - the card text and source;
-   - both fact-finders' restatements;
+   - both fact-finders' restatements, each a `>` block wrapped to fit 88
+     columns;
    - the verdict summary: both outcomes, p(same fact), p(supported) for each
      card, how each excerpt was verified, and the band's reason code.
 

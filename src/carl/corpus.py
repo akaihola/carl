@@ -14,12 +14,14 @@ and corrected by the owner.
    the time counted from Start to its first word. Small talk and skipped
    backchannel are there too, and `paused` and `gap` markers sit where Carl
    heard nothing. The speaker labels are the decision call's: stream 1's
-   speaker 2 is A2, stream 2's is B2;
+   speaker 2 is A2, stream 2's is B2. A line followed by another ends in
+   ` \\`, Markdown's hard line break, so a run of lines shows one per line;
 3. a `yaml carl-candidate` block right after each candidate's utterance:
    Carl's id, the kind, whether and how it was shown, late, the check time,
-   the card, both restatements and the verdict summary with the band's
-   reason code. A repeat's block holds `repeat_of` and its probability.
-   Every block ends with the owner's `mark` and `note`, left empty.
+   the card, both restatements (each a `>` block, to fit 88 columns) and the
+   verdict summary with the band's reason code. A repeat's block holds
+   `repeat_of` and its probability. Every block ends with the owner's `mark`
+   and `note`, left empty.
 
 The owner adds a `yaml carl-missed` block (`kind`, `should_say`) under each
 utterance Carl should have caught. `check(markdown, events)` lists what is
@@ -41,7 +43,10 @@ read in a small subset of YAML 1.2, which any YAML parser reads the same way:
   hold `,[]{}`. Quote any string that holds `: ` or ` #`, or that would read
   as a number, `true`, `false` or `null`;
 - a long value may go on in lines indented under it, joined with spaces, and
-  `|` or `>` starts a block of indented lines (a note of several lines).
+  `|` or `>` starts a block of indented lines (a note of several lines), read
+  without its last line break;
+- a key with nothing after it may have `key: value` lines indented under it
+  instead, a mapping (`restated`, its `A: >` and `B: >` blocks).
 """
 
 from __future__ import annotations
@@ -50,6 +55,7 @@ import difflib
 import hashlib
 import json
 import re
+import textwrap
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -77,6 +83,8 @@ CARD_EVENTS = ("card sent", "card shown", "card filed", "card withdrawn")
 UNKNOWN_CANDIDATE = "unknown"  # a repeat whose candidate the decision call couldn't name
 DEFAULT_ZONE = "Europe/Helsinki"
 COMMENT_AT = 24  # the column a comment starts at, where the line leaves room
+WIDTH = 88  # the column a `>` block's lines are wrapped at
+INDENT = "  "  # what each line under a key is indented by
 MOST_DIFFERENCES = 20  # transcript differences listed before the rest are counted
 
 
@@ -93,6 +101,12 @@ class YamlError(ValueError):
 
 class Text(str):
     """Prose, such as a card's text: always written in quotes, to read as one piece."""
+
+
+class Folded(Text):
+    """Prose `yaml_lines` writes as a `>` block wrapped at WIDTH columns, a
+    mapping that holds it going in lines under its key. In a list or mapping
+    on one line, it is in quotes as Text is."""
 
 
 _NUMBER = re.compile(r"[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?")
@@ -295,12 +309,16 @@ def load(lines: Sequence[str], first: int = 1) -> dict[str, Any]:
         if key in data:
             raise YamlError(f"{where}: `{key}` a second time")
         i += 1
+        start = i
         more = []
         while i < len(lines) and (not lines[i].strip() or lines[i][0] in " \t"):
             more.append(lines[i])
             i += 1
         while more and not more[-1].strip():  # blank lines after the value aren't part of it
             more.pop()
+        if not text and (mapping := _mapping(more, first + start)) is not None:
+            data[key] = load(mapping, first + start)
+            continue
         try:
             if _BLOCK_SCALAR.fullmatch(text):
                 data[key] = _block_scalar(text[0], more)
@@ -309,6 +327,25 @@ def load(lines: Sequence[str], first: int = 1) -> dict[str, Any]:
         except YamlError as e:
             raise YamlError(f"{where}: {e}") from None
     return data
+
+
+def _mapping(lines: list[str], first: int) -> list[str] | None:
+    """The lines under a key with nothing after it, dedented, when they are a
+    mapping: the first of them, comments aside, is a `key:` line."""
+    head = next((s for s in lines if s.strip() and not s.lstrip().startswith("#")), None)
+    if head is None or not _KEY.fullmatch(head.strip()):
+        return None
+    indent = len(head) - len(head.lstrip())
+    dedented = []
+    for n, line in enumerate(lines):
+        text = line.lstrip()
+        if len(line) - len(text) >= indent:
+            dedented.append(line[indent:])
+        elif not text or text.startswith("#"):
+            dedented.append(text)
+        else:
+            raise YamlError(f"line {first + n}: indented less than the `key:` lines above it")
+    return dedented
 
 
 def _block_scalar(style: str, lines: list[str]) -> str:
@@ -320,14 +357,24 @@ def _block_scalar(style: str, lines: list[str]) -> str:
     return "\n".join(" ".join(part.split("\n")) for part in "\n".join(lines).split("\n\n")).strip()
 
 
-def yaml_lines(fields: Sequence[tuple[str, Any] | tuple[str, Any, str]]) -> list[str]:
-    """A block's lines: `key: value`, with a comment where one is given."""
+def yaml_lines(fields: Sequence[tuple[str, Any] | tuple[str, Any, str]], indent: str = "") -> list[str]:
+    """A block's lines: `key: value`, with a comment where one is given.
+    Folded prose goes in a `>` block, and a mapping holding it in lines under its key."""
     lines = []
     for key, content, *comment in fields:
-        text = f"{key}: {dump(content)}".rstrip()
+        under: list[str] = []
+        if isinstance(content, Folded) and content.split():
+            text = f"{indent}{key}: >"
+            under = textwrap.wrap(" ".join(content.split()), WIDTH, initial_indent=indent + INDENT,
+                                  subsequent_indent=indent + INDENT, break_long_words=False, break_on_hyphens=False)
+        elif isinstance(content, Mapping) and any(isinstance(v, Folded) for v in content.values()):
+            text = f"{indent}{key}:"
+            under = yaml_lines([(str(k), v) for k, v in content.items()], indent + INDENT)
+        else:
+            text = f"{indent}{key}: {dump(content)}".rstrip()
         if comment:
             text = f"{text.ljust(COMMENT_AT - 1)} # {comment[0]}"
-        lines.append(text)
+        lines += [text, *under]
     return lines
 
 
@@ -728,8 +775,8 @@ def candidate_block(candidate: Mapping[str, Any], about: Mapping[str, list[Mappi
     restated = {}
     for finder in FINDERS:
         finding = _last(about.get("finding", []), finder=finder)
-        if finding is not None and finding.get("restatement"):
-            restated[finder] = _text(finding["restatement"])
+        if finding is not None and (restatement := finding.get("restatement")):
+            restated[finder] = Folded(restatement) if isinstance(restatement, str) else restatement
     if restated:
         fields.append(("restated", restated))
     if verdict := _verdict(about):
@@ -793,10 +840,14 @@ def generate(events: Iterable[Any], session_id: str | None = None) -> str:
     out = [f"# Recording session {log.started.astimezone(zone):%Y-%m-%d %H:%M} ({zone.key})", ""]
     out += _fenced("carl-session", header)
     markers = sorted(log.markers, key=lambda m: m.start)
+    said = -1  # the index in `out` of the last transcript line
     for line in log.lines:
         while markers and markers[0].start <= line.at:
             out += _paragraph(markers.pop(0).text())
+        if said == len(out) - 1:
+            out[said] += " \\"  # a hard line break: the line after it starts a line of its own
         out.append(f"**{line.label}** · {clock(line.at)} · {line.text}".rstrip())
+        said = len(out) - 1
         for block in blocks.get(line.utterance, []):
             out += _fenced("carl-candidate", block)
     for block in orphans:
@@ -816,7 +867,8 @@ def _fenced(kind: str, fields: Sequence[tuple]) -> list[str]:
 
 # --- Reading the Markdown back ------------------------------------------------------------
 
-_TRANSCRIPT = re.compile(r"\*\*(?P<label>[^*]+)\*\*\s*·\s*(?P<time>\d+:\d{2}:\d{2})\s*·\s?(?P<text>.*)")
+_TRANSCRIPT = re.compile(r"\*\*(?P<label>[^*]+)\*\*\s*·\s*(?P<time>\d+:\d{2}:\d{2})\s*·\s?(?P<text>.*?)"
+                         r"(?:\s*\\)?")  # a hard line break's ` \` isn't part of the text
 _FENCE = re.compile(r" {0,3}(?P<fence>`{3,}|~{3,})\s*(?P<info>.*)")
 
 
