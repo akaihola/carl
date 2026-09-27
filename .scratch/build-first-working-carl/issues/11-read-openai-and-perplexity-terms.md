@@ -100,9 +100,10 @@ legal advice. The versions read:
 
 **In short:** nothing in these terms forbids the recording or the test
 corpus. OpenAI requires the visible, clickable citation Carl already plans.
-The Search Addendum doesn't cover the Agent API. One decision is raised: the
-Gemini model behind fact-finder B brings Google's rule against apps likely
-to be used by under-18s, and the spec lets children sit at the table.
+The Search Addendum doesn't cover the Agent API. Gemini's rule against apps
+likely to be accessed by under-18s reaches fact-finder B, but the owner has
+ruled that children who overhear the table are not users of Carl, so no
+decision is left open.
 
 ### 1. Recordings: keeping and analysing responses and search results for 180 days
 
@@ -245,9 +246,8 @@ switching off if they are still at their defaults:
   `ai.google.dev/gemini-api/terms` for Gemini models. Those terms say:
   - "You also will not use the Services as part of a website, application,
     or other service … that is directed towards or is likely to be accessed
-    by individuals under the age of 18." **This conflicts with the spec**
-    ("Children may be present but are not a design target"). See the
-    decision below.
+    by individuals under the age of 18." The spec says "Children may be
+    present but are not a design target". See the owner's ruling below.
   - "Use of Google AI Studio and Gemini API is for developers building with
     Google AI models for professional or business purposes, not for consumer
     use." Carl is a private experiment built by its developer-owner and
@@ -274,20 +274,17 @@ switching off if they are still at their defaults:
   DPAs, which the agreements incorporate. Carl publishes nothing, and the
   DPAs set processor duties, not limits on Carl's use.
 
-### Decision raised before step 4
+### Decision raised before step 4, and settled
 
 **Children at the table vs. Gemini's under-18 clause.** With Gemini 3.8
-Flash as fact-finder B, Carl is arguably an app "likely to be accessed by
-individuals under the age of 18" whenever children sit at the table and
-read the cards. This ticket doesn't choose the remedy. Options:
+Flash as fact-finder B, Carl could be read as an app "likely to be accessed
+by individuals under the age of 18" whenever children sit at the table.
 
-1. Don't run Carl (or fact-finder B) when anyone under 18 is at the table.
-   Say so in the owner's notes and the disclosure habits.
-2. Move fact-finder B to a non-Google model on Perplexity's Agent API. The
-   spec's step-0 fallback already names "another non-OpenAI model", and
-   that model's terms then need the same check.
-3. Read "likely to be accessed" as aimed at products for minors and accept
-   the risk for a private experiment.
+**Owner's ruling (2026-09-27):** "The children overhearing adults using
+this app are not users of the app." The adults run and use Carl; a child
+who overhears the table doesn't access it. The clause doesn't apply, and
+nothing changes: fact-finder B stays on Gemini, and Carl may run with
+children present.
 
 The recording and test corpus plans need no change.
 
