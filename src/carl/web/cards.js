@@ -13,6 +13,14 @@
 // - A card that can't reach the screen within late_card_s of its utterance,
 //   measured when it would reach the screen, is a late card: it goes straight
 //   into the card history, at its place by utterance time, with no mark.
+// - While the page is hidden (a source open in another tab, the phone
+//   locked), pacing waits: the card on screen stays and its time doesn't
+//   count, and no card comes up. The late-card cut-off still runs.
+//
+// Times are on the page's monotonic clock. A card's age comes from its
+// `age_s` (seconds since its utterance, when the server sent it), so the
+// phone's and the server's clocks needn't agree; `utterance_time` is the
+// fallback, and orders the cards. Reports carry the page's wall clock.
 //
 // Everything a card shows is set as text, never as markup, and only an
 // http(s) source becomes a link.
@@ -24,7 +32,9 @@ const RANK = {waiting: 0, current: 1, filed: 2, failed: 3};  // a card only move
 
 export class Cards {
   #current; #list; #empty; #report; #config;
-  #cards = new Map();  // id -> {card, state, seq, shownAt, el}
+  // id -> {card, state, seq, el, and while or once on screen: shown, the
+  // visible time on screen before `since`, the moment it last became visible}
+  #cards = new Map();
   #seq = 0;
   #timer = 0;
   #running = false;
@@ -49,8 +59,7 @@ export class Cards {
     });
     new ResizeObserver(() => this.#fit()).observe(current);
     document.fonts?.addEventListener("loadingdone", () => this.#fit());
-    // Timers wait while the page is hidden, as when a source is open.
-    document.addEventListener("visibilitychange", () => this.#pace());
+    document.addEventListener("visibilitychange", () => this.#visibility());
   }
 
   // A new session: no cards, and pacing on.
@@ -71,7 +80,7 @@ export class Cards {
 
   // A `card` message. A card the page already has is left as it is.
   add(raw) {
-    const card = normalise(raw);
+    const card = normalise(raw, performance.now());
     if (!this.#running || !card || this.#cards.has(card.id)) return;
     this.#cards.set(card.id, {card, state: "waiting", seq: this.#seq++});
     this.#pace();
@@ -83,15 +92,15 @@ export class Cards {
   // still on their way. A card the server doesn't list stays as it is here.
   restore({current, waiting, history}) {
     if (!this.#running) return;
+    const received = performance.now();
     const take = (raw, state) => {
-      const card = normalise(raw);
+      const card = normalise(raw, received);
       if (!card) return;
-      const c = this.#cards.get(card.id);
-      if (!c) this.#cards.set(card.id, {card, state, seq: this.#seq++, shownAt: state === "current" ? Date.now() : undefined});
-      else if (RANK[state] > RANK[c.state]) {
-        c.state = state;
-        if (state === "current") c.shownAt ??= Date.now();
-      }
+      let c = this.#cards.get(card.id);
+      if (!c) this.#cards.set(card.id, c = {card, state: "waiting", seq: this.#seq++});
+      if (RANK[state] <= RANK[c.state]) return;
+      c.state = state;
+      if (state === "current") this.#onScreenFrom(c, received);  // the server's own: not reported again
     };
     const local = this.#currentCard();
     for (const raw of list(history)) take(raw, "filed");
@@ -111,6 +120,26 @@ export class Cards {
     return {minMs: c.min_on_screen_s * 1000, lateMs: c.late_card_s * 1000};
   }
 
+  #onScreenFrom(c, t) {
+    c.shown = 0;
+    c.since = visible() ? t : null;
+  }
+
+  // How long the card has been on screen while the page was visible.
+  #onScreen(c, t = performance.now()) {
+    return (c.shown ?? 0) + (c.since != null ? t - c.since : 0);
+  }
+
+  // The page hidden or back: the card on screen stops or starts counting.
+  #visibility() {
+    const cur = this.#currentCard(), t = performance.now();
+    if (cur && !visible() && cur.since != null) {
+      cur.shown += t - cur.since;
+      cur.since = null;
+    } else if (cur && visible() && cur.since == null) cur.since = t;
+    this.#pace();
+  }
+
   #currentCard() {
     for (const c of this.#cards.values()) if (c.state === "current") return c;
     return null;
@@ -126,46 +155,48 @@ export class Cards {
     if (!this.#running) return;
     clearTimeout(this.#timer);
     const {minMs, lateMs} = this.#limits();
-    const now = Date.now();
+    const t = performance.now(), shown = visible();
     // A waiting card past the cut-off can't reach the screen in time any more.
-    for (const c of this.#waiting()) if (now - c.card.utt > lateMs) this.#file(c, true, now);
+    for (const c of this.#waiting()) if (t - c.card.born > lateMs) this.#file(c, true);
     let cur = this.#currentCard();
     let waiting = this.#waiting();
-    if (cur && waiting.length && now - cur.shownAt >= minMs) {
-      this.#file(cur, false, now);
-      cur = null;
-    }
-    while (!cur && waiting.length) {
-      const next = waiting.shift();
-      if (this.#element(next)) cur = this.#show(next, now);
+    if (shown) {  // hidden, nothing moves on and nothing comes up
+      if (cur && waiting.length && this.#onScreen(cur, t) >= minMs) {
+        this.#file(cur, false);
+        cur = null;
+      }
+      while (!cur && waiting.length) {
+        const next = waiting.shift();
+        if (this.#element(next)) cur = this.#show(next, t);
+      }
     }
     // Wake for the next moment something changes by itself.
     waiting = this.#waiting();
-    const moments = waiting.map((c) => c.card.utt + lateMs + 1);
-    if (cur && waiting.length) moments.push(cur.shownAt + minMs);
+    const moments = waiting.map((c) => c.card.born + lateMs + 1);
+    if (shown && cur && waiting.length) moments.push(t + minMs - this.#onScreen(cur, t));
     if (moments.length) {
-      this.#timer = setTimeout(() => this.#pace(), Math.max(0, Math.min(...moments) - Date.now()) + 5);
+      this.#timer = setTimeout(() => this.#pace(), Math.max(0, Math.min(...moments) - performance.now()) + 5);
     }
     this.#render();
   }
 
   #tap() {
     const cur = this.#currentCard();
-    if (!this.#running || !cur || Date.now() - cur.shownAt < TAP_GUARD_MS) return;
-    this.#file(cur, false, Date.now());
+    if (!this.#running || !cur || this.#onScreen(cur) < TAP_GUARD_MS) return;
+    this.#file(cur, false);
     this.#pace();
   }
 
-  #show(c, now) {
+  #show(c, t) {
     c.state = "current";
-    c.shownAt = now;
-    this.#report({type: "card_shown", id: c.card.id, at: new Date(now).toISOString()});
+    this.#onScreenFrom(c, t);
+    this.#report({type: "card_shown", id: c.card.id, at: new Date().toISOString()});
     return c;
   }
 
-  #file(c, late, now) {
+  #file(c, late) {
     c.state = "filed";
-    this.#report({type: "card_filed", id: c.card.id, at: new Date(now).toISOString(), late});
+    this.#report({type: "card_filed", id: c.card.id, at: new Date().toISOString(), late});
   }
 
   // The card's own screen, built once. A card that fails to render is set
@@ -193,7 +224,7 @@ export class Cards {
       this.#shownId = id;
       this.#current.replaceChildren(...(cur ? [cur.el] : []));
       if (cur) {
-        cur.el.classList.toggle("enter", Date.now() - cur.shownAt < 1000);
+        cur.el.classList.toggle("enter", this.#onScreen(cur) < 1000);
         this.#fit();
       }
     }
@@ -202,8 +233,9 @@ export class Cards {
   }
 
   // "+N waiting" and the bar, which shrinks away over the card's last part
-  // of min_on_screen_s. Its row keeps its place when hidden, so the card's
-  // type doesn't change size when another card starts waiting.
+  // of min_on_screen_s, and stands still while the page is hidden. Its row
+  // keeps its place when empty, so the card's type doesn't change size when
+  // another card starts waiting.
   #renderPace(cur) {
     const pace = cur?.el.querySelector(".pace");
     if (!pace) return;
@@ -214,9 +246,10 @@ export class Cards {
     if (!n) return;
     pace.querySelector(".waiting").textContent = `+${n} waiting`;
     const {minMs} = this.#limits();
-    const left = Math.max(0, cur.shownAt + minMs - Date.now());
-    bar.animate([{transform: `scaleX(${left / minMs})`}, {transform: "scaleX(0)"}],
+    const left = Math.max(0, minMs - this.#onScreen(cur));
+    const shrink = bar.animate([{transform: `scaleX(${left / minMs})`}, {transform: "scaleX(0)"}],
       {duration: Math.max(1, left), easing: "linear", fill: "forwards"});
+    if (!visible()) shrink.pause();
   }
 
   #renderHistory() {
@@ -270,12 +303,16 @@ export class Cards {
 // ---- a card's parts ----
 
 // The card as sent, made safe to show: text fields as strings, an unknown
-// kind as a claim, and the source URL only if it is http(s).
-function normalise(raw) {
+// kind as a claim, and the source URL only if it is http(s). `born` is when
+// its utterance ended on the monotonic clock, from `age_s` at `received`,
+// or else from `utterance_time` and the page's own clock; `utt` orders it.
+function normalise(raw, received) {
   if (!raw || typeof raw !== "object" || raw.id == null || raw.id === "") return null;
   const hedged = raw.band === "hedged";
   const question = raw.kind === "question";
-  const utt = Date.parse(raw.utterance_time);
+  const time = Date.parse(raw.utterance_time);
+  const ageMs = Math.max(0, typeof raw.age_s === "number" && Number.isFinite(raw.age_s) ? raw.age_s * 1000
+    : Number.isFinite(time) ? Date.now() - time : 0);
   const url = safeUrl(raw.source?.url);
   return {
     id: String(raw.id),
@@ -288,8 +325,13 @@ function normalise(raw) {
     fact: text(raw.fact),
     url,
     source: text(raw.source?.title) || (url ? new URL(url).hostname.replace(/^www\./, "") : ""),
-    utt: Number.isFinite(utt) ? utt : Date.now(),
+    born: received - ageMs,
+    utt: Number.isFinite(time) ? time : Date.now() - ageMs,
   };
+}
+
+function visible() {
+  return document.visibilityState === "visible";
 }
 
 function text(x) {
