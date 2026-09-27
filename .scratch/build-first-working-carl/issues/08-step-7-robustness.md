@@ -77,9 +77,10 @@ session. Split it into further tickets in this folder before starting.
       and no live provider calls: the "Can't hear" and "Can't check" rules
       and their thresholds, failure-log entries and outages, resuming from
       saved state, and the Soniox backoff.
-- [ ] Deployed and used for one session on the phone of more than an hour,
-      at a real dinner or with a Finnish radio talk show playing beside it,
-      so the handover runs. Its event log shows no gap at the handover.
+- [ ] Deployed and used for one session on the phone of more than an hour, at
+      a real dinner or with Finnish talk radio or a podcast playing beside it
+      ([ticket 38](38-test-material-sessions.md)), so the handover runs. Its
+      event log shows no gap at the handover.
 - [ ] A dropped connection, a Pause and a server restart have each been
       tried by hand, and each showed the right state and recovered.
 
@@ -96,3 +97,9 @@ session. Split it into further tickets in this folder before starting.
   later step's code). What's left is the owner's: a phone session of more
   than an hour, so the handover runs, and trying a dropped connection, a
   Pause and a server restart by hand.
+- 2026-09-27: Yle Puhe, the all-talk channel this box had in mind, closed in
+  January 2024, so the box now takes talk radio or a podcast.
+  [Ticket 38](38-test-material-sessions.md) plans the phone sessions with
+  recorded talk: its session 1 (Futucast #370, 2 h 20 min) closes the first
+  box, and session 2 (Futucast #611) the second, with a dropped connection,
+  a Pause and a redeploy of the same image in one session.

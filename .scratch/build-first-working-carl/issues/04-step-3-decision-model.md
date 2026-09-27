@@ -98,8 +98,9 @@ Dinners that record what Carl would have checked.
 - [x] The decision prompt's example cases have been run by hand against the
       configured model.
 - [ ] Deployed and used for one recording session on the phone, at a real
-      dinner or with a Finnish radio talk show playing beside it. Its event
-      log shows the candidates and repeats Carl found.
+      dinner or with Finnish talk radio or a podcast playing beside it
+      ([ticket 38](38-test-material-sessions.md)). Its event log shows the
+      candidates and repeats Carl found.
 
 ## Comments
 
@@ -112,3 +113,7 @@ Dinners that record what Carl would have checked.
   later step's code). The example cases ran by hand: 16 of 16 as expected
   ([ticket 28](28-step-3-decision-call.md)). What's left is the owner's
   phone session.
+- 2026-09-27: Yle Puhe, the all-talk channel this box had in mind, closed in
+  January 2024, so the box now takes talk radio or a podcast.
+  [Ticket 38](38-test-material-sessions.md) plans the phone sessions with
+  recorded talk: its session 1 (Futucast #370, a debate) closes this box.

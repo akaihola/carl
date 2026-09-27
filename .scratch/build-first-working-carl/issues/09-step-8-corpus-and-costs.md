@@ -58,9 +58,10 @@ split it into further tickets in this folder before starting.
       has been corrected by the owner and put back through `check`.
       *(For the owner: `carl owner generate --all`, then `fetch`, correct,
       `put`.)*
-- [ ] Deployed and used for one session on the phone, at a real dinner or
-      with a Finnish radio talk show playing beside it, and its cost summary
-      and last-session line are shown.
+- [ ] Deployed and used for one session on the phone, at a real dinner or with
+      Finnish talk radio or a podcast playing beside it
+      ([ticket 38](38-test-material-sessions.md)), and its cost summary and
+      last-session line are shown.
 
 ## Answer
 
@@ -188,3 +189,10 @@ at 900x420, 640x360, 420x900 and 360x740.
   kept now. What's left is the owner's: correcting one corpus file and
   putting it back through `check`, and a phone session that shows the cost
   summary and the last-session line.
+- 2026-09-27: Yle Puhe, the all-talk channel this box had in mind, closed in
+  January 2024, so the box now takes talk radio or a podcast.
+  [Ticket 38](38-test-material-sessions.md) plans the phone sessions with
+  recorded talk: its session 1 (Futucast #370) closes this box, and its
+  corpus file is the one to correct.
+  [Ticket 39](39-corpus-material-field.md) adds a `material` header field so
+  these sessions can be told from dinners in the corpus.
