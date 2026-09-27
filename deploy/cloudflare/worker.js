@@ -3,8 +3,9 @@
 // up for about 15 minutes. So a request without an access-pass cookie never
 // reaches it: this Worker answers it as Carl's gate would, with the pass form
 // for a GET of a page and a 401 for anything else. Only the pass form's own
-// POST and requests with the cookie go through. The cookie is only looked
-// for here; Carl's gate checks it.
+// POST, requests with the cookie and certificate checks (Scaleway keeps its
+// own certificate for the domain) go through. The cookie is only looked for
+// here; Carl's gate checks it.
 //
 // Page loads that Carl's container doesn't answer within WAIT_MS (it is
 // scaled to zero and starting) get a "Starting up…" page instead of a blank
@@ -70,8 +71,9 @@ const turnAway = (request, url) => request.method === "GET" && !url.pathname.sta
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const unlocking = request.method === "POST" && url.pathname === "/api/unlock";
-    if (!unlocking && !PASS_COOKIE.test(request.headers.get("Cookie") ?? "")) return turnAway(request, url);
+    const open = request.method === "POST" && url.pathname === "/api/unlock"
+      || url.pathname.startsWith("/.well-known/acme-challenge/");
+    if (!open && !PASS_COOKIE.test(request.headers.get("Cookie") ?? "")) return turnAway(request, url);
     const upstream = fetch(request, {redirect: "manual"});
     // The loading page reloads what it stands in for, so only a GET gets it:
     // the pass form's POST just waits for the container.

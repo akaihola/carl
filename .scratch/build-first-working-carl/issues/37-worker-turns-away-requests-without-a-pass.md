@@ -18,8 +18,9 @@ address does.
 - The Worker answers every request without an access-pass cookie itself,
   as Carl's gate would: the pass form (401) for a GET outside `/api/`, and
   a 401 "An access pass is needed." for anything else. Only the pass form's
-  `POST /api/unlock` and requests with the cookie go through. The Worker
-  only looks for the cookie; the gate checks it.
+  `POST /api/unlock`, requests with the cookie and
+  `/.well-known/acme-challenge/*` go through. The Worker only looks for the
+  cookie; the gate checks it.
 - The pass form is one file, `src/carl/pass.html`, served by the server and
   bundled into the Worker.
 - The loading page only for GET page loads, since the pass form's POST now
@@ -62,3 +63,24 @@ address does.
   wrong pass POSTed to `/api/unlock` reached the gate and was answered
   after its 1 s wait. `/api/ws` without a cookie got Carl's own 401, so the
   WebSocket still skips the Worker.
+- 2026-09-27: Watched for 45 minutes (18:12–18:57 UTC) with `wrangler
+  tail` and the container's logs, read through the project's Scaleway Logs
+  data source (Loki, with the IAM key as `X-Auth-Token`). One scanner burst
+  came, at 18:25: 58 requests for `.env` and `.git/HEAD` variants over
+  http, https and port 8443. The Worker answered all 58 with a 401, and
+  none is in the container's log. In the 6 hours before the change the log
+  has the same kind of traffic every 10–40 minutes (`/`, `/favicon.ico`,
+  `/robots.txt`, `.env` probes, `/.well-known/agent.json`), each of which
+  would now stop at the Worker. The container didn't go cold in the watch,
+  as the owner had a session running from 17:56 whose WebSocket kept it up;
+  its handover at 18:46 went through the narrowed `/api/ws` route.
+- 2026-09-27: The log also has Scaleway's certificate check at 12:21:
+  `cert-manager` fetching `/.well-known/acme-challenge/…`. So that path
+  passes through the Worker untouched (version `098c7351`, fail-open set
+  again). Checked live: over http it gets Scaleway's redirect to https, as
+  at 12:21, and over https it reaches the container. That 12:21 check
+  followed the redirect to the container and got Carl's 401, so renewing
+  Scaleway's certificate through Cloudflare may fail, as it would have
+  before this change. With the zone's SSL mode "Full", Cloudflare doesn't
+  check the origin's certificate, so the site should keep working even if
+  it lapses.

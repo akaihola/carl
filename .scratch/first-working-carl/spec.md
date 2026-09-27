@@ -182,8 +182,8 @@ reuses its pieces. See its `docs/operations.md`, `docs/recovery.md`,
     `faktat.vempai.men/*`. If the Worker fails, requests go straight through.
   - It answers every request without an access-pass cookie itself, as the
     gate would, so the scanners that probe the address don't wake the
-    container. Only the pass form's POST and requests with the cookie reach
-    it.
+    container. Only the pass form's POST, requests with the cookie and
+    certificate checks reach it.
   - When the container doesn't answer a page load within 2.5 s, the Worker
     shows a "Starting up…" page with a seconds counter. It polls a cheap
     endpoint with no side effects and reloads once the container is up.

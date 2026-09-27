@@ -182,8 +182,10 @@ template='{{ .ID }}'`).
   request without an access-pass cookie itself, as Carl's gate would: the
   pass form (401) for a GET outside `/api/`, and a 401 "An access pass is
   needed." for anything else, `/api/health` included. Only the pass form's
-  own `POST /api/unlock` and requests with the cookie go through. The
-  Worker only looks for the cookie; Carl's gate checks it.
+  own `POST /api/unlock`, requests with the cookie and
+  `/.well-known/acme-challenge/*` (Scaleway renewing its certificate for the
+  domain) go through. The Worker only looks for the cookie; Carl's gate
+  checks it.
 - The pass form is `src/carl/pass.html`, which the server serves too and
   the Worker bundles, so a change to it needs the Worker deployed as well.
 - **The loading page.** The Worker answers a GET page load that the
