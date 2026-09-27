@@ -120,3 +120,8 @@ Cards live at the table.
   [33](33-step-4-cards-on-the-page.md) cards on the page. The code is built
   ahead of ticket 11; fact-finding isn't deployed until the owner has read
   the terms.
+- 2026-09-27: [Ticket 11](11-read-openai-and-perplexity-terms.md#answer) is
+  resolved: the terms allow the recording and the test corpus. It raises
+  one decision to settle before the first dinner: Gemini's terms, which reach
+  fact-finder B through Perplexity, bar apps "likely to be accessed by
+  individuals under the age of 18", and children may be at the table.

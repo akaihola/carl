@@ -25,6 +25,10 @@ Pricing and Google's grounding terms are already in
   vendor's terms were read in full**. Treat every [snippet] claim, and every
   conclusion about the terms, as **unverified** until the owner reads the
   pages in a browser.
+  *Update 2026-09-27:* the full terms were read in a browser for
+  [ticket 11](../../.scratch/build-first-working-carl/issues/11-read-openai-and-perplexity-terms.md#answer).
+  They confirm section 1's verdicts, and the Search Addendum does not cover
+  the Agent API's `web_search`.
 - **[inferred]** marks this note's own reading of what the docs imply.
 - **No API was called.** There were no API keys, so nothing here was tested.
 
