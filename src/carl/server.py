@@ -85,6 +85,7 @@ def create_app(config: Config, prompts: dict[str, Prompt], passes: Passes, sessi
     app[PASSES] = passes
     app[SESSIONS] = sessions
     app[SOCKETS] = weakref.WeakSet()
+    app.on_startup.append(resume_sessions)
     app.on_shutdown.append(close_sockets)
     app.router.add_get("/api/health", health)
     app.router.add_post("/api/unlock", unlock)
@@ -206,11 +207,16 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
+async def resume_sessions(app: web.Application) -> None:
+    """Before serving: sessions saved by the last instance wait for their pages."""
+    await app[SESSIONS].resume()
+
+
 async def close_sockets(app: web.Application) -> None:
-    """On a restart or scale-down, end the sessions, so their recordings are
-    written out, and let pages go at once so they reconnect."""
-    await app[SESSIONS].end_all("server shutdown")
-    await app[SESSIONS].close()
+    """On a redeploy or scale-down, save each session for the next instance
+    to resume, write out its recording and the failure log, and let pages go
+    at once (1001) so they reconnect."""
+    await app[SESSIONS].shutdown()
     for ws in set(app[SOCKETS]):
         await ws.close(code=WSCloseCode.GOING_AWAY, message=b"server shutdown")
 

@@ -102,9 +102,9 @@ class Settler:
             log.exception("session %s: the settle call on %s went wrong", session.id, heard.id)
 
     def live(self, session: Session, heard: Heard) -> list[Candidate]:
-        """The live candidates flagged in utterances before `heard`."""
-        before = {id(item) for item in session.heard[:position(session.heard, heard)]}
-        return [c for c in session.candidates if c.live and id(c.heard) in before]
+        """The live candidates flagged in utterances before `heard`, some of
+        them perhaps from before a restart."""
+        return [c for c in session.candidates if c.live and c.heard is not heard and c.heard.time < heard.time]
 
     async def settle(self, session: Session, heard: Heard) -> None:
         if is_backchannel([w.text for w in heard.utterance.words], self.backchannel):

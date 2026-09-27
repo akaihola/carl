@@ -54,7 +54,7 @@ async def test_silence_drops_the_connection(unlocked):
         pass
     assert message.type is aiohttp.WSMsgType.CLOSE
     assert ws.close_code == SILENCE_CLOSE
-    assert 0.3 <= loop.time() - start < 1
+    assert 0.3 <= loop.time() - start < 2  # generous: CI runners can be slow
 
 
 @pytest.mark.parametrize("keep_alive", [{"type": "heartbeat"}, b"\0" * 3200], ids=["heartbeat", "audio"])

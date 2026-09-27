@@ -251,6 +251,7 @@ class Decider:
                               repeat_of=repeat_of)
         session.candidates.append(candidate)
         session.log("candidate", **candidate.event())
+        session.save_soon()
         return candidate
 
     def check(self, session: Session, candidate: Candidate) -> None:

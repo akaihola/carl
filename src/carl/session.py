@@ -12,7 +12,10 @@ The server is also the source of truth for the session's fact cards
 reported, and sends them all again after a rejoin, withdrawn cards left out.
 
 Each session's listening indicator ("Can't hear", "Can't check") and its
-failures are `carl.outages`'s: `Session.health` and `Sessions.failures`.
+failures are `carl.outages`'s: `Session.health` and `Sessions.failures`. Its
+state is saved as it changes, so a restarted server can resume it
+(`carl.resume`): `Session.keep_saved`, `Session.suspend` at a shutdown and
+`Session.carry_on` after one.
 """
 
 from __future__ import annotations
@@ -48,6 +51,7 @@ COST_EVERY_S = 60.0  # charge the stream's time to the month this often
 REOPEN_BACKOFF_S = (0, 1, 2, 4, 8, 16, 30)
 # Soniox ends a stream after 300 minutes: one this old is replaced at its next segment end.
 ROTATE_AFTER_S = 280 * 60
+SAVE_EVERY_S = 3.0  # the session's state is saved at most this often, but at once after a change that matters
 # Soniox finalises nothing while no audio arrives, and advises about 200 ms of
 # silence before a manual finalise. It goes to speech-to-text only, never to
 # the recording.
@@ -191,6 +195,12 @@ class Session:
     disputing: dict[str, str] = field(default_factory=dict)  # utterance id → the on-screen candidate it disputes
     health: Health = field(init=False)
     recording_sent: bool | None = None  # the recording mark the page was last sent
+    start_id: str = ""  # the page's own id for its Start
+    saver: asyncio.Task | None = None
+    save_now: asyncio.Event = field(default_factory=asyncio.Event)
+    saving_stopped: bool = False
+    suspended: bool = False  # saved at a shutdown for the next instance, not ended
+    open_on_rejoin: bool = False  # resumed after a restart: its stream opens when the page is back
 
     def __post_init__(self) -> None:
         self.health = Health(self)
@@ -255,10 +265,93 @@ class Session:
         self.listening_since = time.time()
         self.health.last_audio = time.monotonic()
         self.spawn(self.health.watch_audio())
+        self.start_saving()
         await self.open_stream()
 
+    async def carry_on(self, saved_at: str | None = None) -> None:
+        """Carry on a session rebuilt from its saved state after a restart
+        (`carl.resume`): its recording continues under the same prefix, a
+        check the restart lost fails as `lost-in-restart`, and it waits the
+        grace period for its page, "Can't hear" meanwhile. Its stream opens
+        when the page rejoins."""
+        if self.record and not self.recording_stopped:
+            self.recorder = Recorder(self.sessions.store, self.id)
+            await self.recorder.continue_after()
+            self.recorder.on_failing = self.health.changed
+            self.log("session resumed", after_restart=True, saved=saved_at, state=self.state)
+            self.spawn(self.recorder.run())
+        self.heard.append(Marker("gap", time.time()))  # a new stream, fresh labels
+        for candidate in self.candidates:
+            if (stage := {"finding": "fact-finding", "checking": "fact-checking"}.get(candidate.state)) is not None:
+                self.failure(stage, "lost-in-restart", candidate=candidate.id)
+                candidate.state = "failed"
+                self.log("check", candidate=candidate.id, state="failed", stage=stage, kind="lost-in-restart")
+        if self.state == "listening":
+            self.listening_since = time.time()
+            self.open_on_rejoin = True
+        self.health.begin("connection", detail="restart")
+        self.spawn(self.health.watch_audio())
+        self.grace = self.spawn(self.wait_for_page())
+        self.start_saving()
+        self.save_soon()
+
+    # --- Saving the state -----------------------------------------------------------
+
+    def start_saving(self) -> None:
+        if self.sessions.states is not None and self.saver is None:
+            self.saver = self.spawn(self.keep_saved())
+
+    def save_soon(self) -> None:
+        """A change that matters: save the state at once."""
+        if self.saver is not None:
+            self.save_now.set()
+
+    async def keep_saved(self) -> None:
+        """Save the state as it changes, at most every SAVE_EVERY_S unless
+        `save_soon` asks for it at once."""
+        while not self.saving_stopped:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self.save_now.wait(), SAVE_EVERY_S)
+            self.save_now.clear()
+            if not self.saving_stopped:
+                await self.sessions.states.save(self)
+
+    async def stop_saving(self) -> None:
+        """Stop saving, and wait for a save under way, so none lands after a delete."""
+        self.saving_stopped = True
+        if self.saver is not None:
+            self.save_now.set()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.saver
+            self.saver = None
+
+    async def suspend(self) -> None:
+        """At a server shutdown: save the session for the next instance to
+        resume, rather than end it. Its stream closes and its recording is
+        written out; checks still running are lost, and fail as
+        `lost-in-restart` when it resumes."""
+        if self.state == "ended" or self.suspended:
+            return
+        self.suspended = True
+        if self.state == "listening":
+            self.count_listening()
+        await self.stop_saving()
+        run, self.run = self.run, None
+        await self.close_run(run, finalize=False)
+        self.health.end_all()
+        self.log("session suspended", reason="server shutdown")
+        if self.sessions.states is not None:
+            await self.sessions.states.save(self, force=True)
+        if self.recorder is not None:
+            self.recorder.audio_break()
+            await self.recorder.close()
+        for task in list(self.tasks):
+            if task is not asyncio.current_task():
+                task.cancel()
+        log.info("session %s saved for the next instance", self.id)
+
     async def audio(self, chunk: bytes) -> None:
-        if self.state != "listening":
+        if self.state != "listening" or self.suspended:
             return
         self.health.audio()
         if self.recorder is not None:
@@ -275,6 +368,7 @@ class Session:
         self.state = "paused"
         self.count_listening()
         self.log("pause")
+        self.save_soon()
         for reason in ("no-audio", "stt-reopening", "connection"):  # paused, nothing is heard anyway
             if reason != "connection" or self.link is not None:
                 self.health.end(reason)
@@ -290,6 +384,8 @@ class Session:
         self.listening_since = time.time()
         self.health.last_audio = time.monotonic()
         self.log("resume")
+        self.open_on_rejoin = False
+        self.save_soon()
         await self.open_stream()
 
     async def end(self, reason: str) -> Summary:
@@ -299,6 +395,7 @@ class Session:
         self.state = "ended"
         if was_listening:
             self.count_listening()
+        await self.stop_saving()
         if self.grace is not None and self.grace is not asyncio.current_task():
             self.grace.cancel()
         await self.close_stream(finalize=was_listening)
@@ -319,6 +416,8 @@ class Session:
         for task in list(self.tasks):
             if task is not asyncio.current_task():
                 task.cancel()
+        if self.sessions.states is not None:
+            await self.sessions.states.delete(self.id)
         month = await self.sessions.month_eur()
         # The cards sent and not withdrawn; "—" on the page with no checks.
         cards = None if self.sessions.checker is None else sum(c.state != "withdrawn" for c in self.cards.values())
@@ -331,6 +430,7 @@ class Session:
     async def stop_recording(self) -> None:
         """The one-way stop: delete everything recorded so far, and record nothing more."""
         self.recording_stopped = True
+        self.save_soon()
         if self.recorder is not None:
             deleted = await self.recorder.stop_and_delete()  # kept until the delete succeeds
             self.recorder = None
@@ -354,10 +454,13 @@ class Session:
         self.health.last_audio = time.monotonic()
         if self.state != "listening":  # otherwise it clears once audio arrives on the new connection
             self.health.end("connection")
+        elif self.open_on_rejoin:  # resumed after a restart: a stream only now there is a page to hear
+            self.open_on_rejoin = False
+            self.spawn(self.open_stream())
 
     async def detach(self, link: Link) -> None:
         """The page's connection dropped: keep the session for the grace period."""
-        if self.link is not link or self.state == "ended":
+        if self.link is not link or self.state == "ended" or self.suspended:
             return
         self.link = None
         self.log("page gone")
@@ -392,6 +495,7 @@ class Session:
         card.sent = now = time.time()
         self.cards[card.id] = card
         card.move("ready")
+        self.save_soon()
         message = card.message(now)
         self.log("card sent", page=self.link is not None, **message)
         await self.send({"type": "card", "card": message})
@@ -404,6 +508,7 @@ class Session:
         if card is None or card.state != "ready":
             return False
         card.state = "withdrawn"
+        self.save_soon()
         self.log("card withdrawn", id=card_id, age_s=round(time.time() - card.utterance_time, 1), **fields)
         await self.send({"type": "card_withdrawn", "id": card_id})
         return True
@@ -430,6 +535,7 @@ class Session:
             if card.filed_received is None:
                 card.filed_at, card.filed_received, card.late = at, received, late
             card.move("card history")
+        self.save_soon()
         self.log(f"card {report}", **fields, age_s=round(received - card.utterance_time, 1), state=card.state)
 
     def cards_message(self) -> dict[str, Any]:
@@ -627,6 +733,7 @@ class Sessions:
         self.locator: Any = None
         self.checker: Any = None
         self.settler: Any = None
+        self.states: Any = None  # the saved sessions, step 7 (`carl.resume`)
 
     def build_info(self) -> dict[str, Any]:
         """What each recording stores at its start: the config, the prompts and the commit."""
@@ -643,9 +750,11 @@ class Sessions:
         if record and not disclosed:
             log.warning("a recording session was asked for without a confirmed disclosure: not recording")
             record = False
-        session = Session(self, new_session_id(), record=record, timezone=str(message.get("timezone") or "UTC"))
+        start_id = str(message.get("start_id") or "")[:100]
+        session = Session(self, new_session_id(), record=record, timezone=str(message.get("timezone") or "UTC"),
+                          start_id=start_id)
         self.live[session.id] = session
-        if start_id := str(message.get("start_id") or "")[:100]:
+        if start_id:
             self.started[start_id] = session.id
         await session.attach(link)
         header = {k: message.get(k) for k in ("disclosure", "mic", "timezone", "location")}
@@ -698,8 +807,9 @@ class Sessions:
     def on_utterance(self, session: Session, heard: Heard) -> None:
         """Each utterance goes to the decision call and the settle call, each
         its own task. The settle call first waits for the decisions still
-        running on earlier utterances."""
-        if self.decider is None:
+        running on earlier utterances. A session being saved at a shutdown
+        starts none: its utterances are saved, undecided."""
+        if self.decider is None or session.suspended:
             return
         earlier = set(session.deciding)
         decision = session.spawn_check(self.decider.on_utterance(session, heard))
@@ -715,6 +825,22 @@ class Sessions:
     async def end_all(self, reason: str) -> None:
         for session in list(self.live.values()):
             await session.end(reason)
+
+    async def resume(self) -> None:
+        """At startup, before serving: every saved session, waiting for its page."""
+        if self.states is not None:
+            await self.states.resume_all(self)
+
+    async def shutdown(self) -> None:
+        """At a graceful shutdown: save each live session for the next
+        instance to resume (or, without saved states, end it), then close
+        what is left open."""
+        for session in list(self.live.values()):
+            if self.states is not None:
+                await session.suspend()
+            else:
+                await session.end("server shutdown")
+        await self.close()
 
     async def close(self) -> None:
         """At shutdown, once every session has ended: close what the checks

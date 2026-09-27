@@ -595,6 +595,7 @@ class Checker:
     @staticmethod
     def finish(session: Session, candidate: Candidate, state: str, **fields: Any) -> None:
         candidate.state = state
+        session.save_soon()
         session.log("check", candidate=candidate.id, state=state,
                     after_s=round(time.time() - candidate.heard.time, 1), **fields)
 

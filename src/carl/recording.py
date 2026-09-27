@@ -60,6 +60,19 @@ class Recorder:
         self.failing = False  # the last write failed: nothing reaches storage for now
         self.on_failing: Callable[[], None] | None = None  # told when `failing` changes
 
+    async def continue_after(self) -> None:
+        """Carry on a recording begun before a restart: number the new event
+        parts and audio objects after those already written."""
+        for key in await self.store.list(self.prefix):
+            folder, _, name = key.removeprefix(self.prefix).partition("/")
+            number = name.split(".", 1)[0]
+            if not number.isdigit():
+                continue
+            if folder == "events":
+                self._part = max(self._part, int(number) + 1)
+            elif folder == "audio":
+                self._object = max(self._object, int(number) + 1)
+
     @property
     def prefix(self) -> str:
         """`recordings/<id>/`."""
