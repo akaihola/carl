@@ -1,0 +1,214 @@
+# Carl's config file: every setting the test corpus or an early measurement
+# might tune (First working Carl spec, section 13). It is committed and baked
+# into the image, so changing it means a redeploy. Each recording session
+# stores a copy.
+#
+# What follows a provider's limit, a usage policy, a data format or a
+# security choice stays out of it, in the code, the Worker or the bucket.
+# The API keys are server secrets and never appear here. Every setting is
+# required: the server refuses to start on a missing, unknown or mistyped
+# one.
+
+# --- Models (spec section 3) ---------------------------------------------------
+#
+# Each stage's provider, model, and the parameters its adapter sends. Step 0
+# confirmed every text stage's provisional model on 2026-09-27 (ticket 01).
+# Swapping a model means changing its stage here, and its price below.
+
+[stages.speech_to_text]
+provider = "soniox"
+model = "stt-rt-v5"
+
+[stages.speech_to_text.params]
+language_hints = ["fi", "en"]
+enable_endpoint_detection = true
+max_endpoint_delay_ms = 1500
+
+# The decision model: decision and settle calls. Typed JSON schema, with
+# probabilities from the logprobs of the answer's first token.
+[stages.decision]
+provider = "openai"
+model = "gpt-6-luna"
+
+[stages.decision.params]
+reasoning_effort = "none"
+top_logprobs = 20
+max_output_tokens = 200
+
+# Fact-finder A: Luna with OpenAI's web_search on the Responses API.
+[stages.fact_finder_a]
+provider = "openai"
+model = "gpt-6-luna"
+
+[stages.fact_finder_a.params]
+reasoning_effort = "none"
+tool_choice = "required"
+
+# Fact-finder B: Gemini on Perplexity's Agent API with its web_search. The
+# model is pinned, so the `fast` preset can't change it under Carl. Gemini
+# 3.8 Flash rejects reasoning effort `minimal`.
+[stages.fact_finder_b]
+provider = "perplexity"
+model = "google/gemini-3.8-flash"
+
+[stages.fact_finder_b.params]
+reasoning_effort = "low"
+search_type = "web"
+search_context_size = "medium"
+max_steps = 2
+max_output_tokens = 4096
+
+# The fact-checking model: verdicts and the agreement call. TypeSafe Jev
+# through OpenRouter's /api/v1/systemone, pinned to a version rather than the
+# ~typesafe/jev-latest alias.
+[stages.fact_checking]
+provider = "openrouter"
+model = "typesafe/jev-1.13"
+
+[stages.fact_checking.params]
+
+# --- Utterances (spec section 4) -------------------------------------------------
+
+[utterances]
+# A run of this many words or fewer between two runs by the same speaker is
+# a false speaker switch.
+false_switch_max_words = 2
+# An utterance longer than this is split at the next sentence end.
+longest_s = 30
+
+# --- Decision, repeats and settling (spec section 5) -------------------------------
+
+[decision]
+# Utterances made up only of these words skip the decision call.
+backchannel = [
+    "joo", "juu", "jep", "niin", "nii", "aha", "ahaa", "mm", "mhm", "hmm",
+    "jaa", "jaha", "okei", "öö", "ää",
+    "yeah", "yep", "right", "uh-huh", "wow", "oh", "ah", "uh", "um", "okay",
+]
+# The context: up to this many preceding utterances, from no further back
+# than this.
+context_utterances = 10
+context_window_s = 120
+# The `same as` choices together.
+repeat_threshold = 0.5
+# `claim` and `open question` together.
+candidate_threshold = 0.5
+settle_threshold = 0.5
+
+[candidates]
+max_live = 8
+# A candidate that hasn't finished this long after its utterance has failed.
+timeout_s = 60
+# How long Carl waits for the second fact-finder after the first arrives.
+second_finder_wait_s = 12
+# Fact-finder A's source-page download.
+source_download_timeout_s = 3
+
+# --- Confidence bands and sources (spec section 6) --------------------------------
+
+[bands]
+plain_same_fact = 0.7
+plain_supported_shown = 0.85
+plain_supported_other = 0.5
+hedged_supported = 0.6
+
+[sources]
+# Domain suffixes: `reddit.com` also blocks `old.reddit.com`. Forums and Q&A
+# sites, social media, video platforms, and user-edited wikis other than
+# Wikipedia. Never put in a prompt.
+blocklist = [
+    "reddit.com", "quora.com", "stackexchange.com", "stackoverflow.com",
+    "suomi24.fi", "vauva.fi", "ylilauta.org",
+    "facebook.com", "instagram.com", "x.com", "twitter.com", "threads.net",
+    "tiktok.com", "linkedin.com", "pinterest.com",
+    "youtube.com", "youtu.be", "vimeo.com", "twitch.tv",
+    "fandom.com", "wikia.org",
+]
+
+# --- Card language (spec section 7) -----------------------------------------------
+
+[card_language]
+window_s = 600
+# With fewer words than this in the window, or a tie, the candidate's own
+# language is used.
+min_words = 50
+
+# --- The screen (spec section 8) ----------------------------------------------------
+
+[screen]
+# The least time a card stays on screen while another waits.
+min_on_screen_s = 8
+# A card that can't reach the screen this long after its utterance is late.
+late_card_s = 20
+
+# --- Connection and outages (spec sections 2 and 10) ------------------------------
+
+[connection]
+# Each side sends a heartbeat when it has sent nothing else for this long.
+heartbeat_s = 3
+# A side that hears nothing for this long treats the connection as dropped.
+silence_s = 10
+reconnect_grace_s = 120
+# The page hands its session over to a fresh WebSocket after about this long.
+handover_s = 3000
+
+[outages]
+# "Can't hear": no audio chunk reaches the server for this long.
+no_audio_s = 5
+# "Can't check": this many failed decision and settle calls in a row.
+decision_failures = 3
+# "Can't check": this many failed candidates in a row, for fact-finding or
+# fact-checking.
+check_failures = 2
+
+# --- Location (spec section 12) -------------------------------------------------------
+
+[location]
+# The page sends a new fix after moving this far from the last one it sent.
+new_fix_distance_m = 500
+# With accuracy worse than this, stages get the town only.
+town_only_accuracy_m = 1000
+# With accuracy worse than this, stages get no location.
+no_location_accuracy_m = 20000
+# The server geocodes again only outside the last neighbourhood, and at most
+# this often.
+geocode_min_interval_s = 60
+
+# --- Prices (spec section 11) ---------------------------------------------------------
+#
+# USD, from the vendors' pricing pages on 2026-09-26. By provider and model:
+# `input`, `cached` and `output` per million tokens, `search` per search call,
+# `audio_hour` per hour of stream time. Every stage's model needs an entry.
+
+[prices.soniox."stt-rt-v5"]
+audio_hour = 0.12
+
+[prices.openai."gpt-6-luna"]
+input = 0.10
+cached = 0.01
+output = 0.50
+search = 0.010
+
+[prices.perplexity."google/gemini-3.8-flash"]
+input = 0.75
+cached = 0.075
+output = 3.75
+# `search_type = "web"`; the `fast` type costs 0.001.
+search = 0.0025
+
+[prices.openrouter."typesafe/jev-1.13"]
+input = 0.042
+cached = 0.0
+output = 0.0
+
+# --- Currency (spec section 11) --------------------------------------------------------
+#
+# Costs are stored in USD and shown in euros at this fixed rate, marked "≈".
+# It is the European Central Bank's reference rate, in US dollars per euro as
+# the ECB publishes it. This file was first written on Sunday 2026-09-27, so
+# the rate is Friday's. Update both by hand when the rate drifts by more than
+# about 5%.
+
+[currency]
+ecb_usd_per_eur = 1.1403
+ecb_rate_date = 2026-09-25

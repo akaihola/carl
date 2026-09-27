@@ -1,7 +1,7 @@
 # Step 1: Server and page shell
 
 Type: task
-Status: open
+Status: resolved
 Blocked by:
 
 Part of [step 1](02-step-1-skeleton-in-the-cloud.md). The
@@ -29,5 +29,23 @@ truth.
 
 ## Done when
 
-- [ ] `uv run carl serve` serves the page and `/api/health` locally.
-- [ ] The page loads nothing from any other origin.
+- [x] `uv run carl serve` serves the page and `/api/health` locally.
+- [x] The page loads nothing from any other origin.
+
+## Answer
+
+Built on 2026-09-27.
+
+- `src/carl/server.py`: an aiohttp app, with `carl serve` in
+  `src/carl/cli.py`. It serves the page at `/`, its files under `/static/`,
+  the WebSocket at `/api/ws` and `GET /api/health`, which answers
+  `{"ok": true}` with `Cache-Control: no-store` and does nothing else.
+- `src/carl/web/`: `index.html`, `style.css`, and the modules `app.js` and
+  `link.js`. Atkinson Hyperlegible (400, 700 and 400 italic, Latin and
+  Latin Extended) is self-hosted from `@fontsource/atkinson-hyperlegible`
+  5.3.0, with its OFL licence in `fonts/OFL.txt`.
+- Every page response carries a Content-Security-Policy of
+  `default-src 'self'`, so the browser itself refuses any third-party call.
+  A test also checks that no page file names another origin.
+- Checked in Chromium against a local server: the page loaded only from
+  its own origin, and the font loaded.

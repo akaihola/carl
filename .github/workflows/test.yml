@@ -1,0 +1,19 @@
+# pytest on every push to main, with no live provider calls (First working
+# Carl spec, section 14, Ground rules). The tests refuse any connection that
+# isn't to the local machine.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest

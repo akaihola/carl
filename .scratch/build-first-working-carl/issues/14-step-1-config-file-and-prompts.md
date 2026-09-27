@@ -1,7 +1,7 @@
 # Step 1: Config file and prompt loader
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 12
 
 Part of [step 1](02-step-1-skeleton-in-the-cloud.md). The
@@ -36,7 +36,38 @@ and [Prompts: one source of truth](../../first-working-carl/spec.md#prompts-one-
 
 ## Done when
 
-- [ ] `carl serve` loads the config file and the prompts at startup, and
+- [x] `carl serve` loads the config file and the prompts at startup, and
       fails on a bad config or an unfilled placeholder.
-- [ ] pytest covers the config loading and the prompt loader's placeholder
+- [x] pytest covers the config loading and the prompt loader's placeholder
       check and versions.
+
+## Answer
+
+Built on 2026-09-27.
+
+- `config.toml` holds every row of section 13's first table. The stages
+  are those step 0 confirmed: Soniox `stt-rt-v5`; `gpt-6-luna` on OpenAI
+  for the decision model and fact-finder A; `google/gemini-3.8-flash` on
+  Perplexity for fact-finder B, with `search_type` web,
+  `search_context_size` medium, `max_steps` 2 and reasoning `low`; and
+  `typesafe/jev-1.13` on OpenRouter for fact-checking. `store: false` stays
+  in the adapters' code, as a privacy choice.
+- The price table is keyed by provider and model, and every stage must
+  have an entry, so cost metering can't be skipped by accident.
+- The USD → € rate is the ECB's reference rate as the ECB publishes it,
+  1.1403 US dollars per euro. The file was first written on Sunday
+  2026-09-27, so that is Friday 2026-09-25's rate.
+- The backchannel list starts from the spec's words plus a few like them
+  (juu, jep, mhm, hmm, jaha, öö, yep, oh, um, okay). It leaves out yes and
+  no words, since those can answer or settle.
+- `src/carl/config.py` loads it into frozen dataclasses. A missing or
+  unknown setting, a wrong type (`true` isn't a number), a probability
+  outside 0–1, a heartbeat not shorter than the silence, or a stage
+  without a price stops startup. The config's version is a short hash, as
+  a prompt's is.
+- `src/carl/prompts.py` loads `prompts/*.md` (not `README.md`). A prompt's
+  version is the first 8 hex digits of its SHA-256. `FILLS` lists what
+  the pipeline fills into each prompt. Startup fails if a template has a
+  placeholder not in its list, or if a listed prompt has no file. A
+  placeholder is a lower-case name in braces, so JSON examples are left
+  alone. `FILLS` is empty until step 3 brings the first prompt.

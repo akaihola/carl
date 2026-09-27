@@ -1,0 +1,28 @@
+[project]
+name = "carl"
+version = "0.1.0"
+description = "A live conversation fact-checker for private, personal use"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.12",
+]
+
+[project.scripts]
+carl = "carl.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-aiohttp>=1.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/carl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

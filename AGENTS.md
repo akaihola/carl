@@ -51,6 +51,21 @@ Act only on final transcript segments, keep the context passed to the decision
 model short, and never surface unsourced or low-confidence verdicts; hedge
 moderate ones.
 
+## Code
+
+- Python 3.13, managed with `uv`. The server is `src/carl/`, an aiohttp app
+  that serves the page and the WebSocket. The page is `src/carl/web/`: plain
+  HTML, CSS and JS modules, with no build step and no framework.
+- `config.toml` is the config file and `prompts/` holds the prompts. Both
+  are baked into the image.
+- `uv run pytest` runs the tests. They refuse any connection that isn't to
+  the local machine, so no test calls a provider. GitHub Actions runs them
+  on every push to `main`.
+- `uv run carl hash-password` makes an access pass. The server needs
+  `CARL_PASSWORDS` and `TOKEN_SECRET` to start; locally,
+  `uv run --env-file .secrets.carl.env carl serve` serves Carl at
+  http://localhost:8080.
+
 ## Research
 
 See [docs/research/realtime-fact-checking.md](docs/research/realtime-fact-checking.md)
