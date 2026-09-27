@@ -23,7 +23,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from . import checks, decision
+from . import checks, decision, settle
 from .checking import SUPPORTED, Judged, band_single
 from .config import Config, ConfigError, load_config
 from .finding import STAGE_A, STAGE_B, DraftCard, Finding, FindingRequest, key_name, language_name, make_fact_finder
@@ -300,6 +300,54 @@ async def run_same_fact(config: Config, prompts: dict[str, Prompt], path: Path, 
     return good == len(cases)
 
 
+async def run_settle(config: Config, prompts: dict[str, Prompt], path: Path, only: Sequence[str] = ()) -> bool:
+    """The settle prompt's cases, each through the settle call's own fields,
+    choices and outcome rule. True if every one came out as expected."""
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    cases = pick(data["cases"], only)
+    typed = TypedPrompt.load(prompts["settle"])
+    stage = config.stages.decision
+    when = date_time(data["timezone"])
+    print(f"settle: prompts/settle.md {typed.version}, {stage.provider} {stage.model}")
+    print(f"  date_time: {when}")
+    async with http_session() as http:
+        model = make_typed_model(stage, config, os.environ, http)
+
+        async def ask(case: dict[str, Any]) -> tuple[TypedAnswer | ModelError, list[str]]:
+            *before, utterance = case["conversation"]
+            live = case["live"]
+            lines = [f"{c['id']}: {c['text']}" + (f" [on screen: {c['on_screen']}]" if c.get("on_screen") else "")
+                     for c in live]
+            shown = [c["id"] for c in live if c.get("on_screen")]
+            ids = {settle.SETTLES: [c["id"] for c in live if not c.get("on_screen")], settle.AGREES: shown,
+                   settle.DISPUTES: shown}
+            question = typed.fill(settle.fields(utterance, before, when, lines), ids)
+            try:
+                return await model.ask(question, stage=settle.STAGE), list(question.choices)
+            except ModelError as e:
+                return e, list(question.choices)
+
+        answers = await asyncio.gather(*(ask(case) for case in cases))
+    good, cost, estimated = 0, 0.0, False
+    for case, (answer, choices) in zip(cases, answers, strict=True):
+        record = answer.record
+        cost += record.charged_usd
+        estimated |= record.estimated
+        if isinstance(answer, ModelError):
+            print(f"  ERROR {case['id']:<24} {answer.kind}: {record.error_text[:200]}  {took(record)}")
+            continue
+        got, _ = settle.settle_outcome(answer.answer, answer.probs, choices, config.decision.settle_threshold)
+        ok = got == case["expected"]
+        good += ok
+        shown = got if got == answer.answer else f"{got} (chose {answer.answer})"
+        expected = "" if ok else f"  expected {case['expected']}"
+        print(f"  {'ok   ' if ok else 'MISS '} {case['id']:<24} {shown:<16} p: {probabilities(answer.probs):<36} "
+              f"{took(record)}{expected}")
+    print(f"{good} of {len(cases)} as expected, ${cost:.6f} in all{' (partly estimated)' if estimated else ''}, "
+          f"model {answers[0][0].record.model if answers else '-'}")
+    return good == len(cases)
+
+
 def took(record: CallRecord) -> str:
     """A call's time and what it counts toward the totals, with Carl's own figure when that differs."""
     cost = f"${record.charged_usd:.5f}"
@@ -313,4 +361,5 @@ RUNNERS: dict[str, Callable[[Config, dict[str, Prompt], Path, Sequence[str]], Aw
     "fact-finding": run_fact_finding,
     "fact-checking": run_fact_checking,
     "same-fact": run_same_fact,
+    "settle": run_settle,
 }

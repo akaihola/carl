@@ -14,11 +14,21 @@ End waits for it (`Session.spawn_check`). Its state (`Candidate.state`):
   history` (`carl.session.Card`).
 - `silent`: no card, for the band's reason code.
 - `failed`: both fact-finders failed, or a failed verdict or agreement call
-  left the band with nothing (`silent:no-verdict`, `silent:no-agreement`).
-  One fact-finder failing while the other works doesn't fail the candidate.
-  The failure log comes with step 7.
-- `dropped`: the session ended first, so no card is sent. A candidate flagged
-  after End is dropped before any search.
+  left the band with nothing (`silent:no-verdict`, `silent:no-agreement`);
+  or `overload`: `candidates.max_live` candidates were already live when it
+  was flagged; or the candidate timeout: it was still being checked
+  `candidates.timeout_s` after its utterance ended, and has failed against
+  the stages it was waiting on. One fact-finder failing while the other works
+  doesn't fail the candidate. A repeat of a failed candidate is checked as a
+  new one (`carl.decision`). Every failure goes to `Session.failure`.
+- `dropped`: settled at the table before its card was on screen
+  (`silent:settled`, `carl.settle`), a card already sent withdrawn; flagged
+  in an utterance that disputes the card on screen, which already answers it
+  (`silent:disputing`); or the session ended first, so no card is sent (a
+  candidate flagged after End is dropped before any search).
+
+A timed-out or dropped candidate's calls in flight aren't cancelled: they
+finish, are recorded and charged, and their results are thrown away.
 
 **Both fact-finders** (`Checker.finders`, A and B; either may be off, which
 allows hedged cards only) get the same prompt and the same input at once:
@@ -124,6 +134,8 @@ FALLBACK_LANGUAGE = "en"
 TYPED_KEYS = {"openai": "OPENAI_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
 # The silent bands a failed fact-checking call can cause: the candidate failed.
 CALL_FAILED = ("silent:no-verdict", "silent:no-agreement")
+# The states in which a candidate is still being checked.
+CHECKING = ("finding", "checking")
 
 
 def window(session: Session, heard: Heard) -> list[str]:
@@ -264,14 +276,52 @@ class Checker:
         self.agreement_prompt = TypedPrompt.load(sessions.prompts["same-fact"])
         stages = sessions.config.stages
         self.stages = {"A": stages.fact_finder_a, "B": stages.fact_finder_b}
-        self.models = {STAGE_A: stages.fact_finder_a.model, STAGE_B: stages.fact_finder_b.model,
-                       STAGE: stages.fact_checking.model}
+        self.configs = {STAGE_A: stages.fact_finder_a, STAGE_B: stages.fact_finder_b, STAGE: stages.fact_checking}
         self.downloads: httpx.AsyncClient | None = None
 
-    def start(self, session: Session, candidate: Candidate) -> asyncio.Task:
-        """Start the candidate's check as its own task, which End waits for."""
+    def start(self, session: Session, candidate: Candidate) -> asyncio.Task | None:
+        """Start the candidate's check as its own task, which End waits for;
+        or drop it, flagged in an utterance that disputes the card on screen;
+        or fail it with `overload` when `max_live` candidates are live."""
+        if (disputed := session.disputing.get(candidate.heard.id)) is not None:
+            self.finish(session, candidate, "dropped", reason="silent:disputing", disputes=disputed)
+            return None
+        live = sum(c.live for c in session.candidates if c is not candidate)
+        if live >= self.sessions.config.candidates.max_live:
+            log.warning("session %s: %d candidates live; %s fails with overload", session.id, live, candidate.id)
+            session.failure("fact-finding", "overload", candidate=candidate.id, live=live)
+            self.finish(session, candidate, "failed", stage="fact-finding", kind="overload")
+            return None
         candidate.state = "finding"
         return session.spawn_check(self.check(session, candidate))
+
+    async def drop(self, session: Session, candidate: Candidate, reason: str, **fields: Any) -> bool:
+        """Drop a live candidate whose card isn't on screen yet: its check's
+        results are thrown away, and a card already sent is withdrawn. The
+        recording keeps the band as `reason` (`silent:settled`). False when
+        it is too late: the card is on screen, or the candidate isn't live."""
+        was = candidate.state
+        if was not in (*CHECKING, "ready"):
+            return False
+        session.log("band", candidate=candidate.id, band="none", reason=reason, shown=None, **fields)
+        self.finish(session, candidate, "dropped", reason=reason, **fields)
+        if was == "ready":
+            await session.withdraw_card(candidate.id, reason=reason)
+        return True
+
+    def expire(self, session: Session, candidate: Candidate) -> None:
+        """The candidate timeout: a candidate still being checked has failed,
+        against each stage it was waiting on."""
+        if candidate.state not in CHECKING:
+            return
+        stage = "fact-finding" if candidate.state == "finding" else STAGE
+        stages = sorted(candidate.waiting_on) or [stage]
+        log.warning("session %s: %s timed out in %s", session.id, candidate.id, ", ".join(stages))
+        for name in stages:
+            config = self.configs.get(name)
+            session.failure(name, "timeout", candidate=candidate.id, provider=config and config.provider,
+                            model=config and config.model)
+        self.finish(session, candidate, "failed", stage=stage, kind="timeout", waiting_on=stages)
 
     async def close(self) -> None:
         """At shutdown: close the source-page downloads' client."""
@@ -280,11 +330,17 @@ class Checker:
             self.downloads = None
 
     async def check(self, session: Session, candidate: Candidate) -> None:
+        loop = asyncio.get_running_loop()
+        left = candidate.heard.time + self.sessions.config.candidates.timeout_s - time.time()
+        timer = loop.call_later(max(0.0, left), self.expire, session, candidate)
         try:
             await self.run(session, candidate)
         except Exception:
             log.exception("session %s: the check of %s went wrong", session.id, candidate.id)
-            self.finish(session, candidate, "failed", stage="checks", errors={"check": "bug"})
+            if candidate.state in CHECKING:
+                self.finish(session, candidate, "failed", stage="checks", errors={"check": "bug"})
+        finally:
+            timer.cancel()
 
     async def run(self, session: Session, candidate: Candidate) -> None:
         if session.state == "ended":
@@ -294,12 +350,17 @@ class Checker:
         parts, failed, missed = await self.gather(session, candidate,
                                                   self.request(session, candidate, conversation))
         session.log("findings", candidate=candidate.id, used=list(parts), failed=failed, missed=missed)
+        if candidate.state != "finding":  # dropped or timed out meanwhile: the findings are thrown away
+            return
         if not parts:
             self.finish(session, candidate, "failed", stage="fact-finding", errors=failed)
             return
-        candidate.state = "checking"
+        candidate.state, candidate.waiting_on = "checking", {STAGE}
         a, b = parts.get("A"), parts.get("B")
         agreement, agreement_error = await self.judge(session, candidate, a, b, conversation)
+        candidate.waiting_on = set()
+        if candidate.state != "checking":  # dropped or timed out meanwhile: the verdicts are thrown away
+            return
         band = band_pair(a and a.judged(), b and b.judged(), agreement, self.sessions.config.bands)
         session.log("band", candidate=candidate.id, band=band.band, reason=band.reason, shown=band.shown)
         if band.shown is not None and (draft := parts[band.shown].card) is not None:
@@ -344,6 +405,7 @@ class Checker:
         the wait, which carry on in the background."""
         loop = asyncio.get_running_loop()
         wait_s = self.sessions.config.candidates.second_finder_wait_s
+        candidate.waiting_on = {STAGES[letter] for letter in self.finders}
         tasks = {session.spawn_check(self.part(session, candidate, letter, request)): letter
                  for letter in self.finders}
         parts: dict[str, Part] = {}
@@ -363,6 +425,7 @@ class Checker:
                 else:
                     failed[tasks[task]] = result
         missed = sorted(tasks[task] for task in pending)
+        candidate.waiting_on = set()
         if missed:
             log.info("session %s: %s goes on without fact-finder %s", session.id, candidate.id, ", ".join(missed))
         return parts, failed, missed
@@ -373,17 +436,19 @@ class Checker:
         when it failed."""
         try:
             finding = await self.find(session, candidate, letter, request)
+            if candidate.restatement is None:  # the first to arrive
+                candidate.restatement = finding.restatement
+            session.log("finding", candidate=candidate.id, finder=letter,
+                        after_s=round(time.time() - candidate.heard.time, 1), **finding.event())
+            return await self.match(session, candidate, Part(letter, finding))
         except ModelError as e:
             log.warning("session %s: %s; %s goes on without it", session.id, e, candidate.id)
             return e.kind
         except Exception:
             log.exception("session %s: fact-finder %s on %s went wrong", session.id, letter, candidate.id)
             return "bug"
-        if candidate.restatement is None:  # the first to arrive
-            candidate.restatement = finding.restatement
-        session.log("finding", candidate=candidate.id, finder=letter,
-                    after_s=round(time.time() - candidate.heard.time, 1), **finding.event())
-        return await self.match(session, candidate, Part(letter, finding))
+        finally:
+            candidate.waiting_on.discard(STAGES[letter])
 
     async def find(self, session: Session, candidate: Candidate, letter: str, request: FindingRequest) -> Finding:
         """One fact-finder's finding, tried once more after a 429 while the
@@ -400,6 +465,7 @@ class Checker:
             except ModelError as e:
                 await self.account(session, candidate, e.record, finder=letter, attempt=attempt,
                                    user_location=where)
+                session.failure(STAGES[letter], e.kind, record=e.record, candidate=candidate.id)
                 if e.kind == "rate-limited" and attempt == 1 and time.time() - candidate.heard.time < RETRY_YOUNG_S:
                     log.info("session %s: %s; trying %s once more", session.id, e, candidate.id)
                     attempt += 1
@@ -477,6 +543,7 @@ class Checker:
         except ModelError as e:
             part.error = e
             await self.account(session, candidate, e.record, finder=part.finder)
+            session.failure(STAGE, e.kind, record=e.record, candidate=candidate.id)
             session.log("verdict", **fields, answer=None, probs=None, error=e.kind)
             log.warning("session %s: %s; no verdict on %s's card for %s", session.id, e, part.finder, candidate.id)
             return
@@ -493,6 +560,7 @@ class Checker:
             answer = await self.model.ask(question, stage=STAGE)
         except ModelError as e:
             await self.account(session, candidate, e.record)
+            session.failure(STAGE, e.kind, record=e.record, candidate=candidate.id)
             session.log("agreement", candidate=candidate.id, answer=None, probs=None, error=e.kind)
             log.warning("session %s: %s; no agreement for %s", session.id, e, candidate.id)
             return None, e.kind
@@ -510,7 +578,7 @@ class Checker:
         session.log("model call", candidate=candidate.id, utterance=candidate.heard.id, **fields, **event)
         session.cost_usd += record.charged_usd
         try:
-            await self.sessions.costs.charge(record.stage, record.provider, self.models[record.stage],
+            await self.sessions.costs.charge(record.stage, record.provider, self.configs[record.stage].model,
                                              record.charged_usd, estimated=record.estimated,
                                              when=record.started_at)
         except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal

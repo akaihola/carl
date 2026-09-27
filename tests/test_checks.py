@@ -175,7 +175,7 @@ async def check(sessions, session, candidate, finders, model=None) -> Checker:
     and wait for everything it started, a fact-finder that missed the wait
     included."""
     checker = Checker(sessions, finders if isinstance(finders, dict) else {"B": finders}, model or FakeTyped())
-    await checker.start(session, candidate)
+    checker.start(session, candidate)
     while session.checks:
         await asyncio.wait(set(session.checks))
     return checker
@@ -429,7 +429,11 @@ async def test_a_failed_finding_fails_the_candidate(sessions, session, kind, qui
         await check(sessions, session, candidate, finder)
     assert len(finder.requests) == 1  # only a 429 is tried again
     assert candidate.state == "failed" and session.cards == {}
-    assert [e["event"] for e in session.recorder.events] == ["model call", "findings", "check"]
+    assert [e["event"] for e in session.recorder.events] == ["model call", "failure", "findings", "check"]
+    assert session.recorder.of("failure")[0] == {
+        "event": "failure", "stage": "fact-finding B", "kind": kind.replace(" ", "-"), "provider": "perplexity",
+        "model": "google/gemini-3.8-flash", "status": {"unavailable": 503}.get(kind), "code": None,
+        "candidate": "C1"}
     call = session.recorder.of("model call")[0]
     assert call["error"] == kind and call["error_text"] == "the provider's full text" and call["estimated"] is True
     assert (await sessions.costs.month())["estimated_usd"] == pytest.approx(0.0023)

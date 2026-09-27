@@ -9,7 +9,7 @@ the page can rejoin it.
 
 The server is also the source of truth for the session's fact cards
 (section 8): it keeps each card it sent with its state and the times the page
-reported, and sends them all again after a rejoin.
+reported, and sends them all again after a rejoin, withdrawn cards left out.
 """
 
 from __future__ import annotations
@@ -47,8 +47,9 @@ REOPEN_BACKOFF_S = (1, 2, 4, 8, 16, 30)
 FINALIZE_SILENCE = b"\0" * 6400
 CHECKS_AT_END_S = 25.0  # End waits this long for running decisions and checks, so they are recorded and charged
 
-CardState = Literal["ready", "on screen", "card history"]
-# A card only moves forward, in this order.
+CardState = Literal["ready", "on screen", "card history", "withdrawn"]
+# A card only moves forward, in this order. A ready card can instead be
+# withdrawn, which is final.
 CARD_STATES: tuple[CardState, ...] = ("ready", "on screen", "card history")
 
 
@@ -94,7 +95,9 @@ class Card:
     in the `card history` when the page reports it filed: tapped away, or
     late. The state only moves forward, so a report that arrives after a
     later one (the page queues them while it is away) is recorded and
-    changes nothing. The candidate's own state follows the card's.
+    changes nothing. The candidate's own state follows the card's. A card
+    settled at the table before it was shown is `withdrawn` for good, and
+    its candidate `dropped`.
     """
 
     id: str  # the candidate's, C3
@@ -116,6 +119,8 @@ class Card:
         return self.content | {"age_s": max(0.0, round(now - self.utterance_time, 1))}
 
     def move(self, state: CardState) -> None:
+        if self.state == "withdrawn":
+            return
         if CARD_STATES.index(state) > CARD_STATES.index(self.state):
             self.state = state
         if self.candidate is not None:
@@ -175,6 +180,8 @@ class Session:
     place: Any = None  # the current place name, set by carl.location (step 3)
     candidates: list[Any] = field(default_factory=list)  # set by carl.decision (step 3)
     cards: dict[str, Card] = field(default_factory=dict)  # every card sent, by id, in the order sent
+    deciding: set[asyncio.Task] = field(default_factory=set)  # decision calls still running
+    disputing: dict[str, str] = field(default_factory=dict)  # utterance id → the on-screen candidate it disputes
 
     @property
     def config(self) -> Config:
@@ -191,6 +198,21 @@ class Session:
     def log(self, event: str, **fields: Any) -> None:
         if self.recorder is not None:
             self.recorder.log(event, **fields)
+
+    def failure(self, stage: str, kind: str, *, record: Any = None, candidate: str | None = None,
+                provider: str | None = None, model: str | None = None, **fields: Any) -> None:
+        """A moment Carl couldn't check (spec section 10): the stage
+        (`decision`, `settle`, `fact-finding A`…), the kind (`timeout`,
+        `bad-output`, `overload`…), the provider and model, the HTTP status
+        and error code from a failed call's `record`, and the candidate's id.
+        Never conversation content. It goes to the event log; step 7's
+        failure log takes it from here."""
+        entry: dict[str, Any] = {"stage": stage, "kind": kind.replace(" ", "-"), "provider": provider,
+                                 "model": model, "status": None, "code": None, "candidate": candidate}
+        if record is not None:
+            entry |= {"provider": record.provider, "model": record.model, "status": record.status,
+                      "code": record.error_code}
+        self.log("failure", **entry, **fields)
 
     def spawn(self, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)
@@ -272,7 +294,8 @@ class Session:
             if task is not asyncio.current_task():
                 task.cancel()
         month = await self.sessions.month_eur()
-        cards = None if self.sessions.checker is None else len(self.cards)  # "—" on the page with no checks
+        # The cards sent and not withdrawn; "—" on the page with no checks.
+        cards = None if self.sessions.checker is None else sum(c.state != "withdrawn" for c in self.cards.values())
         self.summary = Summary(round(self.listening_s, 1), round(self.cost_usd, 6),
                                round(costs_module.to_eur(self.config, self.cost_usd), 6), recording, cards, month)
         log.info("session %s ended (%s) after %.0f s listening", self.id, reason, self.listening_s)
@@ -342,6 +365,18 @@ class Session:
         self.log("card sent", page=self.link is not None, **message)
         await self.send({"type": "card", "card": message})
 
+    async def withdraw_card(self, card_id: str, **fields: Any) -> bool:
+        """Withdraw a card sent but not yet shown: the page removes it. A card
+        on screen or in the card history stays as it is. False if it can't
+        be withdrawn."""
+        card = self.cards.get(card_id)
+        if card is None or card.state != "ready":
+            return False
+        card.state = "withdrawn"
+        self.log("card withdrawn", id=card_id, age_s=round(time.time() - card.utterance_time, 1), **fields)
+        await self.send({"type": "card_withdrawn", "id": card_id})
+        return True
+
     def card_reported(self, report: Literal["shown", "filed"], card_id: str, at: Any, late: bool = False) -> None:
         """The page's `card_shown` or `card_filed`, with the page's time `at`
         and, for a filed card, whether it was late. The first report of each
@@ -386,10 +421,10 @@ class Session:
         }
 
     async def send_cards(self) -> None:
-        """Send the whole screen again after a rejoin, if the session has any cards."""
-        if not self.cards:
-            return
+        """Send the whole screen again after a rejoin, if there is anything on it."""
         message = self.cards_message()
+        if message["current"] is None and not message["waiting"] and not message["history"]:
+            return
         self.log("cards sent", current=message["current"] and message["current"]["id"],
                  waiting=[c["id"] for c in message["waiting"]], history=[c["id"] for c in message["history"]])
         await self.send(message)
@@ -514,10 +549,11 @@ class Sessions:
         self.ended: dict[str, Summary] = {}
         self.started: dict[str, str] = {}  # the page's start_id → session id
         # Step 3 plugs in the decision call and location, step 4 the
-        # candidates' checks (their `install`).
+        # candidates' checks, step 6 the settle call (their `install`).
         self.decider: Any = None
         self.locator: Any = None
         self.checker: Any = None
+        self.settler: Any = None
 
     def build_info(self) -> dict[str, Any]:
         """What each recording stores at its start: the config, the prompts and the commit."""
@@ -587,9 +623,17 @@ class Sessions:
         return {"month_usd": round(usd, 6), "month_eur": round(costs_module.to_eur(self.config, usd), 2)}
 
     def on_utterance(self, session: Session, heard: Heard) -> None:
-        """Each utterance goes to the decision call, which runs as its own task."""
-        if self.decider is not None:
-            session.spawn_check(self.decider.on_utterance(session, heard))
+        """Each utterance goes to the decision call and the settle call, each
+        its own task. The settle call first waits for the decisions still
+        running on earlier utterances."""
+        if self.decider is None:
+            return
+        earlier = set(session.deciding)
+        decision = session.spawn_check(self.decider.on_utterance(session, heard))
+        session.deciding.add(decision)
+        decision.add_done_callback(session.deciding.discard)
+        if self.settler is not None:
+            session.spawn_check(self.settler.on_utterance(session, heard, earlier))
 
     async def on_location(self, session: Session, message: dict[str, Any]) -> None:
         if self.locator is not None:

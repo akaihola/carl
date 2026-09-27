@@ -1,0 +1,104 @@
+# Hand-written example cases for prompts/settle.md, in Finnish and English
+# (First working Carl spec, section 7, Testing prompts). `carl examples
+# settle` asks the configured decision model each case's settle call and
+# prints the outcome next to the expected one. Run it by hand after a prompt
+# change, never in CI: it costs money (well under a cent for all of them)
+# and needs the network.
+#
+# `conversation` lines are "LABEL: text" as Carl writes them, oldest first.
+# The last line is the utterance judged. `live` are the live candidates:
+# each an id and its standalone restatement, and `on_screen`, the card's fact
+# as shown, for the one whose card is on screen. `expected` is the outcome:
+# none, settles Cn, agrees with Cn or disputes Cn.
+
+# The date and time come from the clock at run time, in this timezone.
+timezone = "Europe/Helsinki"
+
+# --- Settles ------------------------------------------------------------------
+
+[[cases]]
+id = "fi-self-correction"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+  "A2: Ei vaan, nyt muistan, se oli 1952.",
+]
+live = [{ id = "C1", text = "Helsingin kesäolympialaiset pidettiin vuonna 1956." }]
+expected = "settles C1"
+
+[[cases]]
+id = "en-answered"
+conversation = [
+  "A1: I watched Casablanca again last night.",
+  "A2: Who played Rick in it? It's on the tip of my tongue.",
+  "A1: Oh, Humphrey Bogart, of course!",
+]
+live = [{ id = "C1", text = "Who played Rick in Casablanca?" }]
+expected = "settles C1"
+
+[[cases]]
+id = "fi-two-live"
+conversation = [
+  "A1: Eiffel-torni on muuten vain parisataa metriä korkea.",
+  "A2: Ja Suomessa on kaksi miljoonaa järveä.",
+  "A1: Katsoin just puhelimesta, Eiffel-torni on 330 metriä.",
+]
+live = [
+  { id = "C1", text = "Eiffel-torni on noin 200 metriä korkea." },
+  { id = "C2", text = "Suomessa on kaksi miljoonaa järveä." },
+]
+expected = "settles C1"
+
+# --- Nothing settled -------------------------------------------------------------
+
+[[cases]]
+id = "fi-look-it-up"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+  "A1: Katsotaan myöhemmin, en ole ihan varma.",
+]
+live = [{ id = "C1", text = "Helsingin kesäolympialaiset pidettiin vuonna 1956." }]
+expected = "none"
+
+[[cases]]
+id = "en-same-topic"
+conversation = [
+  "A1: We had a talk at work about gifted kids today.",
+  "A2: Einstein failed maths at school, you know.",
+  "A3: He was a funny guy anyway, sticking his tongue out in that photo.",
+]
+live = [{ id = "C1", text = "Albert Einstein failed mathematics at school." }]
+expected = "none"
+
+# --- A card on screen -----------------------------------------------------------------
+
+[[cases]]
+id = "fi-agrees"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+  "A2: Aivan, 1952 se tietysti oli. Isä oli silloin ihan nuori.",
+]
+live = [{ id = "C1", text = "Helsingin kesäolympialaiset pidettiin vuonna 1956.", on_screen = "Todennäköisesti: Helsingin kesäolympialaiset pidettiin vuonna 1952, ei 1956." }]
+expected = "agrees with C1"
+
+[[cases]]
+id = "en-disputes"
+conversation = [
+  "A1: I watched Casablanca again last night.",
+  "A2: Who played Rick in it? It's on the tip of my tongue.",
+  "A3: No, that's wrong, I'm sure it was Cary Grant.",
+]
+live = [{ id = "C1", text = "Who played Rick in Casablanca?", on_screen = "Probably: Humphrey Bogart played Rick Blaine in Casablanca." }]
+expected = "disputes C1"
+
+[[cases]]
+id = "en-on-screen-new-topic"
+conversation = [
+  "A1: I watched Casablanca again last night.",
+  "A2: Who played Rick in it? It's on the tip of my tongue.",
+  "A1: Anyway, shall we order some dessert?",
+]
+live = [{ id = "C1", text = "Who played Rick in Casablanca?", on_screen = "Probably: Humphrey Bogart played Rick Blaine in Casablanca." }]
+expected = "none"

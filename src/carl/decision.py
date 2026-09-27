@@ -11,12 +11,15 @@ earlier candidate. Each candidate then gets its own check (`carl.checks`).
   before it, with the "(paused)" and "(gap)" markers between them; the
   place and local time; and the session's earlier candidates by Carl's ids,
   C1, C2…
+- A repeat of an earlier candidate gets nothing new, unless that candidate
+  failed at a stage (a typed error, the timeout or `overload`): then the
+  repeat is checked as a new candidate, with its own id.
 - A speaker label is only valid within its own speech-to-text stream, so
   each stream gets its own letter: stream 1's speaker 1 is A1, stream 2's
   is B1.
 - A failed call drops its utterance and is never retried, since a card
   minutes late is worthless. Its cost, an estimate if need be, is charged
-  like any other.
+  like any other, and the failure is recorded (`Session.failure`).
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ import inspect
 import logging
 import string
 from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from .language import CardLanguage, card_language
@@ -39,6 +42,8 @@ log = logging.getLogger(__name__)
 STAGE = "decision"
 SAME_AS = "same as "
 KINDS = ("claim", "open question")
+# A live candidate is being checked, waiting for the screen, or on screen (spec section 5).
+LIVE = ("finding", "checking", "ready", "on screen")
 NOTHING_BEFORE = "(nothing said before)"
 NO_CANDIDATES = "(none yet)"
 # Stripped from each end of a word before it is looked up in the backchannel list.
@@ -56,15 +61,22 @@ class Candidate:
     card_language: CardLanguage
     restatement: str | None = None  # the first fact-finder's standalone restatement (step 4)
     state: str = "recorded"  # then its check's: finding, checking, ready… (carl.checks)
+    repeat_of: str | None = None  # the failed candidate it repeats
+    waiting_on: set[str] = field(default_factory=set)  # the stages its check waits on (carl.checks)
 
     @property
     def shown_as(self) -> str:
         """How later decision calls list it: its restatement, or its raw utterance until one arrives."""
         return self.restatement or self.heard.utterance.text
 
+    @property
+    def live(self) -> bool:
+        return self.state in LIVE
+
     def event(self) -> dict[str, Any]:
-        return {"id": self.id, "kind": self.kind, "utterance": self.heard.id, "probability": self.probability,
-                "card_language": self.card_language.event()}
+        event = {"id": self.id, "kind": self.kind, "utterance": self.heard.id, "probability": self.probability,
+                 "card_language": self.card_language.event()}
+        return event | ({"repeat_of": self.repeat_of} if self.repeat_of else {})
 
 
 def is_backchannel(words: Sequence[str], backchannel: Collection[str]) -> bool:
@@ -202,6 +214,7 @@ class Decider:
         except ModelError as e:
             await self.account(session, heard, question, e.record)
             session.log("decision", utterance=heard.id, outcome="dropped", error=e.kind)
+            session.failure(STAGE, e.kind, record=e.record)
             log.warning("session %s: %s; %s is dropped", session.id, e, heard.id)
             return
         await self.account(session, heard, question, answer.record)
@@ -210,19 +223,37 @@ class Decider:
         if chosen.startswith(SAME_AS):
             matched = chosen.removeprefix(SAME_AS)
             matched = None if matched == "*" else matched  # a repeat, but of which candidate is unknown
+            earlier_one = next((c for c in session.candidates if c.id == matched), None)
             session.log("repeat", utterance=heard.id, candidate=matched, probability=probability)
-            session.log("decision", outcome="repeat", candidate=matched, **decided)
+            if earlier_one is not None and earlier_one.state == "failed":  # nothing was decided: check it anew
+                candidate = self.flag(session, heard, earlier_one.kind, probability, repeat_of=earlier_one.id)
+                session.log("decision", outcome="repeat of failed", candidate=candidate.id, repeat_of=matched,
+                            **decided)
+                self.check(session, candidate)
+            else:
+                session.log("decision", outcome="repeat", candidate=matched, **decided)
         elif chosen in KINDS:
-            upto = session.heard[:position(session.heard, heard) + 1]
-            language = card_language(upto, heard, self.sessions.config.card_language)
-            candidate = Candidate(f"C{len(session.candidates) + 1}", chosen, heard, probability, language)
-            session.candidates.append(candidate)
-            session.log("candidate", **candidate.event())
+            candidate = self.flag(session, heard, chosen, probability)  # type: ignore[arg-type]
             session.log("decision", outcome="candidate", candidate=candidate.id, **decided)
-            if self.sessions.checker is not None:  # step 4: the candidate's own check
-                self.sessions.checker.start(session, candidate)
+            self.check(session, candidate)
         else:
             session.log("decision", outcome="none", **decided)
+
+    def flag(self, session: Session, heard: Heard, kind: Literal["claim", "open question"],
+             probability: float | None, repeat_of: str | None = None) -> Candidate:
+        """A new candidate, with the next id and its card language."""
+        upto = session.heard[:position(session.heard, heard) + 1]
+        language = card_language(upto, heard, self.sessions.config.card_language)
+        candidate = Candidate(f"C{len(session.candidates) + 1}", kind, heard, probability, language,
+                              repeat_of=repeat_of)
+        session.candidates.append(candidate)
+        session.log("candidate", **candidate.event())
+        return candidate
+
+    def check(self, session: Session, candidate: Candidate) -> None:
+        """Step 4 on: the candidate's own check."""
+        if self.sessions.checker is not None:
+            self.sessions.checker.start(session, candidate)
 
     async def place_and_time(self, session: Session) -> str:
         """The place name with the local date, time and timezone, from
@@ -238,21 +269,26 @@ class Decider:
         return date_time(session.timezone)
 
     async def account(self, session: Session, heard: Heard, question: Question, record: CallRecord) -> None:
-        """Record the call and charge its cost, an estimate included.
+        await account(self.sessions, session, heard, question, record)
 
-        The recording keeps the prompt's name and version with the values
-        filled in and the choices offered, not the rendered request: a replay
-        rebuilds it from these.
-        """
-        event = record.event()
-        event.pop("request", None)
-        session.log("model call", utterance=heard.id, choices=list(question.choices), **event)
-        session.cost_usd += record.charged_usd
-        try:
-            await self.sessions.costs.charge(STAGE, record.provider, self.sessions.config.stages.decision.model,
-                                             record.charged_usd, estimated=record.estimated, when=record.started_at)
-        except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal
-            log.exception("session %s: couldn't write a charge of $%.6f", session.id, record.charged_usd)
+
+async def account(sessions: Sessions, session: Session, heard: Heard, question: Question, record: CallRecord) -> None:
+    """Record a decision model call (a decision or settle call) and charge
+    its cost, an estimate included, to its stage.
+
+    The recording keeps the prompt's name and version with the values filled
+    in and the choices offered, not the rendered request: a replay rebuilds
+    it from these.
+    """
+    event = record.event()
+    event.pop("request", None)
+    session.log("model call", utterance=heard.id, choices=list(question.choices), **event)
+    session.cost_usd += record.charged_usd
+    try:
+        await sessions.costs.charge(record.stage, record.provider, sessions.config.stages.decision.model,
+                                    record.charged_usd, estimated=record.estimated, when=record.started_at)
+    except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal
+        log.exception("session %s: couldn't write a charge of $%.6f", session.id, record.charged_usd)
 
 
 def install(sessions: Sessions, environ: Mapping[str, str]) -> None:

@@ -24,6 +24,7 @@ FILLS: dict[str, frozenset[str]] = {
     "fact-finding": frozenset({"candidate_kind", "card_language", "place_and_time", "conversation", "candidate"}),
     "fact-checking": frozenset(),
     "same-fact": frozenset(),
+    "settle": frozenset(),
 }
 
 
