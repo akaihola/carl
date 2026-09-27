@@ -188,3 +188,23 @@ async def test_the_month_cost_reaches_the_start_screen(unlocked, stt):
     hello = await ws.receive_json(timeout=1)
     assert hello["costs"]["month_usd"] > 0
     assert ended["summary"]["month_eur"] is not None
+
+
+async def test_nothing_is_recorded_without_a_confirmed_disclosure(unlocked, stt, store):
+    ws = await connect(unlocked)
+    for disclosure in [None, {"text": "", "confirmed_at": "2026-09-27T18:02:11Z"}, {"text": "Tämä on testi."}]:
+        await ws.send_json({"type": "start", "record": True, "disclosure": disclosure, "mic": {}, "timezone": "UTC"})
+        state = await receive(ws, "session")
+        assert not state["recording"]
+        await ws.send_json({"type": "end"})
+        assert (await receive(ws, "ended"))["summary"]["recording"] == "none"
+    assert await store.list("recordings/") == []
+
+
+async def test_a_page_that_leaves_right_after_end(unlocked, stt):
+    ws = await connect(unlocked)
+    await start(ws, record=False)
+    await ws.send_json({"type": "end"})
+    await ws.close()
+    await settle()
+    assert stt.streams[0].closed

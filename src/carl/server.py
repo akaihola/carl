@@ -9,6 +9,7 @@ proxy.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import weakref
@@ -220,6 +221,11 @@ class Page:
         self.link, self.sessions = link, sessions
         self.session: Session | None = None
 
+    async def send(self, message: dict) -> None:
+        """A page may be gone by the time its answer is ready, as after `end` on pagehide."""
+        with contextlib.suppress(ConnectionError):
+            await self.link.send(message)
+
     async def on_message(self, data: str) -> None:
         try:
             message = json.loads(data)
@@ -238,41 +244,41 @@ class Page:
 
     async def on_start(self, message: dict) -> None:
         if self.session is not None and self.session.state != "ended":
-            await self.link.send(self.session.state_message())
+            await self.send(self.session.state_message())
             return
         self.session = await self.sessions.start(self.link, message)
-        await self.link.send(self.session.state_message())
+        await self.send(self.session.state_message())
 
     async def on_rejoin(self, message: dict) -> None:
         session_id = str(message.get("session", ""))
         session = self.sessions.get(session_id)
         if session is None:
             summary = self.sessions.ended.get(session_id)
-            await self.link.send({"type": "ended", "session": session_id, "summary": summary and asdict(summary)})
+            await self.send({"type": "ended", "session": session_id, "summary": summary and asdict(summary)})
             return
         self.session = session
         await session.attach(self.link)
-        await self.link.send(session.state_message())
+        await self.send(session.state_message())
 
     async def on_pause(self, message: dict) -> None:
         if self.session is not None:
             await self.session.pause()
-            await self.link.send(self.session.state_message())
+            await self.send(self.session.state_message())
 
     async def on_resume(self, message: dict) -> None:
         if self.session is not None:
             await self.session.resume()
-            await self.link.send(self.session.state_message())
+            await self.send(self.session.state_message())
 
     async def on_end(self, message: dict) -> None:
         if self.session is not None:
             session, self.session = self.session, None
             summary = await session.end("end")
-            await self.link.send(summary.message(session.id))
+            await self.send(summary.message(session.id))
 
     async def on_stop_recording(self, message: dict) -> None:
         session_id = str(message.get("session", ""))
         if await self.sessions.stop_recording(session_id):
-            await self.link.send({"type": "recording_stopped", "session": session_id})
+            await self.send({"type": "recording_stopped", "session": session_id})
             if self.session is not None and self.session.id == session_id:
-                await self.link.send(self.session.state_message())
+                await self.send(self.session.state_message())

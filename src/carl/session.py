@@ -390,7 +390,13 @@ class Sessions:
         }
 
     async def start(self, link: Link, message: dict[str, Any]) -> Session:
-        session = Session(self, new_session_id(), record=bool(message.get("record")))
+        disclosure = message.get("disclosure")
+        disclosed = isinstance(disclosure, dict) and bool(disclosure.get("text")) and bool(disclosure.get("confirmed_at"))
+        record = bool(message.get("record"))
+        if record and not disclosed:
+            log.warning("a recording session was asked for without a confirmed disclosure: not recording")
+            record = False
+        session = Session(self, new_session_id(), record=record)
         self.live[session.id] = session
         await session.attach(link)
         header = {k: message.get(k) for k in ("disclosure", "mic", "timezone")}
