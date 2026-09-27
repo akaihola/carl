@@ -1,0 +1,9 @@
+# The Worker in front of faktat.vempai.men: a "Starting up…" page while the
+# scaled-to-zero Scaleway container wakes. See docs/operations.md.
+# The /api/* route with no Worker, and fail-open on this route, are set
+# through the Cloudflare API, outside this file.
+name = "faktat-front"
+main = "worker.js"
+compatibility_date = "2026-09-27"
+workers_dev = false
+routes = [{ pattern = "faktat.vempai.men/*", zone_name = "vempai.men" }]

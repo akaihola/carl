@@ -57,7 +57,8 @@ def serve_command(args: argparse.Namespace) -> int:
     from .server import create_app
 
     logging.getLogger(__name__).info(
-        "config %s, prompts %s",
+        "commit %s, config %s, prompts %s",
+        os.environ.get("CARL_COMMIT", "unknown"),
         config.version,
         ", ".join(f"{p.name} {p.version}" for p in prompts.values()) or "none yet",
     )

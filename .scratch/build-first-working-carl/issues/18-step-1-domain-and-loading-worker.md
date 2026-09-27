@@ -29,3 +29,16 @@ credentials (`CLOUDFLARE_*`).
       connects through `/api/ws`.
 - [ ] The loading page is seen on a cold start.
 - [ ] The main route fails open.
+
+## Comments
+
+- 2026-09-27: `deploy/cloudflare/worker.js` and `wrangler.toml` are
+  written, from drum-transcribe's Worker: the Worker `faktat-front` on
+  `faktat.vempai.men/*`, polling `/api/health`, in Carl's dark colours.
+  Tested locally with `wrangler dev --local-upstream` in front of a
+  stand-in that took 8 s to wake: Chromium got "Starting up…" after 2.5 s
+  with the counter running, and the page reloaded into the app once the
+  stand-in answered. The zone's SSL mode is already "Full", and no
+  `faktat` record or route exists yet. Nothing is deployed: it waits for
+  the container (ticket 17). The steps are 6 and 7 of the first-time
+  setup in `docs/operations.md`.

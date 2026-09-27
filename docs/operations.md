@@ -1,0 +1,191 @@
+# Operations
+
+How Carl runs, locally and in the cloud, and how it is deployed. It follows
+[akaihola/drum-transcribe](https://github.com/akaihola/drum-transcribe)'s
+cloud setup ([ADR 0002](adr/0002-scaleway-container-behind-a-cloudflare-loading-page.md)).
+The secrets are listed in [recovery.md](recovery.md).
+
+## Running it locally
+
+```sh
+uv run pytest                                           # the tests, no network
+uv run carl hash-password                               # a new access pass and its entry
+uv run --env-file .secrets.carl.env carl serve          # http://localhost:8080
+```
+
+- The server refuses to start without `CARL_PASSWORDS` and `TOKEN_SECRET`,
+  so a local run needs `.secrets.carl.env` (see [recovery.md](recovery.md)).
+  A browser accepts the access-pass cookie on `http://localhost`, though it
+  is marked Secure.
+- Staging is this same server run locally. From step 2 on, local runs write
+  under `dev/` in the bucket, so they also need `.secrets.bucket.env`.
+- `carl serve --config … --prompts …` picks another config file or prompts
+  folder.
+
+## The cloud
+
+Everything is in the Scaleway project **AI app prototypes**, region fr-par,
+and the Cloudflare zone **vempai.men**.
+
+| What | Name | Notes |
+| --- | --- | --- |
+| Registry namespace | `carl` | Private. Images are `rg.fr-par.scw.cloud/carl/carl:<commit>` |
+| Containers namespace | `carl` | |
+| Container | `carl` | Scaled to zero, max scale 1, 1 GB and 560 mvCPU, timeout 3600 s (Scaleway's most), port 8080, HTTPS only, public (the access pass guards it) |
+| Bucket | `carl-faktat` | No versioning. Lifecycle rules: `recordings/` 180 days, `failures/` 30 days, `sessions/` 1 day, and the same three under `dev/` |
+| IAM application | `carl-server` | Policy `carl-server-objects`: read, write and delete objects and read buckets, in this project only. Its API key expires on 2027-09-27 |
+| Address | `faktat.vempai.men` | CNAME to the container's endpoint, proxied, zone SSL "Full". Scaleway keeps its own certificate for the domain |
+| Worker | `faktat-front` | The loading page on `faktat.vempai.men/*`, failing open. `faktat.vempai.men/api/*` has no Worker |
+
+The container's plain environment variables are `S3_ENDPOINT`,
+`S3_REGION` and `S3_BUCKET`. Its secret ones are set only with
+`deploy/secrets.py` (below).
+
+### Status on 2026-09-27
+
+Done: the registry namespace (with a first image), the bucket and its
+rules, the IAM application with its key, and the containers namespace.
+Not done yet: the container itself, its secrets, the domain, the DNS record
+and the Worker. They are the first-time steps below.
+
+## Deploying
+
+Never during a dinner: a redeploy drops live sessions. The config file and
+`prompts/` are baked into the image, so changing either means a deploy.
+
+```sh
+deploy/deploy.sh
+```
+
+It refuses to run with uncommitted changes, since the image is tagged with
+the commit, and then:
+
+1. `docker build -f deploy/Dockerfile` (set `DOCKER=podman` for podman);
+2. pushes the image to `rg.fr-par.scw.cloud/carl`;
+3. `scw container container update <id> image=…` and
+   `scw container container redeploy <id>`.
+
+It needs `docker login rg.fr-par.scw.cloud/carl -u nologin
+--password-stdin` (the password is the Scaleway secret key) and `scw` with
+the owner's Scaleway API key. Then check `https://faktat.vempai.men/api/health`.
+
+The Worker is deployed on its own, only when `deploy/cloudflare/` changes:
+
+```sh
+cd deploy/cloudflare && set -a && . ../../.secrets.cloudflare.env && set +a && npx wrangler@4 deploy
+```
+
+Afterwards check that the main route still fails open (below).
+
+### Secrets
+
+Scaleway replaces a container's whole set of secret variables on every
+update, so a secret left out is deleted and the server then won't start.
+Change them only with:
+
+```sh
+python3 deploy/secrets.py --check    # is every secret at hand?
+python3 deploy/secrets.py            # set them all in one update, then redeploy
+```
+
+It reads the gitignored `.secrets.*` files at the repo root (a variable in
+the environment wins) and refuses to send an incomplete set. When a build
+step adds a provider, add its key to `SECRETS` in the script and to
+[recovery.md](recovery.md).
+
+### From a Claude Code cloud session
+
+The owner's cloud environment has the `SCW_*` and `CLOUDFLARE_*` variables.
+What it needs, found on 2026-09-27:
+
+- Start Docker's daemon with `dockerd` in the background.
+- Docker Hub answers anonymous pulls with 429, so the Dockerfile's base
+  image comes from Google's mirror, `mirror.gcr.io`.
+- TLS goes through a proxy that re-signs it, so builds need its CA:
+  `CA_BUNDLE=/root/.ccr/ca-bundle.crt deploy/deploy.sh`. The CA reaches the
+  build only as a BuildKit secret and never enters the image.
+- `scw` can't be downloaded from GitHub there. Take it from its image:
+  `docker create mirror.gcr.io/scaleway/cli:latest`, then `docker cp
+  <id>:/usr/bin/scw ~/.local/bin/scw`.
+- The secrets files don't survive the session. The owner keeps them in the
+  password manager and in the environment's variables.
+
+## First-time setup
+
+What was run, and what is left, in order. `$NS` is the containers
+namespace's id (`scw container namespace list name=carl -o
+template='{{ .ID }}'`).
+
+1. Done: `scw registry namespace create name=carl is-public=false`.
+2. Done: the bucket `carl-faktat` with its lifecycle rules, through the S3
+   API with the owner's key.
+3. Done: `scw iam application create name=carl-server`, the policy
+   `carl-server-objects` (`ObjectStorageObjectsRead`,
+   `ObjectStorageObjectsWrite`, `ObjectStorageObjectsDelete`,
+   `ObjectStorageBucketsRead` on this project), and
+   `scw iam api-key create application-id=… expires-at=2027-09-27T00:00:00Z`.
+   The key is in `.secrets.bucket.env`.
+4. Done: `scw container namespace create name=carl`.
+5. To do: the container.
+
+   ```sh
+   scw container container create namespace-id=$NS name=carl \
+     image=rg.fr-par.scw.cloud/carl/carl:<commit> \
+     min-scale=0 max-scale=1 memory-limit-bytes=1GB mvcpu-limit=560 timeout=3600s \
+     privacy=public protocol=http1 port=8080 https-connections-only=true \
+     environment-variables.S3_ENDPOINT=https://s3.fr-par.scw.cloud \
+     environment-variables.S3_REGION=fr-par environment-variables.S3_BUCKET=carl-faktat
+   python3 deploy/secrets.py
+   ```
+
+   Then `/api/health` answers on the container's own endpoint
+   (`scw container container list namespace-id=$NS -o template='{{ .PublicEndpoint }}'`),
+   and every other path asks for the access pass.
+6. To do: the address. In Cloudflare, a CNAME `faktat` to the container's
+   endpoint, **DNS only** at first. Then bind the domain on Scaleway
+   (`scw container domain create container-id=… hostname=faktat.vempai.men`)
+   and wait until it is ready, since Scaleway fetches its certificate over
+   plain DNS. Then switch the record to **proxied**. The zone's SSL mode is
+   already "Full" (checked on 2026-09-27), as drum-transcribe's `plokkaus`
+   and `dallape` need it.
+7. To do: the Worker. `npx wrangler@4 deploy` from `deploy/cloudflare/`,
+   then through the Cloudflare API:
+   - `POST /zones/<zone>/workers/routes` with
+     `{"pattern": "faktat.vempai.men/api/*"}` and no `script`: the more
+     specific pattern wins, so `/api/*` skips the Worker;
+   - set `request_limit_fail_open: true` on the `faktat.vempai.men/*`
+     route, so requests over the free plan's daily limit skip the Worker
+     instead of failing.
+
+## The loading page
+
+- The Worker answers a page load that the container hasn't answered within
+  2.5 s with "Starting up…" and a seconds counter (status 503,
+  `Cache-Control: no-store`). The original request carries on and keeps
+  waking the container. The page polls `/api/health` every 2 s and reloads
+  once it answers.
+- Only page loads (`Sec-Fetch-Mode: navigate`) can get the loading page.
+  Everything else passes through untouched.
+- `/api/*` never reaches the Worker, so the WebSocket and the health poll
+  don't count against the free plan's 100,000 Worker requests a day.
+- **Off switch:** set the `faktat` DNS record back to "DNS only". The site
+  then works as before, without the loading page.
+- Cloudflare gives up on an origin that hasn't answered in 100 s (error
+  524). The health poll just retries.
+
+## Logs
+
+`scw container container logs <id>` shows the container's output. At
+startup the server logs its commit, the config's version and each prompt's
+version, then one line per page connecting and leaving.
+
+## Things to know
+
+- Scaleway ends every request after at most 60 minutes, a WebSocket
+  included. Step 1's 2-hour connection test measures where it really cuts,
+  whether the CPU is throttled while no page is connected, and the cold
+  start (ticket 19).
+- The container scales to zero after about 15 minutes without a request.
+  An open WebSocket counts as a request, so it keeps the container up.
+- On a redeploy or scale-down the server closes every WebSocket with code
+  1001, so pages reconnect at once.

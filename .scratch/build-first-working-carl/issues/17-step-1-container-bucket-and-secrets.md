@@ -41,6 +41,44 @@ It needs the Scaleway credentials (`SCW_*`).
 
 - [ ] The container runs the image and answers `/api/health` on its
       Scaleway endpoint, behind the access pass.
-- [ ] The bucket exists with its three lifecycle rules and no versioning,
+- [x] The bucket exists with its three lifecycle rules and no versioning,
       and the scoped key can reach it.
-- [ ] The operations and recovery docs are written.
+- [x] The operations and recovery docs are written.
+
+## Comments
+
+- 2026-09-27: Done, in the Scaleway project AI app prototypes (fr-par):
+  - `deploy/Dockerfile` and `.dockerignore`: a two-stage build on
+    `python:3.13-slim` from `mirror.gcr.io`, with the locked dependencies
+    installed by uv, the config file and `prompts/`, running as `nobody`.
+    193 MB. It fails closed without its secrets. A TLS-intercepting proxy's
+    CA can be passed as the BuildKit secret `ca`, which never enters the
+    image.
+  - The registry namespace `carl`, with a first image,
+    `rg.fr-par.scw.cloud/carl/carl:87f5d5d`.
+  - The bucket `carl-faktat`: versioning never enabled, and lifecycle rules
+    `recordings/` 180 days, `failures/` 30 days and `sessions/` 1 day, plus
+    the same three under `dev/`, so local runs expire the same way.
+  - The IAM application `carl-server` with the policy `carl-server-objects`
+    (objects read, write and delete, and buckets read, in this project
+    only; the project holds no other bucket) and an API key expiring on
+    2027-09-27. Checked with the key: it puts, gets, lists and deletes
+    objects, and is refused changing the lifecycle rules, turning on
+    versioning and creating a bucket.
+  - The containers namespace `carl`.
+  - `deploy/deploy.sh` (build, push, `scw container container update` and
+    `redeploy`) and `deploy/secrets.py` (the whole secret set in one
+    update, refusing an incomplete one). Neither has run against the
+    container yet, since it doesn't exist.
+  - `docs/operations.md` and `docs/recovery.md`, with the owner's note on
+    the password manager, prepaid credits and spend limits.
+  - The production secrets are in gitignored files in the session that
+    made them: `.secrets.carl.env` (`CARL_PASSWORDS` with one pass for the
+    owner's phone, and `TOKEN_SECRET`), `.secrets.access-passes.txt` (the
+    passphrase) and `.secrets.bucket.env` (the bucket key). The owner
+    copies them into the password manager and the cloud environment's
+    variables.
+  - Not done: creating the container. Claude Code's auto-mode safety check
+    refused `scw container container create`, so the session stopped
+    before it and left the decision to the owner. The command is step 5
+    of the first-time setup in `docs/operations.md`.

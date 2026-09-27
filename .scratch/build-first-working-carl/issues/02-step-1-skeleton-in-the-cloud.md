@@ -143,3 +143,9 @@ and the cold start are known.
     the loading Worker;
   - [19](19-step-1-two-hour-connection-test.md): the 2-hour connection
     test.
+- 2026-09-27: Tickets 12–16 are resolved: the server, page shell, gate,
+  config file, prompt loader, WebSocket and CI work, and CI passes on
+  GitHub. Ticket 17 is done except for the container itself, which
+  Claude Code's auto-mode safety check refused to create, so the cloud
+  work stopped there for the owner to decide. Ticket 18's Worker is
+  written and tested locally but not deployed.

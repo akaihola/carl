@@ -1,0 +1,8 @@
+# The image gets only what the server needs (deploy/Dockerfile).
+*
+!pyproject.toml
+!uv.lock
+!src/
+!config.toml
+!prompts/
+**/__pycache__
