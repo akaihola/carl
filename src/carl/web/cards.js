@@ -16,6 +16,9 @@
 // - While the page is hidden (a source open in another tab, the phone
 //   locked), pacing waits: the card on screen stays and its time doesn't
 //   count, and no card comes up. The late-card cut-off still runs.
+// - A card the server withdraws (the table settled it) before it reaches the
+//   screen goes as if it had never come, and is never reported. A card on
+//   screen or in the history stays as it is.
 //
 // Times are on the page's monotonic clock. A card's age comes from its
 // `age_s` (seconds since its utterance, when the server sent it), so the
@@ -35,6 +38,7 @@ export class Cards {
   // id -> {card, state, seq, el, and while or once on screen: shown, the
   // visible time on screen before `since`, the moment it last became visible}
   #cards = new Map();
+  #withdrawn = new Set();  // ids withdrawn this session, even before their card came
   #seq = 0;
   #timer = 0;
   #running = false;
@@ -66,6 +70,7 @@ export class Cards {
   reset() {
     this.stop();
     this.#cards.clear();
+    this.#withdrawn.clear();
     this.failures = [];
     this.#running = true;
     this.#render();
@@ -78,24 +83,42 @@ export class Cards {
     clearTimeout(this.#timer);
   }
 
-  // A `card` message. A card the page already has is left as it is.
+  // A `card` message. A card the page already has, or one withdrawn, is left
+  // as it is.
   add(raw) {
     const card = normalise(raw, performance.now());
-    if (!this.#running || !card || this.#cards.has(card.id)) return;
+    if (!this.#running || !card || this.#cards.has(card.id) || this.#withdrawn.has(card.id)) return;
     this.#cards.set(card.id, {card, state: "waiting", seq: this.#seq++});
+    this.#pace();
+  }
+
+  // A `card_withdrawn` message: a waiting card goes, unreported, and the
+  // rest pace as if it had never come. A card on screen (its withdrawal
+  // raced it there), in the history, or not come yet stays as it is; one
+  // that comes later is never shown.
+  withdraw(id) {
+    if (!this.#running || id == null || id === "") return;
+    id = String(id);
+    this.#withdrawn.add(id);
+    if (this.#cards.get(id)?.state !== "waiting") return;
+    this.#cards.delete(id);
     this.#pace();
   }
 
   // A `cards` message after a rejoin: the whole screen again. The server's
   // state stands, except where this page has already moved a card further
   // (shown or filed while the connection was down), since those reports are
-  // still on their way. A card the server doesn't list stays as it is here.
+  // still on their way. A card on screen or in the history that the server
+  // doesn't list stays as it is here; a waiting card it doesn't list was
+  // withdrawn while the connection was down.
   restore({current, waiting, history}) {
     if (!this.#running) return;
-    const received = performance.now();
+    const received = performance.now(), listed = new Set();
     const take = (raw, state) => {
       const card = normalise(raw, received);
       if (!card) return;
+      listed.add(card.id);
+      if (this.#withdrawn.has(card.id) && !this.#cards.has(card.id)) return;
       let c = this.#cards.get(card.id);
       if (!c) this.#cards.set(card.id, c = {card, state: "waiting", seq: this.#seq++});
       if (RANK[state] <= RANK[c.state]) return;
@@ -106,6 +129,12 @@ export class Cards {
     for (const raw of list(history)) take(raw, "filed");
     if (current) take(current, "current");
     for (const raw of list(waiting)) take(raw, "waiting");
+    for (const [id, c] of this.#cards) {
+      if (c.state === "waiting" && !listed.has(id)) {
+        this.#cards.delete(id);
+        this.#withdrawn.add(id);
+      }
+    }
     // One card on screen: the one this page shows wins.
     const on = [...this.#cards.values()].filter((c) => c.state === "current");
     const keep = on.includes(local) ? local : on[0];

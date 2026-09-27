@@ -67,6 +67,12 @@ Built on 2026-09-27, in `src/carl/web/`.
   keeps running, so a card that passes it while hidden goes into the
   history as late. When the page is visible again, pacing carries on, and a
   card that arrived meanwhile comes up at once if nothing is on screen.
+- **Withdrawn cards** (`card_withdrawn`, step 6's settle): a waiting card
+  with that id goes as if it had never come ("+N waiting" and the timers
+  follow) and is never reported. A card on screen (its withdrawal raced it
+  there) or in the history stays exactly as it is. Withdrawn ids are
+  remembered for the session, so an unknown id is ignored but its card, if
+  it comes later, never shows, not even from a stale `cards`.
 - **Reports**: `card_shown` when a card reaches the screen, `card_filed`
   with `late: false` when tapped away or replaced, `late: true` when it
   skipped the screen, `at` from the page clock. They queue in order and go
@@ -79,30 +85,37 @@ Built on 2026-09-27, in `src/carl/web/`.
   no mark.
 - **`cards` after a rejoin** rebuilds the screen, but a card this page has
   already moved further (shown or filed while the connection was down, its
-  report still queued) keeps the page's state, and cards the server doesn't
-  list stay. The server's own current card isn't reported again. A `card`
-  the page already has is ignored.
+  report still queued) keeps the page's state. A card on screen or in the
+  history that the server doesn't list stays; a waiting card it doesn't
+  list was withdrawn while the connection was down, so it goes (and is
+  remembered as withdrawn). The server's own current card isn't reported
+  again. A `card` the page already has is ignored.
 - A card that fails to render is kept in `cards.failures` (id and time) for
   step 7's buffer, never shown and never reported; the pacing carries on.
 - Checked with Playwright in Chromium against a throwaway mock of
   `docs/websocket.md` that pushes cards with chosen utterance times and
   keeps their state from the reports, sends `age_s` at send time and can
-  skew `utterance_time` or leave `age_s` out (112 checks): a card alone
-  stays 10 s until tapped; two cards pace at 8.0 s with "+1 waiting" and the bar
-  shrinking; a tap moves on in about 50 ms; utterance order; a late card
-  filed with `late: true` in its place, and one ready too late skipping
-  the screen; the link opening a new tab and leaving the card; history
-  marks, dashed edge, dimming; taps while disconnected winning over a
-  stale `cards` and their reports sent after the rejoin; `cards` from
-  scratch; the summary's count; a server clock 40 s behind or 60 s ahead
-  not changing which cards are late, the deadline landing 20 − `age_s`
-  after receipt (5.0 s for age 15), 19.3 s coming up and 20.3 s late, the
-  `utterance_time` fallback, `age_s` deciding inside `cards`; with the page
-  made hidden (an init script, since Playwright can't hide a page), the
-  card on screen staying 10 s with its bar still, the waiting card coming
-  up after 8 s of visible time in all (within 6 ms), a card arriving while
-  hidden coming up as the page returns, and one passing the cut-off while
-  hidden filed late in its place; screenshots at 900x420, 640x360, 420x900
-  and 360x740 with short plain and long hedged Finnish facts, and rotation.
-  No request left the origin. Not yet run against the real server, whose
-  card messages come with ticket 32.
+  skew `utterance_time` or leave `age_s` out, and withdraws cards (126
+  checks): a card alone stays 10 s until tapped; two cards pace at 8.0 s
+  with "+1 waiting" and the bar shrinking; a tap moves on in about 50 ms;
+  utterance order; a late card filed with `late: true` in its place, and one
+  ready too late skipping the screen; the link opening a new tab and leaving
+  the card; history marks, dashed edge, dimming; taps while disconnected
+  winning over a stale `cards` and their reports sent after the rejoin;
+  `cards` from scratch; the summary's count; a server clock 40 s behind or
+  60 s ahead not changing which cards are late, the deadline landing 20 −
+  `age_s` after receipt (5.0 s for age 15), 19.3 s coming up and 20.3 s
+  late, the `utterance_time` fallback, `age_s` deciding inside `cards`; with
+  the page made hidden (an init script, since Playwright can't hide a page),
+  the card on screen staying 10 s with its bar still, the waiting card
+  coming up after 8 s of visible time in all (within 6 ms), a card arriving
+  while hidden coming up as the page returns, and one passing the cut-off
+  while hidden filed late in its place; withdrawals taking "+2 waiting" to
+  none with the card on screen then staying past 8 s, withdrawn cards never
+  reported or in the history, a card on screen and the history untouched by
+  a withdrawal, an unknown id ignored, a withdrawal before its card stopping
+  it (also from a stale `cards`), and a card withdrawn while the connection
+  was down dropped when `cards` doesn't list it; screenshots at 900x420,
+  640x360, 420x900 and 360x740 with short plain and long hedged Finnish
+  facts, and rotation. No request left the origin. Not yet run against the
+  real server, whose card messages come with ticket 32.

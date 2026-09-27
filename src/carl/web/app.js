@@ -241,6 +241,7 @@ link.addEventListener("message", ({detail: m}) => {
   else if (m.type === "speech") pulse();
   else if (m.type === "card") { if (session?.id && !session.over) cards.add(m.card); }
   else if (m.type === "cards") { if (session?.id && !session.over) cards.restore(m); }
+  else if (m.type === "card_withdrawn") { if (session?.id && !session.over) cards.withdraw(m.id); }
   else if (m.type === "ended") onEnded(m);
   else if (m.type === "recording_stopped") {
     savePendingStops(pendingStops().filter((id) => id !== m.session));
