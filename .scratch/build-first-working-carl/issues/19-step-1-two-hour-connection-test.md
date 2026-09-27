@@ -34,5 +34,5 @@ measure:
   [`connection_test.py`](../connection-test/connection_test.py); the
   results are in [ticket 02's Answer](02-step-1-skeleton-in-the-cloud.md#answer).
   Scaleway cuts at exactly 60 minutes, the CPU isn't throttled with no page
-  connected, and a cold start takes about 5 s. Nothing needed raising with
+  connected, and a cold start takes 5–10 s, most of it Scaleway's. Nothing needed raising with
   the owner, so no fallback.

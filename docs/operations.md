@@ -207,10 +207,10 @@ version, then one line per page connecting and leaving.
   the cut. Measured in step 1's 2-hour connection test
   ([ticket 02](../.scratch/build-first-working-carl/issues/02-step-1-skeleton-in-the-cloud.md#answer)),
   which also found the CPU keeps its pace while no page is connected.
-- A cold start takes about 5 s from the first request until `/api/health`
-  answers: about 4 s is Scaleway starting the instance, the rest is Carl's
-  own start. The loading Worker shows "Starting up…" for page loads that
-  wait longer than 2.5 s.
+- A cold start takes 5–10 s from the first request until `/api/health`
+  answers: 4–7 s is Scaleway starting the instance, and about 2.4 s is
+  Carl's own start. The loading Worker shows "Starting up…" for page loads
+  that wait longer than 2.5 s.
 - The container scales to zero after about 15 minutes without a request.
   An open WebSocket counts as a request, so it keeps the container up.
 - On a redeploy or scale-down the server closes every WebSocket with code

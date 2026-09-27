@@ -137,13 +137,27 @@ and for 150 s (longer than the 2-minute reconnect grace):
 No other request reached the container in those windows, so nothing else
 kept it awake. Every expected tick came.
 
-**A cold start takes about 5 s** from the first request until `/api/health`
-answers. The live container couldn't go cold during the test, since the
-owner's open tab and a scanner kept it awake, so it was measured on a
-throwaway copy of the container with the same settings and the step-1
-image, deleted afterwards: 5.3 s and 4.9 s. Of that, Scaleway starting the
-instance took about 4.2 s and Carl's own start about 1.0 s. The current
-image, with every step's code, takes about 2.1 s for Carl's part.
+**A cold start takes 5–10 s** from the first request until `/api/health`
+answers, most of it Scaleway's. The live container couldn't go cold during
+the test, since the owner's open tab and a scanner kept it awake, so it was
+first measured on a throwaway copy of the container with the same settings
+and the step-1 image, deleted afterwards: 5.3 s and 4.9 s, of which
+Scaleway starting the instance took about 4.2 s and Carl's own start about
+1.0 s. Then, at 16:08 UTC, on the live container with the current image
+after 19 minutes without a request, loading the page as a browser does:
+
+| From the request | What happened |
+| --- | --- |
+| 3.0 s | The loading Worker answered with "Starting up…" (503) |
+| 7.3 s | The instance started: Carl's first log line |
+| 8.7 s | Carl was ready: the startup line with its commit and prompts |
+| 9.7 s | Carl answered the page load the Worker had kept waiting |
+| 9.9 s | `/api/health` answered 200 |
+
+So Scaleway's part varies (4.2 s, then 7.3 s), and Carl's own start is now
+about 2.4 s, with every step's code. The first request after an idle spell
+is often a scanner's: `faktat.vempai.men` gets a bot request every 10 to 20
+minutes, so the container is often awake anyway.
 
 **One unplanned drop.** At 13:17 a connection closed after 297 s with no
 cut due: the server heard nothing from the client for its 10 s silence
@@ -199,3 +213,7 @@ Scaleway Instance fallback isn't needed.
   Claude Code's auto-mode safety check refused to create, so the cloud
   work stopped there for the owner to decide. Ticket 18's Worker is
   written and tested locally but not deployed.
+- 2026-09-27: Tickets 12–19 are resolved, and the Answer is above. The
+  loading page was seen on a real cold start of `faktat.vempai.men`. The
+  one box left is the owner's: opening `faktat.vempai.men` on the phone
+  behind the access pass.
