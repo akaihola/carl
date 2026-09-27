@@ -1,6 +1,6 @@
 """The decision call (spec section 5): one typed call per utterance, deciding
 whether it holds a claim or an open question worth checking, or repeats an
-earlier candidate. Candidates are recorded, not shown, until step 4.
+earlier candidate. Each candidate then gets its own check (`carl.checks`).
 
 - Every utterance gets its own call, running to the end as its own task, so
   a newer utterance never cancels one. Only an utterance made up entirely of
@@ -55,7 +55,7 @@ class Candidate:
     probability: float | None  # of its kind; None when the vendor gave no probabilities
     card_language: CardLanguage
     restatement: str | None = None  # the first fact-finder's standalone restatement (step 4)
-    state: str = "recorded"
+    state: str = "recorded"  # then its check's: finding, checking, ready… (carl.checks)
 
     @property
     def shown_as(self) -> str:
@@ -219,6 +219,8 @@ class Decider:
             session.candidates.append(candidate)
             session.log("candidate", **candidate.event())
             session.log("decision", outcome="candidate", candidate=candidate.id, **decided)
+            if self.sessions.checker is not None:  # step 4: the candidate's own check
+                self.sessions.checker.start(session, candidate)
         else:
             session.log("decision", outcome="none", **decided)
 

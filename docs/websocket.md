@@ -36,10 +36,10 @@ what it did with each (spec section 8, Pacing and late cards).
 
 | Direction | Message | Meaning |
 | --- | --- | --- |
-| server → page | `{"type": "card", "card": {"id": "C3", "kind": "claim", "band": "hedged", "language": "fi", "label": "Väite", "tag": "Varauksin", "title": "…", "fact": "Todennäköisesti: …", "source": {"url": "https://…", "title": "…"}, "utterance_time": "2026-09-27T18:04:31.200Z"}}` | A card ready for the screen. `kind` is `claim` or `question`; `band` is `plain` or `hedged` (`tag` is `null` for plain). `label`, `tag` and the hedge prefix in `fact` are already in the card language. `utterance_time` is when its utterance ended: the late-card cut-off counts from it |
+| server → page | `{"type": "card", "card": {"id": "C3", "kind": "claim", "band": "hedged", "language": "fi", "label": "Väite", "tag": "Varauksin", "title": "…", "fact": "Todennäköisesti: …", "source": {"url": "https://…", "title": "…"}, "utterance_time": "2026-09-27T18:04:31.200Z", "age_s": 6.4}}` | A card ready for the screen. `kind` is `claim` or `question`; `band` is `plain` or `hedged` (`tag` is `null` for plain). `label`, `tag` and the hedge prefix in `fact` are already in the card language. `utterance_time` is when its utterance ended, for the card history's order and the recording. `age_s` is the seconds since then by the server's clock when the message was sent: the late-card cut-off counts from it, so a phone clock that is off doesn't move it. Each card in `cards` carries both too |
 | page → server | `{"type": "card_shown", "id": "C3", "at": "…"}` | The card reached the screen |
 | page → server | `{"type": "card_filed", "id": "C3", "at": "…", "late": false}` | The card went into the card history: tapped away (`late: false`), or late (`late: true`), skipping the screen |
-| server → page | `{"type": "cards", "current": {…} or null, "waiting": [{…}], "history": [{…}]}` | The whole screen again, after a rejoin: the server is the source of truth for a session's cards |
+| server → page | `{"type": "cards", "current": {…} or null, "waiting": [{…}], "history": [{…}]}` | The whole screen again, after a rejoin when the session has cards: the server is the source of truth for a session's cards. Cards that became ready while the page was away arrive here, in `waiting` |
 
 ## Reconnecting
 

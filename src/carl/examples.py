@@ -6,7 +6,8 @@ The cases are in `prompts/examples/<prompt>.toml`. Run it by hand after a
 prompt change, never in CI: it costs money and needs the network, and its
 results aren't stored. It needs the stage's key in the environment
 (OPENAI_API_KEY for the decision model and fact-finder A, PERPLEXITY_API_KEY
-for fact-finder B). `--case` runs only the cases whose id starts with it.
+for fact-finder B, OPENROUTER_API_KEY for the fact-checking model). `--case`
+runs only the cases whose id starts with it.
 """
 
 from __future__ import annotations
@@ -22,10 +23,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from . import decision
+from . import checks, decision
+from .checking import SUPPORTED, Judged, band_single
 from .config import Config, ConfigError, load_config
-from .finding import STAGE_A, STAGE_B, Finding, FindingRequest, key_name, language_name, make_fact_finder
-from .location import Locator, Nominatim, Place
+from .finding import STAGE_A, STAGE_B, DraftCard, Finding, FindingRequest, key_name, language_name, make_fact_finder
+from .location import Locator, Nominatim, Place, date_time
 from .models import CallRecord, ModelError, TypedAnswer, http_session, make_typed_model
 from .models.questions import TypedPrompt
 from .prompts import Prompt, PromptError, load_prompts
@@ -211,6 +213,53 @@ async def run_fact_finding(config: Config, prompts: dict[str, Prompt], path: Pat
     return all(n == len(cases) for n in good.values())
 
 
+async def run_fact_checking(config: Config, prompts: dict[str, Prompt], path: Path, only: Sequence[str] = ()) -> bool:
+    """The fact-checking prompt's cases: each draft card's verdict, asked with
+    the fields a candidate's check gives it, and the band that verdict would
+    give a card with a verified excerpt from a source that isn't
+    blocklisted. True if every verdict came out as expected."""
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    cases = pick(data["cases"], only)
+    typed = TypedPrompt.load(prompts["fact-checking"])
+    stage = config.stages.fact_checking
+    when = date_time(data["timezone"])
+    print(f"fact-checking: prompts/fact-checking.md {typed.version}, {stage.provider} {stage.model}")
+    print(f"  date_time: {when}")
+    async with http_session() as http:
+        model = make_typed_model(stage, config, os.environ, http)
+
+        async def ask(case: dict[str, Any]) -> TypedAnswer | ModelError:
+            *before, candidate = case["conversation"]
+            card = DraftCard(case["card_title"], case["card_fact"], case["source_url"], case["source_title"],
+                             case["excerpt"])
+            try:
+                return await model.ask(typed.fill(checks.verdict_fields(candidate, before, card, when)),
+                                       stage=checks.STAGE)
+            except ModelError as e:
+                return e
+
+        answers = await asyncio.gather(*(ask(case) for case in cases))
+    good, cost, estimated = 0, 0.0, False
+    for case, answer in zip(cases, answers, strict=True):
+        record = answer.record
+        cost += record.charged_usd
+        estimated |= record.estimated
+        if isinstance(answer, ModelError):
+            print(f"  ERROR {case['id']:<20} {answer.kind}: {record.error_text[:200]}  {took(record)}")
+            continue
+        ok = answer.answer == case["expected"]
+        good += ok
+        outcome = "claim is wrong" if case["kind"] == "claim" else "question answered"
+        p = None if answer.probs is None else answer.probs.get(SUPPORTED, 0.0)
+        band = band_single(Judged("B", outcome, True, None, answer.answer, p), config.bands)
+        expected = "" if ok else f"  expected {case['expected']}"
+        print(f"  {'ok   ' if ok else 'MISS '} {case['id']:<20} {answer.answer:<29} "
+              f"p: {probabilities(answer.probs):<56} {band.reason:<23} {took(record)}{expected}")
+    print(f"{good} of {len(cases)} as expected, ${cost:.6f} in all{' (partly estimated)' if estimated else ''}, "
+          f"model {answers[0].record.model if answers else '-'}")
+    return good == len(cases)
+
+
 def took(record: CallRecord) -> str:
     """A call's time and what it counts toward the totals, with Carl's own figure when that differs."""
     cost = f"${record.charged_usd:.5f}"
@@ -222,4 +271,5 @@ def took(record: CallRecord) -> str:
 RUNNERS: dict[str, Callable[[Config, dict[str, Prompt], Path, Sequence[str]], Awaitable[bool]]] = {
     "decision": run_decision,
     "fact-finding": run_fact_finding,
+    "fact-checking": run_fact_checking,
 }

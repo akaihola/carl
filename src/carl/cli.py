@@ -75,12 +75,13 @@ def serve_command(args: argparse.Namespace) -> int:
 
     stt = make_speech_to_text(config.stages.speech_to_text, os.environ)
     sessions = Sessions(config, prompts, store, stt, commit())
-    from . import decision, location
+    from . import checks, decision, location
 
     try:
         decision.install(sessions, os.environ)
         location.install(sessions, os.environ)
-    except ValueError as e:
+        checks.install(sessions, os.environ)
+    except (ValueError, PromptError) as e:
         print(f"carl: can't start: {e}", file=sys.stderr)
         return 2
 

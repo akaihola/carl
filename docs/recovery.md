@@ -18,14 +18,15 @@ secrets live in gitignored `.secrets.*` files at the repo root.
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | `.secrets.bucket.env` | The scoped bucket key: IAM application `carl-server`, object storage in the project AI app prototypes only. **Expires on 2027-09-27** |
 | `SONIOX_API_KEY` | `.secrets.providers.env` | Speech-to-text (Soniox), from step 2. Prepaid credits, automatic top-up off |
 | `OPENAI_API_KEY` | `.secrets.providers.env` | GPT-6 Luna: the decision model from step 3, and fact-finder A from step 5 |
+| `PERPLEXITY_API_KEY` | `.secrets.providers.env` | Fact-finder B (Gemini on Perplexity's Agent API), from step 4 |
+| `OPENROUTER_API_KEY` | `.secrets.providers.env` | The fact-checking model (TypeSafe Jev through OpenRouter), from step 4 |
 | Scaleway API key (`SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, organisation and project ids) | the cloud environment's variables, or `~/.config/scw/config.yaml` | The owner's own key ("Carl prototype"): pushes images, updates the container, makes bucket keys. Expires on 2027-09-27 |
 | Cloudflare (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) | the cloud environment's variables, or `.secrets.cloudflare.env` | A token for the `vempai.men` zone: deploys the Worker, sets its routes and flips the `faktat` record |
 
 The container's secret variables are `CARL_PASSWORDS`, `TOKEN_SECRET`,
-`S3_ACCESS_KEY`, `S3_SECRET_KEY`, `SONIOX_API_KEY` and `OPENAI_API_KEY`.
-Each provider's key joins them with the build step that first calls the
-provider, and gets a row here: `PERPLEXITY_API_KEY` and
-`OPENROUTER_API_KEY` (step 4). The provider keys are also in the cloud
+`S3_ACCESS_KEY`, `S3_SECRET_KEY`, `SONIOX_API_KEY`, `OPENAI_API_KEY`,
+`PERPLEXITY_API_KEY` and `OPENROUTER_API_KEY`. A provider's key joins them
+with the build step that first calls the provider, and gets a row here. The provider keys are also in the cloud
 environment's variables, where step 0 put them.
 
 Why keep all of them, not just the irreplaceable one: Scaleway replaces the

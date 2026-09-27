@@ -262,6 +262,7 @@ class Page:
         self.session = session
         await session.attach(self.link)
         await self.send(session.state_message())
+        await session.send_cards()
 
     async def on_pause(self, message: dict) -> None:
         if self.session is not None:
@@ -282,6 +283,15 @@ class Page:
     async def on_location(self, message: dict) -> None:
         if self.session is not None:
             await self.sessions.on_location(self.session, message)
+
+    async def on_card_shown(self, message: dict) -> None:
+        if self.session is not None:
+            self.session.card_reported("shown", str(message.get("id", ""))[:20], message.get("at"))
+
+    async def on_card_filed(self, message: dict) -> None:
+        if self.session is not None:
+            self.session.card_reported("filed", str(message.get("id", ""))[:20], message.get("at"),
+                                       message.get("late") is True)
 
     async def on_stop_recording(self, message: dict) -> None:
         session_id = str(message.get("session", ""))

@@ -6,6 +6,10 @@ recording; speech-to-text's final words become utterances; the stream's
 open time is charged to the month's cost. A session outlives its page's
 connection for the reconnect grace period, with the stream kept open, so
 the page can rejoin it.
+
+The server is also the source of truth for the session's fact cards
+(section 8): it keeps each card it sent with its state and the times the page
+reported, and sends them all again after a rejoin.
 """
 
 from __future__ import annotations
@@ -41,11 +45,20 @@ REOPEN_BACKOFF_S = (1, 2, 4, 8, 16, 30)
 # silence before a manual finalise. It goes to speech-to-text only, never to
 # the recording.
 FINALIZE_SILENCE = b"\0" * 6400
-CHECKS_AT_END_S = 25.0  # End waits this long for decisions still running, so they are recorded and charged
+CHECKS_AT_END_S = 25.0  # End waits this long for running decisions and checks, so they are recorded and charged
+
+CardState = Literal["ready", "on screen", "card history"]
+# A card only moves forward, in this order.
+CARD_STATES: tuple[CardState, ...] = ("ready", "on screen", "card history")
 
 
 def new_session_id() -> str:
     return f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{secrets.token_hex(3)}"
+
+
+def iso_time(t: float) -> str:
+    """Wall time `t` in ISO 8601 UTC with milliseconds: `2026-09-27T18:04:31.200Z`."""
+    return datetime.fromtimestamp(t, UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 @dataclass
@@ -71,6 +84,42 @@ class Heard:
             "id": self.id, "stream": self.stream, "speaker": u.speaker, "text": u.text,
             "start_ms": u.start_ms, "end_ms": u.end_ms, "words": [asdict(w) for w in u.words],
         }
+
+
+@dataclass
+class Card:
+    """A fact card sent to the page, with its state and the times the page reported.
+
+    It is `ready` once sent, `on screen` when the page reports it shown and
+    in the `card history` when the page reports it filed: tapped away, or
+    late. The state only moves forward, so a report that arrives after a
+    later one (the page queues them while it is away) is recorded and
+    changes nothing. The candidate's own state follows the card's.
+    """
+
+    id: str  # the candidate's, C3
+    content: dict[str, Any]  # the `card` message's card, `age_s` aside
+    utterance_time: float  # when its utterance ended, in session wall time
+    candidate: Any = None
+    state: CardState = "ready"
+    sent: float | None = None
+    shown_at: str | None = None  # the page's time, as it reported it
+    shown_received: float | None = None  # the server's
+    filed_at: str | None = None
+    filed_received: float | None = None
+    late: bool | None = None
+
+    def message(self, now: float) -> dict[str, Any]:
+        """The card as the page gets it. `age_s` is the time since its
+        utterance ended by the server's clock, so a phone clock that is off
+        doesn't move the late-card cut-off, and never below 0."""
+        return self.content | {"age_s": max(0.0, round(now - self.utterance_time, 1))}
+
+    def move(self, state: CardState) -> None:
+        if CARD_STATES.index(state) > CARD_STATES.index(self.state):
+            self.state = state
+        if self.candidate is not None:
+            self.candidate.state = self.state
 
 
 @dataclass
@@ -119,12 +168,13 @@ class Session:
     listening_since: float | None = None
     last_pulse: float = 0.0
     tasks: set[asyncio.Task] = field(default_factory=set)
-    checks: set[asyncio.Task] = field(default_factory=set)  # decisions and, later, checks: End waits for them
+    checks: set[asyncio.Task] = field(default_factory=set)  # decisions and checks: End waits for them
     grace: asyncio.Task | None = None
     summary: Summary | None = None
     timezone: str = "UTC"  # the phone's, from `start`
     place: Any = None  # the current place name, set by carl.location (step 3)
     candidates: list[Any] = field(default_factory=list)  # set by carl.decision (step 3)
+    cards: dict[str, Card] = field(default_factory=dict)  # every card sent, by id, in the order sent
 
     @property
     def config(self) -> Config:
@@ -146,6 +196,13 @@ class Session:
         task = asyncio.create_task(coro)
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
+        return task
+
+    def spawn_check(self, coro) -> asyncio.Task:
+        """A task End waits for: a decision call, or a candidate's check."""
+        task = self.spawn(coro)
+        self.checks.add(task)
+        task.add_done_callback(self.checks.discard)
         return task
 
     # --- Start, audio, pause, end ---------------------------------------------------
@@ -198,12 +255,15 @@ class Session:
         if self.grace is not None and self.grace is not asyncio.current_task():
             self.grace.cancel()
         await self.close_stream(finalize=was_listening)
-        if self.checks:  # decisions still running, incl. those on the utterances the finalise just gave
-            await asyncio.wait(set(self.checks), timeout=CHECKS_AT_END_S)
+        # Decisions still running, incl. those on the utterances the finalise
+        # just gave, and checks, incl. those the decisions start meanwhile.
+        deadline = time.monotonic() + CHECKS_AT_END_S
+        while self.checks and (left := deadline - time.monotonic()) > 0:
+            await asyncio.wait(set(self.checks), timeout=left)
         if self.recorder is not None:
             self.recorder.audio_break()
         self.log("session end", reason=reason, listening_s=round(self.listening_s, 1),
-                 cost_usd=round(self.cost_usd, 6), utterances=self.utterance_count)
+                 cost_usd=round(self.cost_usd, 6), utterances=self.utterance_count, cards=len(self.cards))
         recording: Literal["kept", "stopped", "none"] = "stopped" if self.recording_stopped else "none"
         if self.recorder is not None:
             await self.recorder.close()
@@ -212,8 +272,9 @@ class Session:
             if task is not asyncio.current_task():
                 task.cancel()
         month = await self.sessions.month_eur()
+        cards = None if self.sessions.checker is None else len(self.cards)  # "—" on the page with no checks
         self.summary = Summary(round(self.listening_s, 1), round(self.cost_usd, 6),
-                               round(costs_module.to_eur(self.config, self.cost_usd), 6), recording, None, month)
+                               round(costs_module.to_eur(self.config, self.cost_usd), 6), recording, cards, month)
         log.info("session %s ended (%s) after %.0f s listening", self.id, reason, self.listening_s)
         self.sessions.finished(self)
         return self.summary
@@ -268,6 +329,70 @@ class Session:
         if self.link is not None:
             with contextlib.suppress(ConnectionError):
                 await self.link.send(message)
+
+    # --- Cards -----------------------------------------------------------------------
+
+    async def send_card(self, card: Card) -> None:
+        """Send a card to the page. It is kept first, so a page that is away
+        gets it in the `cards` after its rejoin."""
+        card.sent = now = time.time()
+        self.cards[card.id] = card
+        card.move("ready")
+        message = card.message(now)
+        self.log("card sent", page=self.link is not None, **message)
+        await self.send({"type": "card", "card": message})
+
+    def card_reported(self, report: Literal["shown", "filed"], card_id: str, at: Any, late: bool = False) -> None:
+        """The page's `card_shown` or `card_filed`, with the page's time `at`
+        and, for a filed card, whether it was late. The first report of each
+        kind sets the card's times; every report is recorded."""
+        received = time.time()
+        at = at[:64] if isinstance(at, str) else None
+        fields: dict[str, Any] = {"id": card_id, "at": at, "received": iso_time(received)}
+        if report == "filed":
+            fields["late"] = late
+        card = self.cards.get(card_id)
+        if card is None:
+            log.warning("session %s: card_%s for a card it never sent: %.20r", self.id, report, card_id)
+            self.log(f"card {report}", **fields, state=None)
+            return
+        if report == "shown":
+            if card.shown_received is None:
+                card.shown_at, card.shown_received = at, received
+            card.move("on screen")
+        else:
+            if card.filed_received is None:
+                card.filed_at, card.filed_received, card.late = at, received, late
+            card.move("card history")
+        self.log(f"card {report}", **fields, age_s=round(received - card.utterance_time, 1), state=card.state)
+
+    def cards_message(self) -> dict[str, Any]:
+        """The whole screen again, for a page that rejoins: the card on screen
+        (shown and not filed), the cards waiting for the screen (sent, neither
+        shown nor filed) in utterance order, and the card history (filed)
+        newest first by utterance time. Should the page have shown two cards
+        without filing the first, the one shown last is on screen and the
+        other in the history."""
+        now = time.time()
+        by_time = sorted(self.cards.values(), key=lambda c: c.utterance_time)
+        on_screen = [c for c in by_time if c.state == "on screen"]
+        current = max(on_screen, key=lambda c: c.shown_received or 0.0, default=None)
+        return {
+            "type": "cards",
+            "current": None if current is None else current.message(now),
+            "waiting": [c.message(now) for c in by_time if c.state == "ready"],
+            "history": [c.message(now) for c in reversed(by_time)
+                        if c.state == "card history" or (c.state == "on screen" and c is not current)],
+        }
+
+    async def send_cards(self) -> None:
+        """Send the whole screen again after a rejoin, if the session has any cards."""
+        if not self.cards:
+            return
+        message = self.cards_message()
+        self.log("cards sent", current=message["current"] and message["current"]["id"],
+                 waiting=[c["id"] for c in message["waiting"]], history=[c["id"] for c in message["history"]])
+        await self.send(message)
 
     # --- Speech-to-text --------------------------------------------------------------
 
@@ -388,9 +513,11 @@ class Sessions:
         self.live: dict[str, Session] = {}
         self.ended: dict[str, Summary] = {}
         self.started: dict[str, str] = {}  # the page's start_id → session id
-        # Step 3 plugs in the decision call and location (their `install`).
+        # Step 3 plugs in the decision call and location, step 4 the
+        # candidates' checks (their `install`).
         self.decider: Any = None
         self.locator: Any = None
+        self.checker: Any = None
 
     def build_info(self) -> dict[str, Any]:
         """What each recording stores at its start: the config, the prompts and the commit."""
@@ -462,9 +589,7 @@ class Sessions:
     def on_utterance(self, session: Session, heard: Heard) -> None:
         """Each utterance goes to the decision call, which runs as its own task."""
         if self.decider is not None:
-            task = session.spawn(self.decider.on_utterance(session, heard))
-            session.checks.add(task)
-            task.add_done_callback(session.checks.discard)
+            session.spawn_check(self.decider.on_utterance(session, heard))
 
     async def on_location(self, session: Session, message: dict[str, Any]) -> None:
         if self.locator is not None:

@@ -1,0 +1,138 @@
+# Hand-written example cases for prompts/fact-checking.md, in Finnish and
+# English (First working Carl spec, section 7, Testing prompts). `carl
+# examples fact-checking` asks the configured fact-checking model for each
+# draft card's verdict, with the fields a candidate's check gives it, and
+# prints the answer and its probabilities next to the expected one, with the
+# band that verdict would give a card with a verified excerpt from a source
+# that isn't blocklisted. Run it by hand after a prompt change, never in CI:
+# it costs money (well under a cent for all of them) and needs the network.
+#
+# `conversation` lines are "LABEL: text" as Carl writes them, oldest first.
+# The last line is the candidate; the others are its context window. `kind`
+# is the candidate's kind: claim or open question. The card is as a
+# fact-finder wrote it: `card_title` and `card_fact` in the card language,
+# and `excerpt` in the source's own language. The source's URL and title are
+# never shown to the model; they are here for the reader. Excerpts are
+# written for the test, not copied from a real page. `expected` is the
+# verdict: supported, not supported or doesn't answer the candidate.
+
+# The date and time come from the clock at run time, in this timezone.
+timezone = "Europe/Helsinki"
+
+# --- Supported ---------------------------------------------------------------
+
+[[cases]]
+id = "en-supported"
+kind = "claim"
+conversation = [
+  "A1: We had a talk at work about gifted kids today.",
+  "A2: Einstein failed maths at school, you know. There's hope for all of us.",
+]
+card_title = "Einstein didn't fail maths"
+card_fact = "Albert Einstein never failed mathematics; he had mastered calculus before he was 15."
+source_title = "Albert Einstein - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/Albert_Einstein"
+excerpt = "Einstein excelled at physics and mathematics from an early age. A persistent myth says he failed mathematics, but he had mastered differential and integral calculus before he was fifteen."
+expected = "supported"
+
+[[cases]]
+id = "fi-supported"
+kind = "claim"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+]
+card_title = "Helsingin olympialaiset 1952"
+card_fact = "Helsingin kesäolympialaiset pidettiin vuonna 1952, ei 1956."
+source_title = "Kesäolympialaiset 1952 – Wikipedia"
+source_url = "https://fi.wikipedia.org/wiki/Kes%C3%A4olympialaiset_1952"
+excerpt = "Vuoden 1952 kesäolympialaiset eli XV olympiadin kisat järjestettiin Helsingissä 19. heinäkuuta – 3. elokuuta 1952."
+expected = "supported"
+
+[[cases]]
+id = "fi-card-en-excerpt"
+kind = "open question"
+conversation = [
+  "A1: Katsoin eilen taas Casablancan.",
+  "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä.",
+]
+card_title = "Rick Casablancassa"
+card_fact = "Casablancan Rick Blainea näytteli Humphrey Bogart."
+source_title = "Casablanca (film) - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/Casablanca_(film)"
+excerpt = "Casablanca is a 1942 American romantic drama film directed by Michael Curtiz and starring Humphrey Bogart, Ingrid Bergman, and Paul Henreid. Bogart plays Rick Blaine, the owner of an upscale nightclub and gambling den in Casablanca."
+expected = "supported"
+
+[[cases]]
+id = "en-card-fi-excerpt"
+kind = "claim"
+conversation = [
+  "A1: Did you know Helsinki hosted the Olympics once?",
+  "A2: Yeah, in 1956. My dad went.",
+]
+card_title = "Helsinki Olympics in 1952"
+card_fact = "The Helsinki Summer Olympics were held in 1952, not 1956."
+source_title = "Kesäolympialaiset 1952 – Wikipedia"
+source_url = "https://fi.wikipedia.org/wiki/Kes%C3%A4olympialaiset_1952"
+excerpt = "Vuoden 1952 kesäolympialaiset eli XV olympiadin kisat järjestettiin Helsingissä 19. heinäkuuta – 3. elokuuta 1952."
+expected = "supported"
+
+# --- Not supported -------------------------------------------------------------
+
+[[cases]]
+id = "fi-not-supported"
+kind = "claim"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+]
+card_title = "Helsingin olympialaiset 1948"
+card_fact = "Helsingin kesäolympialaiset pidettiin vuonna 1948, ei 1956."
+source_title = "Kesäolympialaiset 1952 – Wikipedia"
+source_url = "https://fi.wikipedia.org/wiki/Kes%C3%A4olympialaiset_1952"
+excerpt = "Vuoden 1952 kesäolympialaiset eli XV olympiadin kisat järjestettiin Helsingissä 19. heinäkuuta – 3. elokuuta 1952."
+expected = "not supported"
+
+[[cases]]
+id = "en-says-more"
+kind = "claim"
+conversation = [
+  "A1: Did you know Helsinki hosted the Olympics once?",
+  "A2: Yeah, in 1956. My dad went.",
+]
+card_title = "Helsinki Olympics in 1952"
+card_fact = "The Helsinki Summer Olympics were held in 1952, with a record 69 nations taking part."
+source_title = "1952 Summer Olympics - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/1952_Summer_Olympics"
+excerpt = "The 1952 Summer Olympics were an international multi-sport event held from 19 July to 3 August 1952 in Helsinki, Finland."
+expected = "not supported"
+
+# --- Doesn't answer the candidate ------------------------------------------------
+
+[[cases]]
+id = "en-doesnt-answer"
+kind = "open question"
+conversation = [
+  "A1: I watched Casablanca again last night.",
+  "A3: Who played Rick in it? It's on the tip of my tongue.",
+]
+card_title = "Casablanca's premiere"
+card_fact = "Casablanca premiered in New York City on 26 November 1942."
+source_title = "Casablanca (film) - Wikipedia"
+source_url = "https://en.wikipedia.org/wiki/Casablanca_(film)"
+excerpt = "The film had its world premiere on November 26, 1942, in New York City and was released nationally in the United States on January 23, 1943."
+expected = "doesn't answer the candidate"
+
+[[cases]]
+id = "fi-doesnt-answer"
+kind = "claim"
+conversation = [
+  "A1: Mitä sä luit lomalla?",
+  "A2: Tuntemattoman sotilaan. Väinö Linna kirjoitti sen muuten vankilassa.",
+]
+card_title = "Tuntemattoman sotilaan ilmestyminen"
+card_fact = "Väinö Linnan Tuntematon sotilas ilmestyi joulukuussa 1954."
+source_title = "Tuntematon sotilas – Wikipedia"
+source_url = "https://fi.wikipedia.org/wiki/Tuntematon_sotilas"
+excerpt = "Tuntematon sotilas on Väinö Linnan kirjoittama romaani, joka ilmestyi joulukuussa 1954."
+expected = "doesn't answer the candidate"

@@ -36,6 +36,8 @@ SECRETS = [
     "S3_SECRET_KEY",  # .secrets.bucket.env
     "SONIOX_API_KEY",  # .secrets.providers.env (step 2)
     "OPENAI_API_KEY",  # .secrets.providers.env (step 3)
+    "PERPLEXITY_API_KEY",  # .secrets.providers.env (step 4)
+    "OPENROUTER_API_KEY",  # .secrets.providers.env (step 4)
 ]
 
 
