@@ -99,6 +99,7 @@ async def test_pause_closes_the_stream_and_resume_opens_a_fresh_one(unlocked, st
     paused = await receive(ws, "session")
     assert paused["state"] == "paused" and not paused["recording"]
     assert stt.streams[0].finalized == 1 and stt.streams[0].closed
+    assert stt.streams[0].audio.endswith(b"\0" * 6400)  # silence before the finalise
     await ws.send_bytes(b"\0" * 3200)  # nothing is heard or kept while paused
     await ws.send_json({"type": "resume"})
     resumed = await receive(ws, "session")
@@ -113,6 +114,7 @@ async def test_a_page_rejoins_its_session_after_a_drop(unlocked, stt):
     session_id = (await start(ws))["session"]
     await ws.close()
     await settle()
+    assert stt.streams[0].finalized == 1 and not stt.streams[0].closed  # the drop finalises
     ws = await connect(unlocked)
     await ws.send_json({"type": "rejoin", "session": session_id})
     state = await receive(ws, "session")

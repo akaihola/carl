@@ -112,6 +112,8 @@ What it needs, found on 2026-09-27:
 - `scw` can't be downloaded from GitHub there. Take it from its image:
   `docker create mirror.gcr.io/scaleway/cli:latest`, then `docker cp
   <id>:/usr/bin/scw ~/.local/bin/scw`.
+- aiohttp takes a `wss://` connection's proxy from `WSS_PROXY`, so a local
+  server there reaches Soniox only with `WSS_PROXY=$HTTPS_PROXY` set.
 - The secrets files don't survive the session. The owner keeps them in the
   password manager and in the environment's variables.
 

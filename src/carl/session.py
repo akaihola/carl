@@ -37,6 +37,10 @@ SPEECH_PULSE_S = 0.5  # at most one `speech` message this often
 KEEPALIVE_S = 10.0  # Soniox wants one at least every 20 s without audio
 COST_EVERY_S = 60.0  # charge the stream's time to the month this often
 REOPEN_BACKOFF_S = (1, 2, 4, 8, 16, 30)
+# Soniox finalises nothing while no audio arrives, and advises about 200 ms of
+# silence before a manual finalise. It goes to speech-to-text only, never to
+# the recording.
+FINALIZE_SILENCE = b"\0" * 6400
 
 
 def new_session_id() -> str:
@@ -239,6 +243,8 @@ class Session:
         self.log("page gone")
         if self.recorder is not None:
             self.recorder.audio_break()
+        if self.state == "listening":
+            self.spawn(self.finalize(self.run))  # so the last words before the drop become final
         self.grace = self.spawn(self.wait_for_page())
 
     async def wait_for_page(self) -> None:
@@ -279,9 +285,9 @@ class Session:
         run, self.run = self.run, None
         if run is None:
             return
+        if finalize:
+            await self.finalize(run)
         with contextlib.suppress(SttError):
-            if finalize:
-                await run.stream.finalize()
             await run.stream.close()
         if run.reader is not None:
             with contextlib.suppress(asyncio.TimeoutError, asyncio.CancelledError):
@@ -290,6 +296,14 @@ class Session:
         self.flush_utterances(run, run.splitter.endpoint())
         await self.charge(run, time.time())
         self.log("stt closed", stream=run.index)
+
+    async def finalize(self, run: StreamRun | None) -> None:
+        if run is None:
+            return
+        with contextlib.suppress(SttError):
+            await run.stream.send_audio(FINALIZE_SILENCE)
+            await run.stream.finalize()
+        self.log("stt finalize", stream=run.index, silence_ms=len(FINALIZE_SILENCE) // 32)
 
     async def read(self, run: StreamRun) -> None:
         try:
