@@ -18,10 +18,11 @@ and corrected by the owner.
    ` \\`, Markdown's hard line break, so a run of lines shows one per line;
 3. a `yaml carl-candidate` block right after each candidate's utterance:
    Carl's id, the kind, whether and how it was shown, late, the check time,
-   the card, both restatements (each a `>` block, to fit 88 columns) and the
-   verdict summary with the band's reason code. A repeat's block holds
-   `repeat_of` and its probability. Every block ends with the owner's `mark`
-   and `note`, left empty.
+   the card (a `>` block when in quotes it would pass column 88), both
+   restatements (each a `>` block, to fit 88 columns) and the verdict
+   summary with the band's reason code. A repeat's block holds `repeat_of`
+   and its probability. Every block ends with the owner's `mark` and
+   `note`, left empty.
 
 The owner adds a `yaml carl-missed` block (`kind`, `should_say`) under each
 utterance Carl should have caught. `check(markdown, events)` lists what is
@@ -107,6 +108,10 @@ class Folded(Text):
     """Prose `yaml_lines` writes as a `>` block wrapped at WIDTH columns, a
     mapping that holds it going in lines under its key. In a list or mapping
     on one line, it is in quotes as Text is."""
+
+
+class Wrapped(Folded):
+    """Prose in quotes on its key's line when that fits WIDTH columns, else Folded."""
 
 
 _NUMBER = re.compile(r"[-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?")
@@ -359,19 +364,19 @@ def _block_scalar(style: str, lines: list[str]) -> str:
 
 def yaml_lines(fields: Sequence[tuple[str, Any] | tuple[str, Any, str]], indent: str = "") -> list[str]:
     """A block's lines: `key: value`, with a comment where one is given.
-    Folded prose goes in a `>` block, and a mapping holding it in lines under its key."""
+    Folded prose goes in a `>` block (Wrapped prose when in quotes it would
+    pass WIDTH columns), and a mapping holding it in lines under its key."""
     lines = []
     for key, content, *comment in fields:
-        under: list[str] = []
-        if isinstance(content, Folded) and content.split():
+        text, under = f"{indent}{key}: {dump(content)}".rstrip(), []
+        folds = isinstance(content, Folded) and not (isinstance(content, Wrapped) and len(text) <= WIDTH)
+        if folds and content.split():
             text = f"{indent}{key}: >"
             under = textwrap.wrap(" ".join(content.split()), WIDTH, initial_indent=indent + INDENT,
                                   subsequent_indent=indent + INDENT, break_long_words=False, break_on_hyphens=False)
         elif isinstance(content, Mapping) and any(isinstance(v, Folded) for v in content.values()):
             text = f"{indent}{key}:"
             under = yaml_lines([(str(k), v) for k, v in content.items()], indent + INDENT)
-        else:
-            text = f"{indent}{key}: {dump(content)}".rstrip()
         if comment:
             text = f"{text.ljust(COMMENT_AT - 1)} # {comment[0]}"
         lines += [text, *under]
@@ -716,8 +721,8 @@ def _verdict(about: Mapping[str, list[Mapping[str, Any]]]) -> dict[str, Any]:
     return summary
 
 
-def _text(value: Any) -> Any:
-    return Text(value) if isinstance(value, str) else value
+def _text(value: Any, prose: type[Text] = Text) -> Any:
+    return prose(value) if isinstance(value, str) else value
 
 
 def _state(check: Mapping[str, Any] | None, about: Mapping[str, list[Mapping[str, Any]]]) -> str | None:
@@ -764,7 +769,7 @@ def candidate_block(candidate: Mapping[str, Any], about: Mapping[str, list[Mappi
         if (age := next((a for a in ages if a is not None), None)) is not None:
             fields.append(("check_time_s", round(age, 1)))
         source = card.get("source")
-        fields += [("title", _text(card.get("title"))), ("card", _text(card.get("fact"))),
+        fields += [("title", _text(card.get("title"))), ("card", _text(card.get("fact"), Wrapped)),
                    ("source", source.get("url") if isinstance(source, Mapping) else source)]
     if (state := _state(check, about)) is not None:
         fields.append(("state", state))
@@ -775,8 +780,8 @@ def candidate_block(candidate: Mapping[str, Any], about: Mapping[str, list[Mappi
     restated = {}
     for finder in FINDERS:
         finding = _last(about.get("finding", []), finder=finder)
-        if finding is not None and (restatement := finding.get("restatement")):
-            restated[finder] = Folded(restatement) if isinstance(restatement, str) else restatement
+        if finding is not None and finding.get("restatement"):
+            restated[finder] = _text(finding["restatement"], Folded)
     if restated:
         fields.append(("restated", restated))
     if verdict := _verdict(about):

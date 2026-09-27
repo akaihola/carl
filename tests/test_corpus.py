@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from carl import cli, corpus, owner
-from carl.corpus import CorpusError, Folded, Text
+from carl.corpus import CorpusError, Folded, Text, Wrapped
 from carl.owner import Kept, OwnerError
 from carl.storage import MemoryStore
 
@@ -342,7 +342,9 @@ def test_a_plain_card(md):
         "late: false",
         "check_time_s: 6.8",
         'title: "Einstein ja matematiikka"',
-        'card: "Einstein ei reputtanut matematiikkaa: hän hallitsi integraalilaskennan ennen 15 ikävuotta."',
+        "card: >",  # in quotes, it would pass column 88
+        "  Einstein ei reputtanut matematiikkaa: hän hallitsi integraalilaskennan ennen 15",
+        "  ikävuotta.",
         "source: https://fi.wikipedia.org/wiki/Albert_Einstein",
         "restated:",
         "  A: >",
@@ -790,6 +792,16 @@ def test_folded_prose_reads_back_as_written(prose):
     written = corpus.yaml_lines([("restated", {"A": Folded(prose)})])
     assert corpus.load(written) == {"restated": {"A": prose}}
     assert corpus.value(corpus.dump([Folded(prose)])) == [prose]  # in quotes on one line
+
+
+def test_wrapped_prose_is_in_quotes_while_it_fits_88_columns():
+    fits = "Kemijoki on Suomen pisin joki, noin 550 km. Se laskee Perämereen Kemin kohdalla."
+    assert len(fits) == 80  # with `card: "` and `"`, 88 columns
+    assert corpus.yaml_lines([("card", Wrapped(fits))]) == [f'card: "{fits}"']
+    longer = fits.replace("550", "550,5")
+    assert corpus.yaml_lines([("card", Wrapped(longer))]) == ["card: >", f"  {longer}"]
+    assert corpus.load(corpus.yaml_lines([("card", Wrapped(longer))])) == {"card": longer}
+    assert corpus.yaml_lines([("card", Wrapped('"' * 50))]) == ["card: >", "  " + '"' * 50]  # escapes count
 
 
 def test_a_restatement_that_isnt_text_is_written_as_it_is():

@@ -1071,7 +1071,8 @@ its shape.
    candidate's utterance, filled in by the generator. It holds:
    - Carl's id (C1…), the kind, whether it was shown (`plain`, `hedged` or
      `no`), whether it was late, and the check time;
-   - the card text and source;
+   - the card text, a `>` block when in quotes it would pass column 88, and
+     the source;
    - both fact-finders' restatements, each a `>` block wrapped to fit 88
      columns;
    - the verdict summary: both outcomes, p(same fact), p(supported) for each
