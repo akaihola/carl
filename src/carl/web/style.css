@@ -106,6 +106,7 @@ button:focus-visible { outline: 3px solid var(--soft); outline-offset: 2px; }
 .switch[aria-checked="true"] .knob::after { left: 28px; background: #fff; }
 .cost { color: var(--muted); font-size: 19px; font-variant-numeric: tabular-nums; }
 .cost b { color: var(--ink); }
+.cost.last { margin-top: -8px; font-size: 17px; line-height: 1.35; }
 @media (orientation: landscape) {
   .start { grid-template-columns: 42% minmax(0, 1fr); align-items: center; gap: 24px; padding: 20px 32px 20px 20px; }
   .side { justify-self: start; }

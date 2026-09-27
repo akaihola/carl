@@ -54,6 +54,9 @@ let screen = "start";  // start, disclosure, session or ended
 let recordOn = false;  // off by default every time, never remembered
 let locationOn = savedLocation();  // on the first time, then remembered on this phone
 let monthEur = null;
+// The Start screen's last-session line: from each hello, and from the
+// summary of a session that just ended here.
+let lastSession = null;
 let everConnected = false;
 let micRefused = false;
 let endAsk = false;
@@ -134,6 +137,7 @@ async function begin(record, disclosure) {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     start_id: crypto.randomUUID(),  // a resent start carries on the same session
   };
+  s.startedAt = new Date().toISOString();
   link.send(s.start);
   if (s.location) geo.start();  // after the microphone, so the phone asks one thing at a time
   render();
@@ -290,7 +294,7 @@ link.addEventListener("state", ({detail}) => {
   }
   if (detail === "connected") {
     everConnected = true;
-    monthEur = link.costs?.month_eur ?? null;
+    fromHello();
     for (const id of pendingStops()) link.send({type: "stop_recording", session: id});
     if (s && !s.over && s.id) {
       s.rejoining = true;
@@ -311,14 +315,21 @@ link.addEventListener("handover", () => {
   const s = session;
   if (s && !s.over && (!s.id || s.rejoining)) link.abortHandover();
   else if (s?.id && !s.summary && link.sendNext({type: "rejoin", session: s.id})) s.handover = true;
-  else link.switchover();
+  else { link.switchover(); fromHello(); render(); }
 });
+
+// The costs on the Start screen, as the latest hello has them.
+function fromHello() {
+  monthEur = link.costs?.month_eur ?? null;
+  lastSession = link.costs?.last_session ?? null;
+}
 
 // The answer to the handover's rejoin, on the second socket: it takes over.
 function tookOver(s, handover) {
   if (!handover || !s?.handover) return false;
   s.handover = false;
   link.switchover();
+  fromHello();
   for (const id of pendingStops()) link.send({type: "stop_recording", session: id});
   return true;
 }
@@ -371,11 +382,21 @@ function onEnded(m, handover) {
     if (!s.over) { s.over = true; endAsk = false; release(); screen = "ended"; }
     s.rejoining = false;
     s.summary = m.summary ?? {};
+    lastSession = justEnded(s, s.summary);
     reports = [];
     events = [];
     gapStart = hiddenStart = micLost = null;
   }
   render();
+}
+
+// The session that just ended is the last session now. The hello has the
+// server's own line, with €/h, from the next connection on; until then the
+// summary's figures stand in, without €/h.
+function justEnded(s, sum) {
+  if (sum.last_session !== undefined) return sum.last_session;
+  if (sum.listening_s == null || !s.startedAt) return lastSession;
+  return {started: s.startedAt, timezone: s.start.timezone, listening_s: sum.listening_s, cost_eur: sum.cost_eur ?? null, eur_per_hour: null};
 }
 
 // The server's side of the indicator. Its reason code is for the log only.
@@ -522,6 +543,9 @@ function render() {
   $("disclosure-en").textContent = disclosureEn(locationOn);
   $("month").hidden = monthEur == null;
   if (monthEur != null) $("month-eur").textContent = `≈ ${euros(monthEur)}`;
+  const last = lastLine(lastSession);
+  $("last").hidden = !last;
+  $("last").replaceChildren(...(last ?? []));
   const note = !connected ? down : micRefused ? "Carl couldn't open the microphone." : "";
   $("start-note").textContent = note;
   $("start-note").hidden = !note;
@@ -571,8 +595,43 @@ function euros(x) {
 function duration(seconds) {
   if (seconds == null) return "—";
   if (seconds < 60) return `${Math.round(seconds)} s`;
-  const minutes = Math.round(seconds / 60);
-  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+  const minutes = Math.round(seconds / 60), hours = Math.floor(minutes / 60);
+  return minutes < 60 ? `${minutes} min` : minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
+}
+
+// "Last session: Sun 27 Sep, 1 h 30 min, ≈ €0.46 (≈ €0.31/h)", as nodes;
+// the parts that are unknown are left out, and null leaves the line out.
+// Each part keeps together; the line breaks only between them.
+function lastLine(x) {
+  if (!x || typeof x !== "object") return null;
+  const together = (text) => text.replaceAll(" ", "\u00a0");
+  const parts = [day(x.started, x.timezone), typeof x.listening_s === "number" ? duration(x.listening_s) : null].filter(Boolean).map(together);
+  const cost = typeof x.cost_eur === "number" ? together(`≈ ${euros(x.cost_eur)}`) : null;
+  if (!parts.length && !cost) return null;
+  const nodes = [`Last session: ${parts.join(", ")}${parts.length && cost ? ", " : ""}`];
+  if (cost) {
+    const b = document.createElement("b");
+    b.textContent = cost;
+    nodes.push(b);
+  }
+  if (cost && typeof x.eur_per_hour === "number") nodes.push(" " + together(`(≈ ${euros(x.eur_per_hour)}/h)`));
+  return nodes;
+}
+
+// The session's date where it was held, as "Sun 27 Sep", put together from
+// its parts, since browsers' own day-month forms differ.
+function day(iso, timezone) {
+  const date = new Date(iso ?? "");
+  if (isNaN(date)) return null;
+  const options = {weekday: "short", day: "numeric", month: "short"};
+  let format;
+  try {
+    format = new Intl.DateTimeFormat("en-US", {...options, timeZone: timezone || undefined});
+  } catch {
+    format = new Intl.DateTimeFormat("en-US", options);  // a timezone this browser doesn't know
+  }
+  const part = Object.fromEntries(format.formatToParts(date).map((p) => [p.type, p.value]));
+  return `${part.weekday} ${part.day} ${part.month}`;
 }
 
 render();
