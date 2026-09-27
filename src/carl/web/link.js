@@ -1,7 +1,8 @@
 // One WebSocket to the server (spec section 2, One WebSocket): binary frames
 // for audio, JSON text frames for everything else, and a heartbeat each way.
 // The heartbeat and silence times come in the server's hello, so the config
-// file stays the one source of every threshold.
+// file stays the one source of every threshold. The hello also brings the
+// month's cost for the Start screen; each hello fires "state" "connected".
 
 const RETRY_MAX_S = 5;  // reconnect after 1, 2, 4, then every 5 s
 const TICK_MS = 250;
@@ -10,6 +11,7 @@ export class Link extends EventTarget {
   #url; #ws = null; #timer = null; #retry = 1;
   #lastSent = 0; #lastHeard = 0;
   config = null;
+  costs = null;
   state = "connecting";
 
   constructor(url) {
@@ -51,6 +53,7 @@ export class Link extends EventTarget {
 
   #hello(message) {
     this.config = message.config;
+    this.costs = message.costs ?? null;
     this.#retry = 1;
     this.#lastSent = performance.now();
     clearInterval(this.#timer);

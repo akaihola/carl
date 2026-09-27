@@ -208,3 +208,20 @@ async def test_a_page_that_leaves_right_after_end(unlocked, stt):
     await ws.close()
     await settle()
     assert stt.streams[0].closed
+
+
+async def test_a_start_resent_after_a_drop_carries_on_the_same_session(unlocked, stt, store):
+    ws = await connect(unlocked)
+    start_message = {"type": "start", "record": True, "disclosure": DISCLOSURE, "mic": {}, "timezone": "UTC",
+                     "start_id": "7c1e0a52-3f4d-4b8e-9a51-0d2f6c8e4b17"}
+    await ws.send_json(start_message)
+    first = await receive(ws, "session")
+    await ws.close()
+    await settle()
+    ws = await connect(unlocked)
+    await ws.send_json(start_message)
+    again = await receive(ws, "session")
+    assert again["session"] == first["session"] and len(stt.streams) == 1
+    await ws.send_json({"type": "end"})
+    await receive(ws, "ended")
+    assert len({k.split("/")[1] for k in await store.list("recordings/")}) == 1

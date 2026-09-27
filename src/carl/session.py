@@ -380,6 +380,7 @@ class Sessions:
         self.costs = Costs(store, config)
         self.live: dict[str, Session] = {}
         self.ended: dict[str, Summary] = {}
+        self.started: dict[str, str] = {}  # the page's start_id → session id
 
     def build_info(self) -> dict[str, Any]:
         """What each recording stores at its start: the config, the prompts and the commit."""
@@ -398,6 +399,8 @@ class Sessions:
             record = False
         session = Session(self, new_session_id(), record=record)
         self.live[session.id] = session
+        if start_id := str(message.get("start_id") or "")[:100]:
+            self.started[start_id] = session.id
         await session.attach(link)
         header = {k: message.get(k) for k in ("disclosure", "mic", "timezone")}
         await session.begin(header)
@@ -406,6 +409,11 @@ class Sessions:
 
     def get(self, session_id: str) -> Session | None:
         return self.live.get(session_id)
+
+    def started_as(self, message: dict[str, Any]) -> str | None:
+        """The session a resent `start` already started, by its start_id."""
+        start_id = str(message.get("start_id") or "")[:100]
+        return self.started.get(start_id) if start_id else None
 
     def finished(self, session: Session) -> None:
         self.live.pop(session.id, None)

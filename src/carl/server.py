@@ -246,6 +246,9 @@ class Page:
         if self.session is not None and self.session.state != "ended":
             await self.send(self.session.state_message())
             return
+        if (session_id := self.sessions.started_as(message)) is not None:
+            await self.on_rejoin({"session": session_id})  # a start resent after a drop
+            return
         self.session = await self.sessions.start(self.link, message)
         await self.send(self.session.state_message())
 

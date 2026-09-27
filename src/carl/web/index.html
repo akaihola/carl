@@ -12,8 +12,97 @@
 </head>
 <body>
 <main>
-  <h1>Carl</h1>
-  <p class="state" id="state" data-state="connecting">Connecting…</p>
+
+<!-- The Start screen (spec section 8): Start on the left in landscape, above
+     everything else in portrait. The Location switch comes with step 3. -->
+<section id="start" class="screen start" aria-label="Start">
+  <div class="go"><button id="start-button" class="big-start" disabled>Start</button></div>
+  <div class="side">
+    <button id="record" class="switch" role="switch" aria-checked="false">
+      <span>Record this session<small>A test: read the disclosure to the table first</small></span>
+      <span class="knob" aria-hidden="true"></span>
+    </button>
+    <p id="month" class="cost" hidden>This month <b id="month-eur"></b></p>
+    <p id="start-note" class="note" role="status">Connecting…</p>
+  </div>
+</section>
+
+<!-- The recording disclosure (spec section 9), confirmed every time. app.js
+     fills in the text, so what is shown is exactly what is sent. -->
+<section id="disclosure" class="screen disclosure" aria-labelledby="disclosure-title" hidden>
+  <header class="head">
+    <button id="back" class="icon-button" aria-label="Back">←</button>
+    <h1 id="disclosure-title">Record this session</h1>
+  </header>
+  <div class="words">
+    <p class="hint">Read this aloud to the table</p>
+    <p id="disclosure-fi" class="fi" lang="fi"></p>
+    <p id="disclosure-en" class="en"></p>
+  </div>
+  <div class="actions">
+    <button id="agree" class="button danger">Everyone agreed, start recording</button>
+    <button id="no-record" class="button">Start without recording</button>
+    <p id="disclosure-note" class="note" role="status" hidden></p>
+  </div>
+</section>
+
+<!-- The session screen: the one-row top bar, then the current card and the
+     card history. -->
+<section id="session" class="screen session" aria-label="Session" hidden>
+  <header class="top-bar">
+    <div id="bar" class="bar">
+      <span id="indicator" class="indicator" data-state="starting" role="status"><span class="dot"></span><span id="indicator-text">Starting…</span></span>
+      <button id="rec-mark" class="rec-mark" hidden><span class="dot"></span>Recording</button>
+      <span class="gap"></span>
+      <button id="pause" class="bar-button">Pause</button>
+      <button id="end" class="bar-button">End</button>
+    </div>
+    <div id="end-ask" class="bar ask" hidden>
+      <b>End the session?</b>
+      <span class="gap"></span>
+      <button id="end-cancel" class="bar-button">Cancel</button>
+      <button id="end-yes" class="bar-button danger">End</button>
+    </div>
+  </header>
+  <div class="stage">
+    <!-- STEP 4: the current card takes this region, and it stays empty
+         between cards. -->
+    <div id="current" class="current"></div>
+    <!-- STEP 4: the card history, newest first: a column on the right (about
+         30% of the width) in landscape, a strip along the bottom (about 30%
+         of the height) in portrait. -->
+    <aside id="history" class="history" aria-label="Card history">
+      <h2>Earlier cards</h2>
+      <p class="empty">No cards yet</p>
+    </aside>
+  </div>
+</section>
+
+<!-- "Session ended" (spec section 8, After the session). The card count
+     comes with step 4. -->
+<section id="ended" class="screen ended" aria-labelledby="ended-title" hidden>
+  <h1 id="ended-title">Session ended</h1>
+  <dl class="summary">
+    <div><dt>Listening time</dt><dd id="sum-listening">…</dd></div>
+    <div><dt>Cost</dt><dd id="sum-cost">…</dd></div>
+    <div id="sum-recording-row"><dt>Recording</dt><dd id="sum-recording">…</dd></div>
+  </dl>
+  <button id="to-start" class="button primary">Back to Start</button>
+</section>
+
+<!-- "Stop recording?", opened from the recording mark. -->
+<dialog id="stop" aria-labelledby="stop-title">
+  <div class="sheet">
+    <h2 id="stop-title">Stop recording?</h2>
+    <p>Everything recorded so far is deleted now. The session carries on unrecorded, and recording can't be turned back on.</p>
+    <p>To leave out only what comes next, use Pause instead.</p>
+    <div class="row">
+      <button id="stop-yes" class="button danger">Stop and delete</button>
+      <button id="stop-no" class="button" autofocus>Keep recording</button>
+    </div>
+  </div>
+</dialog>
+
 </main>
 </body>
 </html>
