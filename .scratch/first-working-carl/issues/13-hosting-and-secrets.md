@@ -105,3 +105,7 @@ from [Hosting a small backend](05-hosting-small-backend.md#answer); see
 - From [Where the card archive, failure log and recording sessions are kept](11-storage-expiry-deletion.md#answer): the host needs EU-only object storage with prefix lifecycle rules (180 days on `recordings/`, none on `corpus/`), no versioning, and a small store for the failure log with 30-day expiry. The owner reaches the bucket from their computer with an owner-only script.
 
 - From [Metering running cost against the monthly budget](12-cost-metering.md#answer): the server store that holds the failure log also keeps per-session cost summaries and a month-to-date total indefinitely (no conversation content), and the per-deploy config file carries a price table and a fixed USD→€ rate.
+- Superseded in part on 2026-09-27, by the owner: the hard monthly spend
+  limits wait for launch. Until then the owner buys provider credits in small
+  prepaid batches, and spending stops when the balance runs out. The spec's
+  [Secrets](../spec.md#secrets) says so.

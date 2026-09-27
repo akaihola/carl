@@ -56,14 +56,14 @@ choice, asked about named fields:
 
 ## Before running it
 
-1. Create an API key with each provider. Set a hard monthly spend limit
-   wherever the dashboard offers one
+1. Create an API key with each provider, and buy a small batch of prepaid
+   credits with automatic top-up off
    ([Secrets](../../first-working-carl/spec.md#secrets)).
    - OpenAI: platform.openai.com.
    - Perplexity: the API settings of perplexity.ai.
-   - OpenRouter, for Jev: openrouter.ai/settings/keys. Give the key a credit
-     limit. OpenRouter's `/api/v1/systemone` takes TypeSafe's own request
-     format at TypeSafe's price, so no TypeSafe account is needed.
+   - OpenRouter, for Jev: openrouter.ai/settings/keys. OpenRouter's
+     `/api/v1/systemone` takes TypeSafe's own request format at TypeSafe's
+     price, so no TypeSafe account is needed.
    - Google AI Studio, for the fallback only. A key made there since
      2026-05-28 is an auth key and works as it is. An older standard key
      needs "Restrict to Gemini API only".

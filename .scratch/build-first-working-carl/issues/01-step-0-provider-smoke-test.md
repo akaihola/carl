@@ -1,7 +1,7 @@
 # Step 0: Provider smoke test
 
 Type: task
-Status: open
+Status: resolved
 Blocked by:
 
 Build step 0 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
@@ -47,10 +47,11 @@ Each text stage's provisional model is confirmed, or its fallback chosen.
       [`../smoke-test/`](../smoke-test/README.md), with Finnish and English
       cases for every check and the first drafts of the decision,
       fact-finding, fact-checking and agreement prompts.
-- [ ] API keys exist for OpenAI, Perplexity and OpenRouter (for TypeSafe
-      Jev), and for Google if the fact-checking fallback is needed. Each is in a gitignored
-      `.secrets.*` file, with a hard monthly spend limit set wherever the
-      provider offers one.
+- [x] API keys exist for OpenAI, Perplexity and OpenRouter (for TypeSafe
+      Jev), and for Google if the fact-checking fallback is needed. Each is in
+      the cloud environment's variables or a gitignored `.secrets.*` file.
+      Until launch, prepaid credits bought in small batches are the spend
+      limit ([Secrets](../../first-working-carl/spec.md#secrets)).
 - [x] The script has been run with real keys: the provisional checks, and the
       fallback of any stage whose provisional model failed.
 - [x] The results are written under an `## Answer` heading here: the summary
@@ -141,3 +142,9 @@ e128c280 and same-fact c9ffa116, and Perplexity at `search_type` web,
   Left for the owner: a hard monthly spend limit in each dashboard
   (OpenRouter's key had none on 2026-09-27), and a local `.secrets.*` file
   for runs on their own computer.
+- 2026-09-27: The owner postponed the hard monthly spend limits to launch.
+  Until then they buy provider credits in small prepaid batches, and spending
+  stops when the balance runs out. The spec's
+  [Secrets](../../first-working-carl/spec.md#secrets) says so. Every item
+  above is done, so this ticket is resolved and step 1 (ticket 02) is
+  unblocked.

@@ -51,9 +51,10 @@ An agent session needs that repository added to read it.
   - gitignored `.secrets.*` files at the repo root;
   - a recovery doc listing every secret, as drum-transcribe's `recovery.md`
     does;
-  - a note for the owner to copy each secret into their password manager and
-    to set a hard monthly spend limit in every provider dashboard that offers
-    one.
+  - a note for the owner to copy each secret into their password manager,
+    to buy provider credits in small prepaid batches with automatic top-up
+    off, and to set a hard monthly spend limit in every provider dashboard
+    that offers one at launch.
 - **The bucket** ([Storage](../../first-working-carl/spec.md#storage)):
   - one Object Storage bucket in fr-par, with no versioning;
   - lifecycle rules: `recordings/` 180 days, `failures/` 30 days,

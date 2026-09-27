@@ -224,9 +224,12 @@ reuses its pieces. See its `docs/operations.md`, `docs/recovery.md`,
 - A recovery doc lists them all, as drum-transcribe's `recovery.md` does.
   `TOKEN_SECRET` can't be recreated without logging every browser out.
 - Nothing secret goes into the page, the image or the repo.
-- A **hard monthly spend limit** is set in every provider dashboard that
-  offers one. It is the backstop while the **monthly budget** waits for the
-  next version.
+- **Until launch, prepaid credits are the limit.** The owner buys provider
+  credits in small batches, with automatic top-up off, so spending stops when
+  the balance runs out.
+- **At launch,** a **hard monthly spend limit** is set in every provider
+  dashboard that offers one. It is the backstop while the **monthly budget**
+  waits for the next version.
 
 ### Storage
 
@@ -1311,9 +1314,10 @@ Sources: [The can't-hear-or-check state and the failure log][t22],
 - **Checking against the bills** is done by hand now and then. The owner-only
   script prints month totals per provider for this. There is no automatic
   reconciliation.
-- **Backstop:** a hard monthly spend limit is set in every provider dashboard
-  that offers one, while the monthly budget and its warning wait for the next
-  version.
+- **Backstop:** until launch, small batches of prepaid provider credits with
+  automatic top-up off; at launch, a hard monthly spend limit in every
+  provider dashboard that offers one. Either way, the monthly budget and its
+  warning wait for the next version ([Secrets](#secrets)).
 
 Sources: [Metering running cost against the monthly budget][t12],
 [Hosting and secrets][t13], [The screen][t24],
