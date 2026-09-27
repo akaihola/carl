@@ -20,7 +20,9 @@ End waits for it (`Session.spawn_check`). Its state (`Candidate.state`):
   `candidates.timeout_s` after its utterance ended, and has failed against
   the stages it was waiting on. One fact-finder failing while the other works
   doesn't fail the candidate. A repeat of a failed candidate is checked as a
-  new one (`carl.decision`). Every failure goes to `Session.failure`.
+  new one (`carl.decision`). Every failure goes to `Session.failure`, and
+  each candidate's outcome at fact-finding and fact-checking to the
+  indicator's "Can't check" (`carl.outages`); `overload` counts for nothing.
 - `dropped`: settled at the table before its card was on screen
   (`silent:settled`, `carl.settle`), a card already sent withdrawn; flagged
   in an utterance that disputes the card on screen, which already answers it
@@ -322,6 +324,7 @@ class Checker:
             session.failure(name, "timeout", candidate=candidate.id, provider=config and config.provider,
                             model=config and config.model)
         self.finish(session, candidate, "failed", stage=stage, kind="timeout", waiting_on=stages)
+        session.health.candidate(stage, False)  # a failure of the stage it was stuck in
 
     async def close(self) -> None:
         """At shutdown: close the source-page downloads' client."""
@@ -352,6 +355,7 @@ class Checker:
         session.log("findings", candidate=candidate.id, used=list(parts), failed=failed, missed=missed)
         if candidate.state != "finding":  # dropped or timed out meanwhile: the findings are thrown away
             return
+        session.health.candidate("fact-finding", bool(parts))
         if not parts:
             self.finish(session, candidate, "failed", stage="fact-finding", errors=failed)
             return
@@ -362,6 +366,10 @@ class Checker:
         if candidate.state != "checking":  # dropped or timed out meanwhile: the verdicts are thrown away
             return
         band = band_pair(a and a.judged(), b and b.judged(), agreement, self.sessions.config.bands)
+        called = agreement is not None or agreement_error is not None or any(
+            p.verdict is not None or p.error is not None for p in parts.values())
+        if called:  # the stage fails for a candidate only when a failed call leaves it without a band
+            session.health.candidate(STAGE, band.reason not in CALL_FAILED)
         session.log("band", candidate=candidate.id, band=band.band, reason=band.reason, shown=band.shown)
         if band.shown is not None and (draft := parts[band.shown].card) is not None:
             if session.state == "ended":

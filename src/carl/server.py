@@ -252,6 +252,7 @@ class Page:
             return
         self.session = await self.sessions.start(self.link, message)
         await self.send(self.session.state_message())
+        await self.send(self.session.health.message())
 
     async def on_rejoin(self, message: dict) -> None:
         session_id = str(message.get("session", ""))
@@ -263,6 +264,7 @@ class Page:
         self.session = session
         await session.attach(self.link)
         await self.send(session.state_message())
+        await self.send(session.health.message())
         await session.send_cards()
 
     async def on_pause(self, message: dict) -> None:
@@ -284,6 +286,17 @@ class Page:
     async def on_location(self, message: dict) -> None:
         if self.session is not None:
             await self.sessions.on_location(self.session, message)
+
+    async def on_mic(self, message: dict) -> None:
+        """The page's microphone: `lost` (with a `detail`) or `back`."""
+        if self.session is not None:
+            detail = message.get("detail")
+            self.session.health.mic(str(message.get("state")), str(detail)[:64] if detail else None)
+
+    async def on_page_events(self, message: dict) -> None:
+        """What the page buffered while it couldn't tell the server."""
+        if self.session is not None:
+            self.session.health.page_events(message.get("events"))
 
     async def on_card_shown(self, message: dict) -> None:
         if self.session is not None:

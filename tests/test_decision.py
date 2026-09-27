@@ -361,7 +361,8 @@ async def test_a_failed_call_drops_its_utterance_and_is_charged_an_estimate(sess
     assert session.candidates == []
     call, dropped, failure = session.recorder.events
     assert failure == {"event": "failure", "stage": "decision", "kind": "timeout", "provider": "openai",
-                       "model": "gpt-6-luna", "status": None, "code": None, "candidate": None}
+                       "model": "gpt-6-luna", "status": None, "code": None, "candidate": None,
+                       "error_text": "no answer within 20 s"}
     assert call["event"] == "model call" and call["utterance"] == "U1"
     assert call["error"] == "timeout" and call["error_text"] == "no answer within 20 s" and call["estimated"] is True
     assert dropped == {"event": "decision", "utterance": "U1", "outcome": "dropped", "error": "timeout"}

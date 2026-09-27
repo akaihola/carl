@@ -25,7 +25,8 @@ asking whether it settles one of them at the table.
   on screen already answers it: a candidate flagged in it is dropped
   (`silent:disputing`). A card in the card history never changes.
 - A failed call is never retried, and its failure is recorded
-  (`Session.failure`). Each call is recorded and charged like a decision
+  (`Session.failure`). It counts toward the decision model's "Can't check"
+  with the decision calls (`carl.outages`). Each call is recorded and charged like a decision
   call, as the `settle` stage.
 """
 
@@ -125,10 +126,12 @@ class Settler:
         except ModelError as e:
             await account(self.sessions, session, heard, question, e.record)
             session.failure(STAGE, e.kind, record=e.record)
+            session.health.call(ok=False)
             session.log("settle", utterance=heard.id, outcome="failed", error=e.kind)
             log.warning("session %s: %s; no settle call on %s", session.id, e, heard.id)
             return
         await account(self.sessions, session, heard, question, answer.record)
+        session.health.call(ok=True)
         chosen, probability = settle_outcome(answer.answer, answer.probs, question.choices, s.settle_threshold)
         event: dict[str, Any] = {"utterance": heard.id, "answer": answer.answer, "probs": answer.probs,
                                  "outcome": chosen, "probability": probability}

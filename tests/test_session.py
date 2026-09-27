@@ -19,12 +19,13 @@ async def connect(client):
 
 
 async def receive(ws, kind, timeout=2):
-    """The next message of `kind`, skipping heartbeats and speech pulses."""
+    """The next message of `kind`, skipping heartbeats, speech pulses, the
+    indicator and updates of the recording mark."""
     while True:
         message = await ws.receive_json(timeout=timeout)
         if message["type"] == kind:
             return message
-        assert message["type"] in {"heartbeat", "speech"}, message
+        assert message["type"] in {"heartbeat", "speech", "indicator", "session"}, message
 
 
 async def start(ws, record=True):

@@ -10,6 +10,9 @@ the page can rejoin it.
 The server is also the source of truth for the session's fact cards
 (section 8): it keeps each card it sent with its state and the times the page
 reported, and sends them all again after a rejoin, withdrawn cards left out.
+
+Each session's listening indicator ("Can't hear", "Can't check") and its
+failures are `carl.outages`'s: `Session.health` and `Sessions.failures`.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from . import costs as costs_module
 from .config import Config
 from .costs import Costs
 from .link import Link
+from .outages import FailureLog, Health, now_iso
 from .prompts import Prompt
 from .recording import Recorder
 from .storage import Store
@@ -40,7 +44,10 @@ SESSION_ID = re.compile(r"\d{8}T\d{6}Z-[0-9a-f]{6}")
 SPEECH_PULSE_S = 0.5  # at most one `speech` message this often
 KEEPALIVE_S = 10.0  # Soniox wants one at least every 20 s without audio
 COST_EVERY_S = 60.0  # charge the stream's time to the month this often
-REOPEN_BACKOFF_S = (1, 2, 4, 8, 16, 30)
+# A dropped stream reopens at once, then after 1, 2, 4… up to 30 s while it keeps failing.
+REOPEN_BACKOFF_S = (0, 1, 2, 4, 8, 16, 30)
+# Soniox ends a stream after 300 minutes: one this old is replaced at its next segment end.
+ROTATE_AFTER_S = 280 * 60
 # Soniox finalises nothing while no audio arrives, and advises about 200 ms of
 # silence before a manual finalise. It goes to speech-to-text only, never to
 # the recording.
@@ -182,6 +189,11 @@ class Session:
     cards: dict[str, Card] = field(default_factory=dict)  # every card sent, by id, in the order sent
     deciding: set[asyncio.Task] = field(default_factory=set)  # decision calls still running
     disputing: dict[str, str] = field(default_factory=dict)  # utterance id → the on-screen candidate it disputes
+    health: Health = field(init=False)
+    recording_sent: bool | None = None  # the recording mark the page was last sent
+
+    def __post_init__(self) -> None:
+        self.health = Health(self)
 
     @property
     def config(self) -> Config:
@@ -189,10 +201,13 @@ class Session:
 
     @property
     def recording(self) -> bool:
-        """Audio is actually being written: a recording that isn't stopped, and not paused."""
-        return self.recorder is not None and self.recorder.active and self.state == "listening"
+        """Audio is actually being written: a recording that isn't stopped, not
+        paused, with audio reaching the server and the writes reaching storage."""
+        return (self.recorder is not None and self.recorder.active and self.state == "listening"
+                and not self.health.deaf and not getattr(self.recorder, "failing", False))
 
     def state_message(self) -> dict[str, Any]:
+        self.recording_sent = self.recording
         return {"type": "session", "session": self.id, "state": self.state, "recording": self.recording}
 
     def log(self, event: str, **fields: Any) -> None:
@@ -201,18 +216,20 @@ class Session:
 
     def failure(self, stage: str, kind: str, *, record: Any = None, candidate: str | None = None,
                 provider: str | None = None, model: str | None = None, **fields: Any) -> None:
-        """A moment Carl couldn't check (spec section 10): the stage
-        (`decision`, `settle`, `fact-finding A`…), the kind (`timeout`,
-        `bad-output`, `overload`…), the provider and model, the HTTP status
-        and error code from a failed call's `record`, and the candidate's id.
-        Never conversation content. It goes to the event log; step 7's
-        failure log takes it from here."""
+        """A moment Carl couldn't hear or check, for the failure log (spec
+        section 10): the stage (`decision`, `settle`, `fact-finding A`…), the
+        kind (`timeout`, `bad-output`, `overload`…), the provider and model,
+        the HTTP status and error code from a failed call's `record`, and the
+        candidate's id; never conversation content or the provider's text. A
+        recording's event log gets a copy with the provider's full error text."""
         entry: dict[str, Any] = {"stage": stage, "kind": kind.replace(" ", "-"), "provider": provider,
                                  "model": model, "status": None, "code": None, "candidate": candidate}
         if record is not None:
             entry |= {"provider": record.provider, "model": record.model, "status": record.status,
                       "code": record.error_code}
-        self.log("failure", **entry, **fields)
+        self.sessions.failures.add({"type": "entry", "time": now_iso(), "session": self.id, **entry, **fields})
+        text = {"error_text": record.error_text} if record is not None and record.error_text else {}
+        self.log("failure", **entry, **fields, **text)
 
     def spawn(self, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)
@@ -233,13 +250,17 @@ class Session:
         if self.record:
             self.recorder = Recorder(self.sessions.store, self.id)
             self.log("session start", session=self.id, record=True, **header, **self.sessions.build_info())
+            self.recorder.on_failing = self.health.changed
             self.spawn(self.recorder.run())
         self.listening_since = time.time()
+        self.health.last_audio = time.monotonic()
+        self.spawn(self.health.watch_audio())
         await self.open_stream()
 
     async def audio(self, chunk: bytes) -> None:
         if self.state != "listening":
             return
+        self.health.audio()
         if self.recorder is not None:
             self.recorder.audio(chunk)
         if self.run is not None:
@@ -254,6 +275,9 @@ class Session:
         self.state = "paused"
         self.count_listening()
         self.log("pause")
+        for reason in ("no-audio", "stt-reopening", "connection"):  # paused, nothing is heard anyway
+            if reason != "connection" or self.link is not None:
+                self.health.end(reason)
         if self.recorder is not None:
             self.recorder.audio_break()
         await self.close_stream(finalize=True)
@@ -264,6 +288,7 @@ class Session:
             return
         self.state = "listening"
         self.listening_since = time.time()
+        self.health.last_audio = time.monotonic()
         self.log("resume")
         await self.open_stream()
 
@@ -284,6 +309,7 @@ class Session:
             await asyncio.wait(set(self.checks), timeout=left)
         if self.recorder is not None:
             self.recorder.audio_break()
+        self.health.end_all()
         self.log("session end", reason=reason, listening_s=round(self.listening_s, 1),
                  cost_usd=round(self.cost_usd, 6), utterances=self.utterance_count, cards=len(self.cards))
         recording: Literal["kept", "stopped", "none"] = "stopped" if self.recording_stopped else "none"
@@ -325,6 +351,9 @@ class Session:
             self.grace = None
             self.log("page back")
         self.link = link
+        self.health.last_audio = time.monotonic()
+        if self.state != "listening":  # otherwise it clears once audio arrives on the new connection
+            self.health.end("connection")
 
     async def detach(self, link: Link) -> None:
         """The page's connection dropped: keep the session for the grace period."""
@@ -332,6 +361,8 @@ class Session:
             return
         self.link = None
         self.log("page gone")
+        self.health.end("no-audio")
+        self.health.begin("connection", silent=link.dropped)
         if self.recorder is not None:
             self.recorder.audio_break()
         if self.state == "listening":
@@ -431,25 +462,42 @@ class Session:
 
     # --- Speech-to-text --------------------------------------------------------------
 
-    async def open_stream(self) -> None:
+    async def open_stream(self, attempt: int = 0) -> None:
+        """Open a speech-to-text stream; if it fails, "Can't hear" while it is
+        tried again, backing off (`REOPEN_BACKOFF_S`)."""
+        run = await self.new_run()
+        if run is None:
+            self.health.begin("stt-reopening")
+            self.spawn(self.reopen(attempt + 1))
+            return
+        self.run = run
+        self.health.end("stt-reopening")
+
+    async def new_run(self) -> StreamRun | None:
+        """A new stream with its reader, or None if it didn't open (recorded as a failure)."""
         self.streams += 1
         index = self.streams
+        stage = self.config.stages.speech_to_text
         try:
-            stream = await self.sessions.stt.open(self.config.stages.speech_to_text.params.get("language_hints", ["fi", "en"]))
+            stream = await self.sessions.stt.open(stage.params.get("language_hints", ["fi", "en"]))
         except SttError as e:
             log.warning("session %s: speech-to-text didn't open: %s", self.id, e)
             self.log("stt failed", stream=index, kind=e.kind, detail=e.detail)
-            self.spawn(self.reopen(0))
-            return
+            self.failure("speech-to-text", e.kind, provider=stage.provider, model=stage.model)
+            return None
         now = time.time()
         u = self.config.utterances
-        self.run = StreamRun(index, stream, now, now, splitter=Splitter(u.false_switch_max_words, u.longest_s))
-        self.run.reader = self.spawn(self.read(self.run))
-        self.spawn(self.charge_periodically(self.run))
+        run = StreamRun(index, stream, now, now, splitter=Splitter(u.false_switch_max_words, u.longest_s))
+        run.reader = self.spawn(self.read(run))
+        self.spawn(self.charge_periodically(run))
         self.log("stt open", stream=index)
+        return run
 
     async def close_stream(self, finalize: bool) -> None:
         run, self.run = self.run, None
+        await self.close_run(run, finalize)
+
+    async def close_run(self, run: StreamRun | None, finalize: bool) -> None:
         if run is None:
             return
         if finalize:
@@ -492,6 +540,27 @@ class Session:
         if event.endpoint or event.finished:
             done += run.splitter.endpoint()
         self.flush_utterances(run, done)
+        if event.endpoint and self.run is run and time.time() - run.opened >= ROTATE_AFTER_S:
+            self.spawn(self.rotate(run))
+
+    async def rotate(self, run: StreamRun) -> None:
+        """Replace a stream nearing Soniox's limit, at a segment end: the new
+        one opens while the old one still takes the audio, then the old one
+        closes. The new stream's speaker labels start afresh, after a
+        "(gap)". If the new one doesn't open, the old one carries on until
+        the next segment end."""
+        if self.run is not run or self.state != "listening":
+            return
+        self.log("stt rotate", stream=run.index, open_s=round(time.time() - run.opened))
+        new = await self.new_run()
+        if new is None:
+            return
+        if self.run is not run or self.state != "listening":  # paused or dropped meanwhile
+            await self.close_run(new, finalize=False)
+            return
+        self.run = new
+        await self.close_run(run, finalize=False)
+        self.heard.append(Marker("gap", time.time()))
 
     def flush_utterances(self, run: StreamRun, utterances: list[Utterance]) -> None:
         for utterance in utterances:
@@ -507,6 +576,9 @@ class Session:
             return
         log.warning("session %s: speech-to-text stream %d failed: %s", self.id, run.index, error)
         self.log("stt failed", stream=run.index, kind=error.kind, detail=error.detail)
+        stage = self.config.stages.speech_to_text
+        self.failure("speech-to-text", error.kind, provider=stage.provider, model=stage.model)
+        self.health.begin("stt-reopening")
         self.run = None
         self.flush_utterances(run, run.splitter.endpoint())
         self.spawn(self.charge(run, time.time()))
@@ -516,7 +588,7 @@ class Session:
     async def reopen(self, attempt: int) -> None:
         await asyncio.sleep(REOPEN_BACKOFF_S[min(attempt, len(REOPEN_BACKOFF_S) - 1)])
         if self.state == "listening" and self.run is None:
-            await self.open_stream()
+            await self.open_stream(attempt)
 
     # --- Cost ------------------------------------------------------------------------
 
@@ -545,6 +617,7 @@ class Sessions:
                  commit: str = "unknown") -> None:
         self.config, self.prompts, self.store, self.stt, self.commit = config, prompts, store, stt, commit
         self.costs = Costs(store, config)
+        self.failures = FailureLog(store)
         self.live: dict[str, Session] = {}
         self.ended: dict[str, Summary] = {}
         self.started: dict[str, str] = {}  # the page's start_id → session id
@@ -644,6 +717,8 @@ class Sessions:
             await session.end(reason)
 
     async def close(self) -> None:
-        """At shutdown, once every session has ended: close what the checks hold open."""
+        """At shutdown, once every session has ended: close what the checks
+        hold open, and write out the failure log."""
         if self.checker is not None:
             await self.checker.close()
+        await self.failures.flush()

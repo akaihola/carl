@@ -433,7 +433,7 @@ async def test_a_failed_finding_fails_the_candidate(sessions, session, kind, qui
     assert session.recorder.of("failure")[0] == {
         "event": "failure", "stage": "fact-finding B", "kind": kind.replace(" ", "-"), "provider": "perplexity",
         "model": "google/gemini-3.8-flash", "status": {"unavailable": 503}.get(kind), "code": None,
-        "candidate": "C1"}
+        "candidate": "C1", "error_text": "the provider's full text"}
     call = session.recorder.of("model call")[0]
     assert call["error"] == kind and call["error_text"] == "the provider's full text" and call["estimated"] is True
     assert (await sessions.costs.month())["estimated_usd"] == pytest.approx(0.0023)

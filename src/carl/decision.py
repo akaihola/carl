@@ -18,7 +18,8 @@ earlier candidate. Each candidate then gets its own check (`carl.checks`).
   each stream gets its own letter: stream 1's speaker 1 is A1, stream 2's
   is B1.
 - A failed call drops its utterance and is never retried, since a card
-  minutes late is worthless. Its cost, an estimate if need be, is charged
+  minutes late is worthless. Three in a row, settle calls included, make
+  the indicator "Can't check" until a call succeeds (`carl.outages`). Its cost, an estimate if need be, is charged
   like any other, and the failure is recorded (`Session.failure`).
 """
 
@@ -215,9 +216,11 @@ class Decider:
             await self.account(session, heard, question, e.record)
             session.log("decision", utterance=heard.id, outcome="dropped", error=e.kind)
             session.failure(STAGE, e.kind, record=e.record)
+            session.health.call(ok=False, dropped=True)
             log.warning("session %s: %s; %s is dropped", session.id, e, heard.id)
             return
         await self.account(session, heard, question, answer.record)
+        session.health.call(ok=True)
         chosen, probability = outcome(answer.answer, answer.probs, s.repeat_threshold, s.candidate_threshold)
         decided = {"utterance": heard.id, "answer": answer.answer, "probs": answer.probs}
         if chosen.startswith(SAME_AS):

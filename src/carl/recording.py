@@ -22,6 +22,7 @@ import asyncio
 import json
 import logging
 from collections import deque
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -56,6 +57,8 @@ class Recorder:
         self._writes: set[asyncio.Task[None]] = set()  # puts under way
         self._ended = asyncio.Event()
         self._closed = self._stopped = False
+        self.failing = False  # the last write failed: nothing reaches storage for now
+        self.on_failing: Callable[[], None] | None = None  # told when `failing` changes
 
     @property
     def prefix(self) -> str:
@@ -172,8 +175,16 @@ class Recorder:
             await asyncio.shield(task)
         except Exception:
             log.warning("recording %s: writing %s failed; it stays queued", self.session_id, key, exc_info=True)
+            self._failing(True)
             return False
+        self._failing(False)
         return not self._stopped
+
+    def _failing(self, failing: bool) -> None:
+        if failing != self.failing:
+            self.failing = failing
+            if self.on_failing is not None:
+                self.on_failing()
 
     def _written(self, task: asyncio.Task[None]) -> None:
         self._writes.discard(task)
