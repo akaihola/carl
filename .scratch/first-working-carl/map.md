@@ -45,6 +45,9 @@ Conflicts and gaps found while assembling it were settled at arrival; see
 - **Git:** work directly on `main`; commit and push to `main`, no feature
   branches or pull requests (the owner's standing preference). Research
   findings go straight to `docs/research/` on `main`.
+- **Blocking scanners:** Scanners will find the hostname within minutes of the
+  certificate being issued, and each probe wakes the container. That costs extra, so
+  let's block the obvious probe paths (`/.env*`, `/.git/*`) with a Cloudflare WAF rule.
 
 ## Decisions so far
 
