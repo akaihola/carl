@@ -1493,7 +1493,10 @@ Sources: [Provisional models for each stage][t07],
      Actions runs it on every push to `main`, with no live provider calls in
      CI;
    - the step is deployed and used for one session on the phone, at a real
-     dinner or with a Finnish radio talk show playing beside it.
+     dinner or with Finnish talk radio or a podcast playing beside it. Yle
+     Puhe, the all-talk channel, closed in January 2024, so recorded talk
+     is the steadier choice; the material and sessions are planned in
+     [ticket 38](../build-first-working-carl/issues/38-test-material-sessions.md).
 3. **Dev file source:** a local-only way to send an audio file over the
    WebSocket instead of the microphone. It is a development aid, not the replay
    and scoring harness.

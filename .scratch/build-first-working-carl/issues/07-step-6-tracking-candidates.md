@@ -60,9 +60,10 @@ split it into further tickets in this folder before starting.
       failed candidate.
 - [x] The settle prompt's example cases have been run by hand against the
       configured model.
-- [ ] Deployed and used for one session on the phone, at a real dinner or
-      with a Finnish radio talk show playing beside it, with at least one
-      reconnect that rebuilds the screen.
+- [ ] Deployed and used for one session on the phone, at a real dinner or with
+      Finnish talk radio or a podcast playing beside it
+      ([ticket 38](38-test-material-sessions.md)), with at least one reconnect
+      that rebuilds the screen.
 
 ## Answer
 
@@ -130,3 +131,11 @@ items under "Done when" are met; the phone session is still to come.
   says the card corrects its candidate, so agreeing with it can take the
   claim back, and that sticking to the claim against the card is disputing:
   8 of 8, each at 1.00, for $0.0004.
+
+## Comments
+
+- 2026-09-27: Yle Puhe, the all-talk channel this box had in mind, closed in
+  January 2024, so the box now takes talk radio or a podcast.
+  [Ticket 38](38-test-material-sessions.md) plans the phone sessions with
+  recorded talk: its session 2 (Futucast #611) closes this box, with
+  airplane mode at about 20 min for the reconnect.

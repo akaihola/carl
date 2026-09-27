@@ -107,9 +107,9 @@ Cards live at the table.
       and fact-checking cost maths.
 - [x] The new prompts' example cases have been run by hand against the
       configured models.
-- [ ] Deployed and used for one session on the phone, at a real dinner or
-      with a Finnish radio talk show playing beside it, with cards shown
-      live.
+- [ ] Deployed and used for one session on the phone, at a real dinner or with
+      Finnish talk radio or a podcast playing beside it
+      ([ticket 38](38-test-material-sessions.md)), with cards shown live.
 
 ## Comments
 
@@ -132,3 +132,7 @@ Cards live at the table.
   ([ticket 30](30-step-4-fact-finders.md)) and fact-checking 8 of 8
   ([ticket 32](32-step-4-candidate-checks.md)). What's left is the owner's
   phone session with cards shown live.
+- 2026-09-27: Yle Puhe, the all-talk channel this box had in mind, closed in
+  January 2024, so the box now takes talk radio or a podcast.
+  [Ticket 38](38-test-material-sessions.md) plans the phone sessions with
+  recorded talk: its session 1 (Futucast #370, a debate) closes this box.

@@ -100,7 +100,8 @@ Dinners recorded, with no checks yet.
       and no live provider calls: utterance splitting and the
       speech-to-text cost maths.
 - [ ] Deployed and used for one recording session on the phone, at a real
-      dinner or with a Finnish radio talk show playing beside it.
+      dinner or with Finnish talk radio or a podcast playing beside it
+      ([ticket 38](38-test-material-sessions.md)).
 - [ ] `export` of that session gives a playable WAV and the event log, and
       `delete` removes it.
 - [ ] The step-2 early check is written under an `## Answer` heading here:
@@ -133,3 +134,10 @@ Dinners recorded, with no checks yet.
   session can also tick step 3's box (candidates and repeats in the event
   log), step 4's (cards shown live) and, if it runs over an hour, step 7's
   first box (no gap at the handover).
+- 2026-09-27: Yle Puhe, the all-talk channel this box had in mind, closed in
+  January 2024, so the box now takes talk radio or a podcast.
+  [Ticket 38](38-test-material-sessions.md) plans the phone sessions with
+  recorded talk: its session 1 (Futucast #370, 2 h 20 min, uninterrupted)
+  closes the phone session, `export` and the Android 2-hour check, and
+  `delete` is tried on a throwaway recording. The Soniox note still waits
+  for the first real dinner.
