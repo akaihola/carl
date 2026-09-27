@@ -1,0 +1,105 @@
+# Hand-written example cases for prompts/fact-finding.md, in Finnish and
+# English (First working Carl spec, section 7, Testing prompts). `carl
+# examples fact-finding` runs each case through both fact-finders side by
+# side and prints the outcome, the restatement, the draft card, its source,
+# whether the source is among the search results, the time and the cost. Run
+# it by hand after a prompt change, never in CI: it costs money (about $0.02
+# a case for both fact-finders) and needs the network. `--case fi-` runs only
+# the cases whose id starts with `fi-`.
+#
+# `conversation` lines are "LABEL: text" as Carl writes them, oldest first.
+# The last line is the candidate; the others are the decision call's context
+# window. `kind` is the candidate's kind: claim or open question.
+# `card_language` is a language code. `expected` is the outcome, and for a
+# card, `expected_in_fact` is text its fact should hold.
+
+# Where the table is, as Nominatim names it (step 3's live check). The date
+# and time come from the clock at run time.
+[place]
+neighbourhood = "Kallio"
+city = "Helsinki"
+region = "Uusimaa"
+country = "Suomi / Finland"
+country_code = "FI"
+timezone = "Europe/Helsinki"
+
+# --- Wrong claims ------------------------------------------------------------
+
+[[cases]]
+id = "en-myth"
+kind = "claim"
+card_language = "en"
+conversation = [
+  "A1: We had a talk at work about gifted kids today.",
+  "A2: Einstein failed maths at school, you know. There's hope for all of us.",
+]
+expected = "claim is wrong"
+
+[[cases]]
+id = "fi-wrong-year"
+kind = "claim"
+card_language = "fi"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+]
+expected = "claim is wrong"
+expected_in_fact = "1952"
+
+# --- Open questions ----------------------------------------------------------
+
+[[cases]]
+id = "en-open-question"
+kind = "open question"
+card_language = "en"
+conversation = [
+  "A1: I watched Casablanca again last night.",
+  "A2: Who played Rick in it? It's on the tip of my tongue.",
+]
+expected = "question answered"
+expected_in_fact = "Bogart"
+
+[[cases]]
+id = "fi-open-question"
+kind = "open question"
+card_language = "fi"
+conversation = [
+  "A1: Katsoin eilen taas Casablancan.",
+  "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä.",
+]
+expected = "question answered"
+expected_in_fact = "Bogart"
+
+# A question about where the table is: the answer depends on the place.
+
+[[cases]]
+id = "fi-local-question"
+kind = "open question"
+card_language = "fi"
+conversation = [
+  "A1: Tää Kallion kirkko on kyllä hieno.",
+  "A2: Milloin se on rakennettu? Joskus 1900-luvun alussa varmaan.",
+]
+expected = "question answered"
+expected_in_fact = "1912"
+
+# --- Right claims: nothing to show ---------------------------------------------
+
+[[cases]]
+id = "en-right"
+kind = "claim"
+card_language = "en"
+conversation = [
+  "A1: Water boils at a lower temperature high up in the mountains. That's why pasta takes longer up there.",
+]
+expected = "claim is right"
+
+[[cases]]
+id = "fi-right"
+kind = "claim"
+card_language = "fi"
+conversation = [
+  "A1: Linnan juhlat oli taas ihan hyvät viime joulukuussa.",
+  "A2: Suomi itsenäistyi vuonna 1917, eli ensi vuonna tulee 110 vuotta täyteen.",
+]
+expected = "claim is right"

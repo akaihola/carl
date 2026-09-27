@@ -19,7 +19,10 @@ PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 
 # The values the pipeline fills into each prompt, by prompt name. A stage's
 # prompt joins this table with the build step that makes the stage.
-FILLS: dict[str, frozenset[str]] = {"decision": frozenset()}  # typed prompts name their fields in backticks
+FILLS: dict[str, frozenset[str]] = {
+    "decision": frozenset(),  # typed prompts name their fields in backticks
+    "fact-finding": frozenset({"candidate_kind", "card_language", "place_and_time", "conversation", "candidate"}),
+}
 
 
 class PromptError(Exception):

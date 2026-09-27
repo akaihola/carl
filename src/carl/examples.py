@@ -5,7 +5,8 @@ configured models, and print each typed answer next to the expected one
 The cases are in `prompts/examples/<prompt>.toml`. Run it by hand after a
 prompt change, never in CI: it costs money and needs the network, and its
 results aren't stored. It needs the stage's key in the environment
-(OPENAI_API_KEY for the decision model).
+(OPENAI_API_KEY for the decision model and fact-finder A, PERPLEXITY_API_KEY
+for fact-finder B). `--case` runs only the cases whose id starts with it.
 """
 
 from __future__ import annotations
@@ -14,14 +15,18 @@ import argparse
 import asyncio
 import os
 import sys
+import statistics
 import tomllib
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from . import decision
 from .config import Config, ConfigError, load_config
-from .models import ModelError, TypedAnswer, http_session, make_typed_model
+from .finding import STAGE_A, STAGE_B, Finding, FindingRequest, key_name, language_name, make_fact_finder
+from .location import Locator, Nominatim, Place
+from .models import CallRecord, ModelError, TypedAnswer, http_session, make_typed_model
 from .models.questions import TypedPrompt
 from .prompts import Prompt, PromptError, load_prompts
 
@@ -35,6 +40,8 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     )
     examples.add_argument("--config", type=Path, default=Path("config.toml"), help="the config file")
     examples.add_argument("--prompts", type=Path, default=Path("prompts"), help="the prompts folder")
+    examples.add_argument("--case", action="append", default=[], metavar="ID",
+                          help="run only the cases whose id starts with ID (repeatable)")
     examples.set_defaults(run=run)
 
 
@@ -47,7 +54,7 @@ def run(args: argparse.Namespace) -> int:
         return 2
     names = [args.prompt] if args.prompt else sorted(RUNNERS)
     try:
-        results = [asyncio.run(RUNNERS[name](config, prompts, args.prompts / "examples" / f"{name}.toml"))
+        results = [asyncio.run(RUNNERS[name](config, prompts, args.prompts / "examples" / f"{name}.toml", args.case))
                    for name in names]
     except (OSError, ValueError, KeyError) as e:
         print(f"carl examples: {e}", file=sys.stderr)
@@ -55,10 +62,16 @@ def run(args: argparse.Namespace) -> int:
     return 0 if all(results) else 1
 
 
-async def run_decision(config: Config, prompts: dict[str, Prompt], path: Path) -> bool:
+def pick(cases: list[dict[str, Any]], only: Sequence[str]) -> list[dict[str, Any]]:
+    """The cases whose id starts with one of `only`; all of them without it."""
+    return [case for case in cases if not only or case["id"].startswith(tuple(only))]
+
+
+async def run_decision(config: Config, prompts: dict[str, Prompt], path: Path, only: Sequence[str] = ()) -> bool:
     """The decision prompt's cases, each through the decision call's own
     fields and outcome rule. True if every one came out as expected."""
     data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data["cases"] = pick(data["cases"], only)
     typed = TypedPrompt.load(prompts["decision"])
     stage, s = config.stages.decision, config.decision
     place_and_time = f"{data['place']}. {decision.date_time(data['timezone'])}"
@@ -106,4 +119,107 @@ def probabilities(probs: dict[str, float] | None) -> str:
     return ", ".join(f"{k} {v:.2f}" for k, v in sorted(probs.items(), key=lambda kv: -kv[1]) if v >= 0.005)
 
 
-RUNNERS: dict[str, Callable[[Config, dict[str, Prompt], Path], Awaitable[bool]]] = {"decision": run_decision}
+async def run_fact_finding(config: Config, prompts: dict[str, Prompt], path: Path, only: Sequence[str] = ()) -> bool:
+    """The fact-finding prompt's cases, each through both fact-finders side
+    by side. A fact-finder whose key isn't set is skipped. True if every
+    finding came out as expected: the expected outcome, and the expected
+    text in the card's fact."""
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    cases = pick(data["cases"], only)
+    p = data["place"]
+    # What location's methods read of a session. The locator only words the
+    # place here: it geocodes nothing.
+    table = SimpleNamespace(place=Place(p["neighbourhood"], p["city"], p["region"], p["country"], p["country_code"]),
+                            timezone=p["timezone"])
+    locator = Locator(config.location, Nominatim())
+    place_and_time = locator.place_and_time(table, with_place=True)
+    openai_location, perplexity_location = locator.openai_user_location(table), locator.perplexity_user_location(table)
+    prompt = prompts["fact-finding"]
+    stages = {STAGE_A: config.stages.fact_finder_a, STAGE_B: config.stages.fact_finder_b}
+    print(f"fact-finding: prompts/fact-finding.md {prompt.version}")
+    for name, stage in stages.items():
+        print(f"  {name}: {stage.provider} {stage.model} {stage.params}")
+    print(f"  place_and_time: {place_and_time}")
+    print(f"  user_location: A {openai_location}, B {perplexity_location}")
+
+    def request(case: dict[str, Any]) -> FindingRequest:
+        *before, candidate = case["conversation"]
+        return FindingRequest(prompt, case["kind"], candidate, before, place_and_time,
+                              language_name(case["card_language"]), openai_location, perplexity_location)
+
+    async with http_session() as http:
+        finders = {}
+        for name, stage in stages.items():
+            if os.environ.get(key_name(stage)):
+                finders[name] = make_fact_finder(stage, config, os.environ, http)
+            else:
+                print(f"  {name}: skipped, {key_name(stage)} isn't set")
+        if not finders:
+            raise ValueError("no fact-finder has its key set")
+
+        async def find(case: dict[str, Any], name: str) -> Finding | ModelError:
+            try:
+                return await finders[name].find(request(case), stage=name)
+            except ModelError as e:
+                return e
+
+        # One case at a time, both fact-finders in parallel, as for a
+        # candidate: Perplexity can refuse requests sent all at once (429).
+        found: dict[tuple[str, str], Finding | ModelError] = {}
+        for case in cases:
+            answers = await asyncio.gather(*(find(case, name) for name in finders))
+            found |= {(case["id"], name): answer for name, answer in zip(finders, answers, strict=True)}
+    good = {name: 0 for name in finders}
+    records: dict[str, list[CallRecord]] = {name: [] for name in finders}
+    for case in cases:
+        print(f"\n{case['id']} ({case['kind']}, {language_name(case['card_language'])}): expected {case['expected']}"
+              + (f", {case['expected_in_fact']!r} in the fact" if case.get("expected_in_fact") else ""))
+        for name in finders:
+            result = found[case["id"], name]
+            record = result.record
+            records[name].append(record)
+            letter = name[-1]
+            if isinstance(result, ModelError):
+                print(f"  {letter} ERROR {result.kind}: {record.error_text[:300]}  {took(record)}")
+                continue
+            want = case.get("expected_in_fact", "")
+            ok = result.outcome == case["expected"] and (
+                result.card is None or want.casefold() in result.card.fact.casefold())
+            good[name] += ok
+            print(f"  {letter} {'ok  ' if ok else 'MISS'}  {result.outcome:<18} {took(record)}")
+            print(f"    restatement: {result.restatement}")
+            if result.card is not None:
+                card = result.card
+                print(f"    card: {card.title} | {card.fact}")
+                print(f"    source: {card.source_title} <{card.source_url}>, "
+                      f"in the results: {'yes' if result.source_in_results else 'NO'}")
+                print(f"    excerpt: {card.excerpt[:300]!r}")
+            searches = "; ".join(result.searches) or "-"
+            print(f"    {result.search_calls} search(es) charged ({searches}), {len(result.results)} results, "
+                  f"{record.input_tokens} tokens in, {record.output_tokens} out, model {result.model}"
+                  + ("  [NOT the pinned model]" if result.model_differs else ""))
+    print()
+    for name in finders:
+        rs = records[name]
+        times = [r.elapsed_s for r in rs]
+        estimated = " (partly estimated)" if any(r.estimated for r in rs) else ""
+        provider = [r.provider_cost_usd for r in rs if r.provider_cost_usd is not None]
+        own = f", the provider's own ${sum(provider):.5f}" if provider else ""
+        print(f"{name}: {good[name]} of {len(cases)} as expected, ${sum(r.charged_usd for r in rs):.5f} in all"
+              f"{estimated} (the price table's ${sum(r.cost_usd for r in rs):.5f}{own}), time median "
+              f"{statistics.median(times) if times else 0:.1f} s, max {max(times, default=0):.1f} s")
+    return all(n == len(cases) for n in good.values())
+
+
+def took(record: CallRecord) -> str:
+    """A call's time and what it counts toward the totals, with Carl's own figure when that differs."""
+    cost = f"${record.charged_usd:.5f}"
+    if record.provider_cost_usd is not None:
+        cost += f" (the price table's ${record.cost_usd:.5f})"
+    return f"{record.elapsed_s:4.1f} s  {cost}{' estimated' if record.estimated else ''}"
+
+
+RUNNERS: dict[str, Callable[[Config, dict[str, Prompt], Path, Sequence[str]], Awaitable[bool]]] = {
+    "decision": run_decision,
+    "fact-finding": run_fact_finding,
+}
