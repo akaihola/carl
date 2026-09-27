@@ -120,7 +120,9 @@ class BucketStore:
         def delete() -> None:
             for i in range(0, len(keys), 1000):
                 objects = [{"Key": self.prefix + k} for k in keys[i : i + 1000]]
-                self.s3.delete_objects(Bucket=self.bucket, Delete={"Objects": objects, "Quiet": True})
+                result = self.s3.delete_objects(Bucket=self.bucket, Delete={"Objects": objects, "Quiet": True})
+                if errors := result.get("Errors"):
+                    raise OSError(f"{len(errors)} objects under {prefix} weren't deleted: {errors[0]}")
 
         await asyncio.to_thread(delete)
         return len(keys)

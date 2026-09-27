@@ -10,15 +10,22 @@ The secrets are listed in [recovery.md](recovery.md).
 ```sh
 uv run pytest                                           # the tests, no network
 uv run carl hash-password                               # a new access pass and its entry
-uv run --env-file .secrets.carl.env carl serve          # http://localhost:8080
+uv run --env-file .secrets.carl.env --env-file .secrets.bucket.env \
+  --env-file .secrets.providers.env carl serve         # http://localhost:8080
+uv run carl owner list [--dev]                          # recording sessions in the bucket
 ```
 
 - The server refuses to start without `CARL_PASSWORDS` and `TOKEN_SECRET`,
   so a local run needs `.secrets.carl.env` (see [recovery.md](recovery.md)).
   A browser accepts the access-pass cookie on `http://localhost`, though it
   is marked Secure.
-- Staging is this same server run locally. From step 2 on, local runs write
-  under `dev/` in the bucket, so they also need `.secrets.bucket.env`.
+- Staging is this same server run locally. Local runs write under `dev/` in
+  the bucket, where `carl owner … --dev` finds them. Without
+  `.secrets.bucket.env` they write to the gitignored folder `.carl-store/`
+  instead. `.secrets.providers.env` holds the provider keys, such as
+  `SONIOX_API_KEY`, which the server needs to start.
+- `carl dev-send <file>` sends an audio file to a local server as if from
+  the microphone.
 - `carl serve --config … --prompts …` picks another config file or prompts
   folder.
 

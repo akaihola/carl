@@ -11,3 +11,6 @@ __pycache__/
 
 # The connection test's raw results
 .scratch/build-first-working-carl/connection-test/out/
+
+# Local runs without a bucket key
+.carl-store/
