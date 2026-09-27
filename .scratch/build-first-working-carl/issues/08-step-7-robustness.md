@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 07
+Blocked by: 07, 34, 35, 36
 
 Build step 7 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
 The spec is the source of truth. This ticket lists what the step builds and
@@ -82,3 +82,12 @@ session. Split it into further tickets in this folder before starting.
       so the handover runs. Its event log shows no gap at the handover.
 - [ ] A dropped connection, a Pause and a server restart have each been
       tried by hand, and each showed the right state and recovered.
+
+## Comments
+
+- 2026-09-27: Split into sub-tickets: [34](34-step-7-outages-and-failure-log.md)
+  can't hear, can't check and the failure log (with Soniox rotation; the
+  reopening with backoff exists since step 2),
+  [35](35-step-7-page-robustness.md) the page's indicator, buffer and
+  handover, and [36](36-step-7-resume-from-saved-state.md) resuming after a
+  restart.
