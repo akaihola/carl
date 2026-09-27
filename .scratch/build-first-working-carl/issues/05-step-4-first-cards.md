@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 04, 11
+Blocked by: 04, 11, 30, 31, 32, 33
 
 Build step 4 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
 The spec is the source of truth. This ticket lists what the step builds and
@@ -110,3 +110,13 @@ Cards live at the table.
 - [ ] Deployed and used for one session on the phone, at a real dinner or
       with a Finnish radio talk show playing beside it, with cards shown
       live.
+
+## Comments
+
+- 2026-09-27: Split into sub-tickets: [30](30-step-4-fact-finders.md) the
+  fact-finding adapters (A and B, since step 5 needs A), [31](31-step-4-checking.md)
+  excerpts, blocklist, bands and card wording, [32](32-step-4-candidate-checks.md)
+  a candidate's check from finding to card, and
+  [33](33-step-4-cards-on-the-page.md) cards on the page. The code is built
+  ahead of ticket 11; fact-finding isn't deployed until the owner has read
+  the terms.

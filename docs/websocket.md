@@ -4,7 +4,7 @@ One WebSocket at `/api/ws`, behind the access pass (First working Carl spec,
 [One WebSocket](../.scratch/first-working-carl/spec.md#one-websocket)).
 Binary frames carry audio from the page. JSON text frames carry everything
 else, each an object with a `type`. Either side ignores a `type` it doesn't
-know. This page lists the messages as of build step 3.
+know. This page lists the messages as of build step 4.
 
 ## Always
 
@@ -23,11 +23,23 @@ know. This page lists the messages as of build step 3.
 | server → page | `{"type": "speech"}` | Speech-to-text is hearing words, at most every 500 ms: the listening indicator's dot pulses |
 | page → server | `{"type": "pause"}` / `{"type": "resume"}` | Pause taps. The page stops the microphone track on pause and opens it again on resume |
 | page → server | `{"type": "end"}` | End, confirmed in the top bar, or the page being hidden for good (`pagehide`) |
-| server → page | `{"type": "ended", "session": "<id>", "summary": {"listening_s": 5400.0, "cost_usd": 0.18, "cost_eur": 0.16, "recording": "kept", "cards": null, "month_eur": 1.24}}` | The session is over. `recording` is `kept`, `stopped` or `none`. `cards` is `null` until step 4 |
+| server → page | `{"type": "ended", "session": "<id>", "summary": {"listening_s": 5400.0, "cost_usd": 0.18, "cost_eur": 0.16, "recording": "kept", "cards": 4, "month_eur": 1.24}}` | The session is over. `recording` is `kept`, `stopped` or `none`. `cards` counts the cards sent to the page |
 
 `pause`, `resume` and `end` carry no session id: they act on the session
 this connection started or rejoined. After a reconnect the page sends
 `rejoin` first.
+
+## Cards
+
+The server holds each card's state; the page paces the cards and reports
+what it did with each (spec section 8, Pacing and late cards).
+
+| Direction | Message | Meaning |
+| --- | --- | --- |
+| server → page | `{"type": "card", "card": {"id": "C3", "kind": "claim", "band": "hedged", "language": "fi", "label": "Väite", "tag": "Varauksin", "title": "…", "fact": "Todennäköisesti: …", "source": {"url": "https://…", "title": "…"}, "utterance_time": "2026-09-27T18:04:31.200Z"}}` | A card ready for the screen. `kind` is `claim` or `question`; `band` is `plain` or `hedged` (`tag` is `null` for plain). `label`, `tag` and the hedge prefix in `fact` are already in the card language. `utterance_time` is when its utterance ended: the late-card cut-off counts from it |
+| page → server | `{"type": "card_shown", "id": "C3", "at": "…"}` | The card reached the screen |
+| page → server | `{"type": "card_filed", "id": "C3", "at": "…", "late": false}` | The card went into the card history: tapped away (`late: false`), or late (`late: true`), skipping the screen |
+| server → page | `{"type": "cards", "current": {…} or null, "waiting": [{…}], "history": [{…}]}` | The whole screen again, after a rejoin: the server is the source of truth for a session's cards |
 
 ## Reconnecting
 
