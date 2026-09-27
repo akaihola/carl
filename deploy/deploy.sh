@@ -29,6 +29,10 @@ fi
 
 namespace=$(scw container namespace list name=carl region=fr-par -o template='{{ .ID }}')
 container=$(scw container container list namespace-id="$namespace" name=carl region=fr-par -o template='{{ .ID }}')
-scw container container update "$container" image="$image" region=fr-par -o template='{{ .Name }}: {{ .Status }}'
-scw container container redeploy "$container" region=fr-par -o template='{{ .Name }}: {{ .Status }}'
+# A new image redeploys the container by itself; the same one needs a redeploy.
+if [ "$(scw container container get "$container" region=fr-par -o template='{{ .Image }}')" = "$image" ]; then
+    scw container container redeploy "$container" region=fr-par -o template='{{ .Name }}: {{ .Status }}'
+else
+    scw container container update "$container" image="$image" region=fr-par -o template='{{ .Name }}: {{ .Status }}'
+fi
 echo "deploying $image; check with: curl https://faktat.vempai.men/api/health"

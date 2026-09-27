@@ -107,7 +107,13 @@ async def headers(request: web.Request, handler) -> web.StreamResponse:
     if response.prepared:  # the WebSocket, already upgraded
         return response
     response.headers.setdefault("Content-Security-Policy", PAGE_CSP)
-    response.headers.setdefault("Cache-Control", "no-cache")
+    # `private`: nothing behind the gate is kept in a shared cache such as
+    # Cloudflare's, and `no-cache`: a browser revalidates, so a deploy shows
+    # at once. `no-transform`: Cloudflare injects nothing, such as its
+    # analytics beacon.
+    response.headers.setdefault("Cache-Control", "private, no-cache")
+    if "no-transform" not in response.headers["Cache-Control"]:
+        response.headers["Cache-Control"] += ", no-transform"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
     if isinstance(response, web.HTTPException):

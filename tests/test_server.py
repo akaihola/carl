@@ -12,7 +12,7 @@ async def test_health_is_open_and_not_cached(client):
     response = await client.get("/api/health")
     assert response.status == 200
     assert await response.json() == {"ok": True}
-    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["Cache-Control"] == "no-store, no-transform"
 
 
 async def test_the_page_asks_for_an_access_pass(client):
@@ -68,6 +68,16 @@ async def test_the_cookie_opens_the_page(unlocked):
     assert "<title>Carl</title>" in await response.text()
     for path in ["/static/app.js", "/static/link.js", "/static/style.css"]:
         assert (await unlocked.get(path)).status == 200, path
+
+
+async def test_nothing_behind_the_gate_is_kept_in_a_shared_cache(unlocked):
+    for path in ["/", "/static/app.js", "/static/fonts/atkinson-hyperlegible-latin-400-normal.woff2"]:
+        cache = (await unlocked.get(path)).headers["Cache-Control"]
+        assert cache == "private, no-cache, no-transform", path
+    unlocked.session.cookie_jar.clear()
+    response = await unlocked.get("/")
+    assert response.status == 401
+    assert response.headers["Cache-Control"] == "no-store, no-transform"
 
 
 async def test_a_forged_cookie_does_not(client):

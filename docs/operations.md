@@ -41,12 +41,9 @@ The container's plain environment variables are `S3_ENDPOINT`,
 `S3_REGION` and `S3_BUCKET`. Its secret ones are set only with
 `deploy/secrets.py` (below).
 
-### Status on 2026-09-27
-
-Done: the registry namespace (with a first image), the bucket and its
-rules, the IAM application with its key, and the containers namespace.
-Not done yet: the container itself, its secrets, the domain, the DNS record
-and the Worker. They are the first-time steps below.
+The container's own endpoint is
+`https://carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud`. It works too,
+behind the same access pass, but without the loading page.
 
 ## Deploying
 
@@ -62,8 +59,9 @@ the commit, and then:
 
 1. `docker build -f deploy/Dockerfile` (set `DOCKER=podman` for podman);
 2. pushes the image to `rg.fr-par.scw.cloud/carl`;
-3. `scw container container update <id> image=…` and
-   `scw container container redeploy <id>`.
+3. `scw container container update <id> image=…`, which redeploys the
+   container, or `scw container container redeploy <id>` when the image is
+   the same.
 
 It needs `docker login rg.fr-par.scw.cloud/carl -u nologin
 --password-stdin` (the password is the Scaleway secret key) and `scw` with
@@ -85,7 +83,7 @@ Change them only with:
 
 ```sh
 python3 deploy/secrets.py --check    # is every secret at hand?
-python3 deploy/secrets.py            # set them all in one update, then redeploy
+python3 deploy/secrets.py            # set them all in one update; the container redeploys
 ```
 
 It reads the gitignored `.secrets.*` files at the repo root (a variable in
@@ -112,8 +110,8 @@ What it needs, found on 2026-09-27:
 
 ## First-time setup
 
-What was run, and what is left, in order. `$NS` is the containers
-namespace's id (`scw container namespace list name=carl -o
+What was run on 2026-09-27, in order, for rebuilding it. `$NS` is the
+containers namespace's id (`scw container namespace list name=carl -o
 template='{{ .ID }}'`).
 
 1. Done: `scw registry namespace create name=carl is-public=false`.
@@ -126,7 +124,7 @@ template='{{ .ID }}'`).
    `scw iam api-key create application-id=… expires-at=2027-09-27T00:00:00Z`.
    The key is in `.secrets.bucket.env`.
 4. Done: `scw container namespace create name=carl`.
-5. To do: the container.
+5. The container.
 
    ```sh
    scw container container create namespace-id=$NS name=carl \
@@ -138,17 +136,19 @@ template='{{ .ID }}'`).
    python3 deploy/secrets.py
    ```
 
+   The first deploy fails, as it should, until `deploy/secrets.py` has set
+   the secrets: the server refuses to start without its access passes.
    Then `/api/health` answers on the container's own endpoint
    (`scw container container list namespace-id=$NS -o template='{{ .PublicEndpoint }}'`),
    and every other path asks for the access pass.
-6. To do: the address. In Cloudflare, a CNAME `faktat` to the container's
+6. The address. In Cloudflare, a CNAME `faktat` to the container's
    endpoint, **DNS only** at first. Then bind the domain on Scaleway
    (`scw container domain create container-id=… hostname=faktat.vempai.men`)
-   and wait until it is ready, since Scaleway fetches its certificate over
-   plain DNS. Then switch the record to **proxied**. The zone's SSL mode is
+   and wait until it is ready (about a minute), since Scaleway fetches its
+   certificate over plain DNS. Then switch the record to **proxied**. The zone's SSL mode is
    already "Full" (checked on 2026-09-27), as drum-transcribe's `plokkaus`
    and `dallape` need it.
-7. To do: the Worker. `npx wrangler@4 deploy` from `deploy/cloudflare/`,
+7. The Worker. `npx wrangler@4 deploy` from `deploy/cloudflare/`,
    then through the Cloudflare API:
    - `POST /zones/<zone>/workers/routes` with
      `{"pattern": "faktat.vempai.men/api/*"}` and no `script`: the more
@@ -180,6 +180,14 @@ startup the server logs its commit, the config's version and each prompt's
 version, then one line per page connecting and leaving.
 
 ## Things to know
+
+- Cloudflare stores responses with cacheable extensions (`.js`, `.css`,
+  `.woff2`) in its edge cache unless told not to, and its 4-hour browser
+  cache setting overrides `no-cache`. So everything behind the gate is sent
+  with `Cache-Control: private, no-cache, no-transform`: `private` keeps it
+  out of Cloudflare's cache, so the gate is asked every time, and
+  `no-transform` stops Cloudflare injecting its analytics beacon, which the
+  page's CSP would block anyway.
 
 - Scaleway ends every request after at most 60 minutes, a WebSocket
   included. Step 1's 2-hour connection test measures where it really cuts,

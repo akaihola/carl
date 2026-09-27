@@ -4,10 +4,10 @@ Scaleway replaces a container's whole set of secret variables on every
 update, so a secret left out of an update is deleted, and the server then
 refuses to start. This sends every secret in SECRETS together, read from the
 gitignored `.secrets.*` files at the repo root (a variable already in the
-environment wins), and refuses to send an incomplete set. It then redeploys
-the container. See docs/operations.md.
+environment wins), and refuses to send an incomplete set. The update
+redeploys the container. See docs/operations.md.
 
-    python3 deploy/secrets.py            # set them and redeploy
+    python3 deploy/secrets.py            # set them all; the container redeploys
     python3 deploy/secrets.py --check    # only check that every one is at hand
 
 Needs SCW_SECRET_KEY, the owner's Scaleway API key.
@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -56,8 +57,11 @@ def api(method: str, path: str, body: dict | None = None) -> dict:
         data=json.dumps(body).encode() if body is not None else None,
         headers={"X-Auth-Token": os.environ["SCW_SECRET_KEY"], "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"{method} {path}: HTTP {e.code}: {e.read().decode(errors='replace')[:500]}")
 
 
 def find_container() -> dict:
@@ -86,9 +90,9 @@ def main() -> int:
         sys.exit("SCW_SECRET_KEY isn't set")
     container = find_container()
     secrets = {name: values[name] for name in SECRETS}
-    api("PATCH", f"/containers/{container['id']}", {"secret_environment_variables": secrets})
-    redeployed = api("POST", f"/containers/{container['id']}/redeploy", {})
-    print(f"set {len(secrets)} secrets on {CONTAINER} and redeployed it: {redeployed['status']}")
+    # The update redeploys the container by itself.
+    updated = api("PATCH", f"/containers/{container['id']}", {"secret_environment_variables": secrets})
+    print(f"set {len(secrets)} secrets on {CONTAINER}, which is now {updated['status']}")
     return 0
 
 
