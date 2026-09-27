@@ -14,6 +14,7 @@ uv run --env-file .secrets.carl.env --env-file .secrets.bucket.env \
   --env-file .secrets.providers.env carl serve         # http://localhost:8080
 uv run carl owner list [--dev]                          # recording sessions in the bucket
 uv run carl owner tail [<id>] -f [--context] [--dev]    # the decision model's calls as they happen
+uv run carl owner tail --checks -f                      # the candidates' checks as they end
 ```
 
 - The server refuses to start without `CARL_PASSWORDS` and `TOKEN_SECRET`,
@@ -36,6 +37,15 @@ uv run carl owner tail [<id>] -f [--context] [--dev]    # the decision model's c
   the bucket for new log parts, which the server writes about every 10 s,
   so calls show up 5–15 s after they are made. `--context` adds the rest of
   the prompt's fields. Without an id it picks the newest session.
+- `carl owner tail --checks` shows each candidate's check once it has
+  ended: for each fact-finder its outcome, restatement, searches, draft
+  card, source and excerpt, whether the excerpt was found at the source,
+  and the fact-checking model's verdict; then the agreement call, how the
+  check ended (shown, silent, dropped or failed, with the band's reason
+  code) and the card as sent. A fact-finder that answers too late, or a
+  card withdrawn afterwards, follows as a line of its own. `--context`
+  adds the fact-finding prompt's fields and each fact-finder's search
+  results.
 - `carl serve --config … --prompts …` picks another config file or prompts
   folder.
 

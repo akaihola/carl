@@ -20,6 +20,7 @@ and the month's totals (section 11):
 And for watching a session as it runs (`carl.tail`):
 
     carl owner tail [<id>] [-n N] [-f] [--context] [--dev]  # the decision model's calls, formatted
+    carl owner tail --checks …                              # or the candidates' checks
 
 `generate` never overwrites a corpus file whose correction has started.
 
@@ -94,12 +95,16 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     month_ = commands.add_parser("month", parents=[where], help="the month's cost per provider and per stage")
     month_.add_argument("month", nargs="?", help="YYYY-MM, a Helsinki calendar month (default: this one)")
     tail_ = commands.add_parser("tail", parents=[where],
-                                help="the decision model's calls in a session's event log, formatted")
+                                help="the decision model's calls, or the candidates' checks, in a session's event log")
     tail_.add_argument("id", nargs="?", help="the session id, as `list` shows it (default: the newest session)")
-    tail_.add_argument("-n", type=int, default=10, metavar="N", help="show the last N calls (default: %(default)s)")
-    tail_.add_argument("-f", "--follow", action="store_true", help="then keep showing new calls until the session ends")
+    tail_.add_argument("-n", type=int, default=10, metavar="N",
+                       help="show the last N calls or checks (default: %(default)s)")
+    tail_.add_argument("-f", "--follow", action="store_true", help="then keep showing new ones until the session ends")
+    tail_.add_argument("--checks", action="store_true",
+                       help="the candidates' checks: fact-finding, fact-checking and the card, instead of decisions")
     tail_.add_argument("--context", action="store_true",
-                       help="also show the prompt's other fields: the conversation, place and time, candidates")
+                       help="also show the prompt's other fields (conversation, place and time, candidates), "
+                            "and with --checks the search results")
     owner.set_defaults(run=run)
 
 
@@ -127,8 +132,12 @@ def run(args: argparse.Namespace) -> int:
             from .tail import tail
 
             try:
-                return asyncio.run(tail(store, args.id, max(0, args.n), follow=args.follow, context=args.context))
+                return asyncio.run(tail(store, args.id, max(0, args.n), follow=args.follow, checks=args.checks,
+                                        context=args.context))
             except KeyboardInterrupt:
+                return 0
+            except BrokenPipeError:  # piped into `head` or `less`, which has quit
+                os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
                 return 0
         return asyncio.run(month_totals(store, args.month))
     except OwnerError as e:
