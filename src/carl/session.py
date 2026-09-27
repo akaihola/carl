@@ -120,6 +120,9 @@ class Session:
     tasks: set[asyncio.Task] = field(default_factory=set)
     grace: asyncio.Task | None = None
     summary: Summary | None = None
+    timezone: str = "UTC"  # the phone's, from `start`
+    place: Any = None  # the current place name, set by carl.location (step 3)
+    candidates: list[Any] = field(default_factory=list)  # set by carl.decision (step 3)
 
     @property
     def config(self) -> Config:
@@ -381,6 +384,9 @@ class Sessions:
         self.live: dict[str, Session] = {}
         self.ended: dict[str, Summary] = {}
         self.started: dict[str, str] = {}  # the page's start_id → session id
+        # Step 3 plugs in the decision call and location (their `install`).
+        self.decider: Any = None
+        self.locator: Any = None
 
     def build_info(self) -> dict[str, Any]:
         """What each recording stores at its start: the config, the prompts and the commit."""
@@ -397,7 +403,7 @@ class Sessions:
         if record and not disclosed:
             log.warning("a recording session was asked for without a confirmed disclosure: not recording")
             record = False
-        session = Session(self, new_session_id(), record=record)
+        session = Session(self, new_session_id(), record=record, timezone=str(message.get("timezone") or "UTC"))
         self.live[session.id] = session
         if start_id := str(message.get("start_id") or "")[:100]:
             self.started[start_id] = session.id
@@ -450,7 +456,13 @@ class Sessions:
         return {"month_usd": round(usd, 6), "month_eur": round(costs_module.to_eur(self.config, usd), 2)}
 
     def on_utterance(self, session: Session, heard: Heard) -> None:
-        """Step 3 sends each utterance to the decision model from here."""
+        """Each utterance goes to the decision call, which runs as its own task."""
+        if self.decider is not None:
+            session.spawn(self.decider.on_utterance(session, heard))
+
+    async def on_location(self, session: Session, message: dict[str, Any]) -> None:
+        if self.locator is not None:
+            await self.locator.on_message(session, message)
 
     async def end_all(self, reason: str) -> None:
         for session in list(self.live.values()):

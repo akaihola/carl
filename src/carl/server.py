@@ -279,6 +279,10 @@ class Page:
             summary = await session.end("end")
             await self.send(summary.message(session.id))
 
+    async def on_location(self, message: dict) -> None:
+        if self.session is not None:
+            await self.sessions.on_location(self.session, message)
+
     async def on_stop_recording(self, message: dict) -> None:
         session_id = str(message.get("session", ""))
         if await self.sessions.stop_recording(session_id):

@@ -74,6 +74,10 @@ def serve_command(args: argparse.Namespace) -> int:
 
     stt = make_speech_to_text(config.stages.speech_to_text, os.environ)
     sessions = Sessions(config, prompts, store, stt, commit())
+    from . import decision, location
+
+    decision.install(sessions, os.environ)
+    location.install(sessions, os.environ)
 
     logging.getLogger(__name__).info(
         "commit %s, config %s, prompts %s, store %s",
