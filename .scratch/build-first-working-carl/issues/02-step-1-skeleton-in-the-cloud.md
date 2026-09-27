@@ -107,3 +107,20 @@ and the cold start are known.
       is connected, this is raised with the owner before step 2. The
       fallback is a Scaleway Instance running the same image
       ([ADR 0002](../../../docs/adr/0002-scaleway-container-behind-a-cloudflare-loading-page.md)).
+
+## Comments
+
+- 2026-09-27: What the owner's cloud environment offers for this step,
+  checked while closing step 0:
+  - Docker's client and daemon are installed, but the daemon isn't running.
+    Start it with `dockerd` in the background.
+  - Docker Hub answers this environment's anonymous pulls with 429. Google's
+    mirror works: `mirror.gcr.io/library/python:3.13-slim`.
+  - Containers and build steps reach the network only with `--network host`,
+    the proxy variables (`HTTPS_PROXY`, `NO_PROXY`) and the proxy's CA
+    (`/root/.ccr/ca-bundle.crt`). With those, `pip install` works inside a
+    container.
+  - `scw` isn't installed. `npx` is, for `wrangler`.
+  - Scaleway's API, its fr-par registry and object storage, and Cloudflare's
+    API are all reachable. No Scaleway or Cloudflare credentials are set yet.
+  - akaihola/drum-transcribe is public, and sessions can add it.
