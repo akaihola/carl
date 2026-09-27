@@ -69,7 +69,7 @@ def serve_command(args: argparse.Namespace) -> int:
 
     from aiohttp import web
 
-    from .server import create_app
+    from .server import ACCESS_LOG_FORMAT, create_app
     from .session import Sessions
     from .stt import make_speech_to_text
 
@@ -94,7 +94,8 @@ def serve_command(args: argparse.Namespace) -> int:
         ", ".join(f"{p.name} {p.version}" for p in prompts.values()) or "none yet",
         type(store).__name__,
     )
-    web.run_app(create_app(config, prompts, passes, sessions), host=args.host, port=args.port, print=None)
+    web.run_app(create_app(config, prompts, passes, sessions), host=args.host, port=args.port, print=None,
+                access_log_format=ACCESS_LOG_FORMAT)
     return 0
 
 

@@ -32,6 +32,13 @@ log = logging.getLogger(__name__)
 WEB = Path(str(resources.files("carl") / "web"))
 OPEN_PATHS = {"/api/health", "/api/unlock"}
 MAX_FRAME_BYTES = 1 << 20  # an audio chunk of about 100 ms is 3.2 kB
+# aiohttp's default access-log line, plus how each request came: its Host,
+# and Cloudflare's headers. A request through Cloudflare carries CF-Ray, and
+# one the loading Worker passed on also carries CF-Worker; one with neither
+# came straight to the container's own address, past the Worker.
+ACCESS_LOG_FORMAT = (
+    '%a %t "%r" %s %b "%{Referer}i" "%{User-Agent}i" host=%{Host}i cf-ray=%{CF-Ray}i cf-worker=%{CF-Worker}i'
+)
 
 CONFIG = web.AppKey("config", Config)
 PROMPTS = web.AppKey("prompts", dict[str, Prompt])
