@@ -11,7 +11,7 @@ know. This page lists the messages as of build step 7.
 | Direction | Message | Meaning |
 | --- | --- | --- |
 | both | `{"type": "heartbeat"}` | Sent when nothing else was sent for `heartbeat_s` (3 s). Hearing nothing for `silence_s` (10 s) means the connection dropped |
-| server → page | `{"type": "hello", "config": {…}, "costs": {"month_usd": 1.23, "month_eur": 1.08}}` | First message on every connection: the config values the page needs, and the month-to-date cost for the Start screen (`null`s when unknown) |
+| server → page | `{"type": "hello", "config": {…}, "costs": {"month_usd": 1.23, "month_eur": 1.08, "last_session": {"started": "2026-09-27T18:02:11Z", "timezone": "Europe/Helsinki", "listening_s": 5400.0, "cost_eur": 0.46, "eur_per_hour": 0.31}}}` | First message on every connection: the config values the page needs, the month-to-date cost and the last session's line for the Start screen (date, length, cost and €/h). Any of these may be `null` when unknown |
 
 ## A session
 
