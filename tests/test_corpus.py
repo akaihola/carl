@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from carl import cli, corpus, owner
-from carl.corpus import CorpusError, Text
+from carl.corpus import CorpusError, Folded, Text
 from carl.owner import Kept, OwnerError
 from carl.storage import MemoryStore
 
@@ -288,10 +288,10 @@ def test_a_denied_location_says_so():
 def test_the_transcript_counts_from_start_with_labels_unique_across_streams(md):
     said = [line for line in lines(md) if line.startswith("**")]
     assert said == [
-        "**A1** · 00:00:04 · No niin, onks kaikilla juotavaa?",
-        "**A2** · 00:00:07 · Joo.",  # skipped backchannel is kept
+        "**A1** · 00:00:04 · No niin, onks kaikilla juotavaa? \\",
+        "**A2** · 00:00:07 · Joo. \\",  # skipped backchannel is kept
         "**A2** · 00:04:31 · Einstein muuten reputti matikan koulussa, se on ihan tunnettu juttu.",
-        "**A3** · 00:04:36 · Oikeesti?",
+        "**A3** · 00:04:36 · Oikeesti? \\",
         "**A1** · 00:07:12 · Who directed Casablanca, by the way?",
         "**A2** · 00:11:40 · But he did fail maths, didn't he?",
         "**A4** · 00:18:02 · Suomen pisin joki on Kemijoki.",
@@ -300,6 +300,27 @@ def test_the_transcript_counts_from_start_with_labels_unique_across_streams(md):
         "**C1** · 01:03:20 · Sibelius sävelsi kahdeksan sinfoniaa.",
         "**C2** · 01:08:20 · Mennäänkö jo?",  # its stream's clock set right after the page came back
     ]
+
+
+def test_a_run_of_lines_breaks_after_each_but_its_last(md):
+    """` \\` is Markdown's hard line break: a run shows one line each, not one paragraph."""
+    text = lines(md)
+    for i, line in enumerate(text):
+        if line.startswith("**"):
+            assert line.endswith(" \\") == (i + 1 < len(text) and text[i + 1].startswith("**")), line
+    doc = corpus.parse(md)
+    assert [s.text for s in doc.said[:2]] == ["No niin, onks kaikilla juotavaa?", "Joo."]
+    assert doc.said[3].text == "Oikeesti?"
+
+
+def test_a_line_with_no_text_still_breaks():
+    log = Log().start()
+    log.open(0.5, 1)
+    log.say(1, 1, "1", "")
+    log.say(3, 1, "2", "Hei.")
+    md = corpus.generate(log.events)
+    assert "**A1** · 00:00:01 · \\\n**A2** · 00:00:03 · Hei.\n" in md
+    assert [(s.label, s.text) for s in corpus.parse(md).said] == [("A1", ""), ("A2", "Hei.")]
 
 
 def test_markers_sit_at_the_pause_and_the_gaps(md):
@@ -323,7 +344,11 @@ def test_a_plain_card(md):
         'title: "Einstein ja matematiikka"',
         'card: "Einstein ei reputtanut matematiikkaa: hän hallitsi integraalilaskennan ennen 15 ikävuotta."',
         "source: https://fi.wikipedia.org/wiki/Albert_Einstein",
-        'restated: {A: "Einstein failed mathematics at school.", B: "Albert Einstein reputti matematiikan koulussa."}',
+        "restated:",
+        "  A: >",
+        "    Einstein failed mathematics at school.",
+        "  B: >",
+        "    Albert Einstein reputti matematiikan koulussa.",
         "verdict: {A: wrong, B: wrong, same_fact: 0.93, supported: [0.96, 0.91], verified: [page, no], "
         "reason: plain:agreed}",
         "mark:                   # deserved | wrong | nitpick | opinion | contested | already settled | not checkable",
@@ -548,7 +573,7 @@ def test_repeats_must_stay(md, log):
     repeat = "```yaml carl-candidate\n" + block(md, "repeat_of: C1") + "\n```\n"
     assert corpus.check(replace(md, repeat, ""), log.events) == [
         "the repeat of C1 is missing: its block comes after **A2** · 00:11:40"]
-    extra = replace(md, "**A3** · 00:04:36 · Oikeesti?\n", "**A3** · 00:04:36 · Oikeesti?\n\n" + repeat)
+    extra = replace(md, "**A3** · 00:04:36 · Oikeesti? \\\n", "**A3** · 00:04:36 · Oikeesti?\n\n" + repeat)
     assert any("the recording has no repeat here" in p for p in corpus.check(extra, log.events))
     nameless = replace(md, "repeat_of: C1\np: 0.81", "p: 0.81")
     assert any("neither an id nor repeat_of" in p for p in corpus.check(nameless, log.events))
@@ -557,8 +582,9 @@ def test_repeats_must_stay(md, log):
 @pytest.mark.parametrize("old, new, expected", [
     ("**A2** · 00:04:31", "**A2** · 00:04:32", "**A2** · 00:04:32 should be **A2** · 00:04:31"),
     ("**A2** · 00:04:31", "**A5** · 00:04:31", "**A5** · 00:04:31 should be **A2** · 00:04:31"),
-    ("**A3** · 00:04:36 · Oikeesti?\n", "", "the line **A3** · 00:04:36 is missing before here"),
-    ("**A3** · 00:04:36 · Oikeesti?\n", "**A3** · 00:04:36 · Oikeesti?\n**A1** · 00:05:00 · Ihan totta.\n",
+    ("**A3** · 00:04:36 · Oikeesti? \\\n", "", "the line **A3** · 00:04:36 is missing before here"),
+    ("**A3** · 00:04:36 · Oikeesti? \\\n",
+     "**A3** · 00:04:36 · Oikeesti? \\\n**A1** · 00:05:00 · Ihan totta. \\\n",
      "**A1** · 00:05:00 isn't in the recording"),
 ])
 def test_changed_times_labels_and_lines_are_rejected(md, log, old, new, expected):
@@ -718,13 +744,57 @@ kept: |-
   first
     indented
 restated: {A: "x, y", B: 'z'}
+under:     # a mapping in lines under its key
+  A: >
+    one: # two
+
+  # a comment
+  B: [x, y]
+  C:
+    deeper: 1
 empty:
 """
     assert corpus.load(text.splitlines()) == {
         "id": "C1", "mark": "already settled", "note": "it's # not a comment", "card": "Rick Blaine – Bogart",
         "long": "this note goes on over two lines", "folded": "one two\nthree", "kept": "first\n  indented",
-        "restated": {"A": "x, y", "B": "z"}, "empty": None,
+        "restated": {"A": "x, y", "B": "z"}, "under": {"A": "one: # two", "B": ["x", "y"], "C": {"deeper": 1}},
+        "empty": None,
     }
+
+
+def test_folded_prose_is_wrapped_to_fit_88_columns():
+    a = ("Suomessa informaatioympäristön vuoksi tavalliset ihmiset eivät saa mielipiteitään julki valtalehdissä "
+         "tai suurilla televisiokanavilla, ja rasistisiksi, fasistisiksi, äärioikeistolaisiksi, konservatiivisiksi "
+         "tai perussuomalaisiksi tulkitut mielipiteet estävät yliopistotyön tai Yleisradiossa toimimisen.")
+    b = "Konservatiivisten tai perussuomalaisten mielipiteiden esittäjä ei voi saada työpaikkaa yliopistosta."
+    written = corpus.yaml_lines([("restated", {"A": Folded(a), "B": Folded(b)}), ("mark", None, "ok")])
+    assert written == [
+        "restated:",
+        "  A: >",
+        "    Suomessa informaatioympäristön vuoksi tavalliset ihmiset eivät saa mielipiteitään",
+        "    julki valtalehdissä tai suurilla televisiokanavilla, ja rasistisiksi, fasistisiksi,",
+        "    äärioikeistolaisiksi, konservatiivisiksi tai perussuomalaisiksi tulkitut mielipiteet",
+        "    estävät yliopistotyön tai Yleisradiossa toimimisen.",
+        "  B: >",
+        "    Konservatiivisten tai perussuomalaisten mielipiteiden esittäjä ei voi saada",
+        "    työpaikkaa yliopistosta.",
+        "mark:                   # ok",
+    ]
+    assert max(map(len, written)) <= corpus.WIDTH
+    assert corpus.load(written) == {"restated": {"A": a, "B": b}, "mark": None}
+
+
+@pytest.mark.parametrize("prose", ["C# on # kieli: kyllä", "- dash", "> quote", "\"quoted\"", "x" * 100,
+                                   "https://fi.wikipedia.org/wiki/" + "a" * 90 + " ja muuta"])
+def test_folded_prose_reads_back_as_written(prose):
+    written = corpus.yaml_lines([("restated", {"A": Folded(prose)})])
+    assert corpus.load(written) == {"restated": {"A": prose}}
+    assert corpus.value(corpus.dump([Folded(prose)])) == [prose]  # in quotes on one line
+
+
+def test_a_restatement_that_isnt_text_is_written_as_it_is():
+    assert corpus.yaml_lines([("restated", {"A": Folded("Kuu on juustoa."), "B": 3})]) == [
+        "restated:", "  A: >", "    Kuu on juustoa.", "  B: 3"]
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -738,6 +808,9 @@ empty:
     ('card: "a" b', "line 1: unexpected"),
     ('card: "bad \\q escape"', "line 1: a string that can't be read"),
     ("v: {a b}", "line 1: a key 'a b' without a `:`"),
+    ("restated:\n    A: >\n      x\n  B: y", "line 4: indented less than the `key:` lines above it"),
+    ("restated:\n  A: x\n  A: y", "line 3: `A` a second time"),
+    ("restated:\n\n  A: [x", "line 3: a list without its `]`"),
 ])
 def test_the_subset_rejects_what_it_cant_read(text, expected):
     with pytest.raises(corpus.YamlError) as e:
@@ -992,7 +1065,7 @@ async def test_a_recording_sessions_own_log(unlocked, stt, store):
     md = corpus.generate(events)
     said = [line for line in lines(md) if line.startswith("**")]
     assert [line.split(" · ")[0] for line in said] == ["**A1**", "**A2**", "**B1**"]
-    assert said[0].endswith(" · 00:00:01 · Helsinki perustettiin vuonna 1550.")
+    assert said[0].endswith(" · 00:00:01 · Helsinki perustettiin vuonna 1550. \\")
     assert said[1].split(" · ")[1] == "00:00:04"
     assert any(line.startswith("*— paused 00:00:0") for line in lines(md))
     header = fields(md, f"session: {session_id}")
