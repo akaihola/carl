@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 01
+Blocked by: 01, 12, 13, 14, 15, 16, 17, 18, 19
 
 Build step 1 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
 The spec is the source of truth. This ticket lists what the step builds and
@@ -124,3 +124,22 @@ and the cold start are known.
   - Scaleway's API, its fr-par registry and object storage, and Cloudflare's
     API are all reachable. No Scaleway or Cloudflare credentials are set yet.
   - akaihola/drum-transcribe is public, and sessions can add it.
+- 2026-09-27: Split into sub-tickets, each small enough for one agent
+  session. This ticket is done when they are, and the connection test's
+  answer goes here.
+  - [12](12-step-1-server-and-page-shell.md): the server and page shell,
+    with the health endpoint;
+  - [13](13-step-1-access-pass-gate.md): the access-pass gate and
+    `hash-password`;
+  - [14](14-step-1-config-file-and-prompts.md): the config file and the
+    prompt loader;
+  - [15](15-step-1-websocket-heartbeat.md): the WebSocket with its
+    heartbeat;
+  - [16](16-step-1-pytest-in-github-actions.md): pytest in GitHub Actions;
+  - [17](17-step-1-container-bucket-and-secrets.md): the Dockerfile, the
+    container, the bucket, the secrets, and the operations and recovery
+    docs;
+  - [18](18-step-1-domain-and-loading-worker.md): `faktat.vempai.men` and
+    the loading Worker;
+  - [19](19-step-1-two-hour-connection-test.md): the 2-hour connection
+    test.
