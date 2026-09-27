@@ -13,6 +13,7 @@ uv run carl hash-password                               # a new access pass and 
 uv run --env-file .secrets.carl.env --env-file .secrets.bucket.env \
   --env-file .secrets.providers.env carl serve         # http://localhost:8080
 uv run carl owner list [--dev]                          # recording sessions in the bucket
+uv run carl owner tail [<id>] -f [--context] [--dev]    # the decision model's calls as they happen
 ```
 
 - The server refuses to start without `CARL_PASSWORDS` and `TOKEN_SECRET`,
@@ -29,6 +30,12 @@ uv run carl owner list [--dev]                          # recording sessions in 
   use.
 - `carl dev-send <file>` sends an audio file to a local server as if from
   the microphone.
+- `carl owner tail` prints a session's decision and settle calls from its
+  event log: the utterance, what Carl made of the answer, the answer's
+  probabilities, and the call's time, tokens and cost. `-f` keeps polling
+  the bucket for new log parts, which the server writes about every 10 s,
+  so calls show up 5–15 s after they are made. `--context` adds the rest of
+  the prompt's fields. Without an id it picks the newest session.
 - `carl serve --config … --prompts …` picks another config file or prompts
   folder.
 

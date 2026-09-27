@@ -17,6 +17,10 @@ and the month's totals (section 11):
     carl owner put <file> [--dev]                    # check, then upload over corpus/<id>.md
     carl owner month [YYYY-MM] [--dev]               # the month's costs per provider and per stage
 
+And for watching a session as it runs (`carl.tail`):
+
+    carl owner tail [<id>] [-n N] [-f] [--context] [--dev]  # the decision model's calls, formatted
+
 `generate` never overwrites a corpus file whose correction has started.
 
 The bucket key comes from the environment or the gitignored
@@ -89,6 +93,13 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     put_.add_argument("file", type=Path, help="the corrected corpus file")
     month_ = commands.add_parser("month", parents=[where], help="the month's cost per provider and per stage")
     month_.add_argument("month", nargs="?", help="YYYY-MM, a Helsinki calendar month (default: this one)")
+    tail_ = commands.add_parser("tail", parents=[where],
+                                help="the decision model's calls in a session's event log, formatted")
+    tail_.add_argument("id", nargs="?", help="the session id, as `list` shows it (default: the newest session)")
+    tail_.add_argument("-n", type=int, default=10, metavar="N", help="show the last N calls (default: %(default)s)")
+    tail_.add_argument("-f", "--follow", action="store_true", help="then keep showing new calls until the session ends")
+    tail_.add_argument("--context", action="store_true",
+                       help="also show the prompt's other fields: the conversation, place and time, candidates")
     owner.set_defaults(run=run)
 
 
@@ -112,6 +123,13 @@ def run(args: argparse.Namespace) -> int:
             return asyncio.run(check_corpus(store, args.file))
         if command == "put":
             return asyncio.run(put_corpus(store, args.file))
+        if command == "tail":
+            from .tail import tail
+
+            try:
+                return asyncio.run(tail(store, args.id, max(0, args.n), follow=args.follow, context=args.context))
+            except KeyboardInterrupt:
+                return 0
         return asyncio.run(month_totals(store, args.month))
     except OwnerError as e:
         print(f"carl owner: {e}", file=sys.stderr)
