@@ -218,6 +218,27 @@ template='{{ .ID }}'`).
 startup the server logs its commit, the config's version and each prompt's
 version, then one line per page connecting and leaving.
 
+The same logs are in the project's Cockpit, in the data source "Scaleway
+Logs", and the Scaleway secret key reads them through its Loki API (the
+data source's URL comes from
+`GET /cockpit/v1/regions/fr-par/data-sources?project_id=…`):
+
+```sh
+curl -sG -H "X-Auth-Token: $SCW_SECRET_KEY" \
+  https://7e80bd3c-d744-4807-acfb-405a598cc91f.logs.cockpit.fr-par.scw.cloud/loki/api/v1/query_range \
+  --data-urlencode 'query={resource_name="carl2255fb5c-carl"} |= "aiohttp.access"' \
+  --data-urlencode "start=$(date -d '-1 day' +%s)000000000" --data-urlencode limit=5000
+```
+
+Each request's line is aiohttp's usual one (the address is always
+Scaleway's proxy, 127.0.0.1) with how the request came at the end:
+
+- `cf-worker=vempai.men`: the Worker passed it on;
+- a `cf-ray=` but `cf-worker=-`: through Cloudflare without the Worker,
+  as on `/api/ws`;
+- `cf-ray=-`: straight to the container's own address, which the Worker
+  can't stop. `|= "cf-ray=-"` in the query shows only these.
+
 ## Things to know
 
 - Cloudflare stores responses with cacheable extensions (`.js`, `.css`,

@@ -1,9 +1,13 @@
 import asyncio
+import logging
 import re
 import time
 
+from aiohttp.test_utils import TestServer
+
 from carl import gate
-from carl.server import WEB
+from carl.server import ACCESS_LOG_FORMAT, WEB, create_app
+from carl.session import Sessions
 
 from .conftest import PASSWORD
 
@@ -13,6 +17,20 @@ async def test_health_is_open_and_not_cached(client):
     assert response.status == 200
     assert await response.json() == {"ok": True}
     assert response.headers["Cache-Control"] == "no-store, no-transform"
+
+
+async def test_the_access_log_tells_how_a_request_came(aiohttp_client, app_config, passes, store, stt, caplog):
+    sessions = Sessions(app_config, {}, store, stt, "test")
+    server = TestServer(create_app(app_config, {}, passes, sessions))
+    await server.start_server(access_log_format=ACCESS_LOG_FORMAT)  # as `carl serve` runs it
+    client = await aiohttp_client(server)
+    caplog.set_level(logging.INFO, "aiohttp.access")
+    through_worker = {"Host": "faktat.vempai.men", "CF-Ray": "a41c6b1a9bbe0d60-HEL", "CF-Worker": "vempai.men"}
+    await client.get("/api/health", headers=through_worker | {"User-Agent": "the Worker"})
+    await client.get("/api/health", headers={"Host": "carl.example", "User-Agent": "straight in"})
+    lines = [r.getMessage() for r in caplog.records if r.name == "aiohttp.access"]
+    assert lines[0].endswith('"the Worker" host=faktat.vempai.men cf-ray=a41c6b1a9bbe0d60-HEL cf-worker=vempai.men')
+    assert lines[1].endswith('"straight in" host=carl.example cf-ray=- cf-worker=-')
 
 
 async def test_the_page_asks_for_an_access_pass(client):
