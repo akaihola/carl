@@ -121,14 +121,14 @@ Cards live at the table.
   ahead of ticket 11; fact-finding isn't deployed until the owner has read
   the terms.
 - 2026-09-27: [Ticket 11](11-read-openai-and-perplexity-terms.md#answer) is
-  resolved: the terms allow the recording and the test corpus. It raises
-  one decision to settle before the first dinner: Gemini's terms, which reach
-  fact-finder B through Perplexity, bar apps "likely to be accessed by
-  individuals under the age of 18", and children may be at the table.
+  resolved: the terms allow the recording and the test corpus. Gemini's
+  terms, which reach fact-finder B through Perplexity, bar apps "likely to be
+  accessed by individuals under the age of 18". The owner ruled that
+  children who overhear the table are not users of Carl, so nothing blocks
+  deploying fact-finding.
 - 2026-09-27: Sub-tickets 30–33 are resolved, CI passes on every push, and
   the step is deployed on `faktat.vempai.men` (image `558c6b7`, with every
   later step's code). The example cases ran by hand: fact-finding 6 of 6
   ([ticket 30](30-step-4-fact-finders.md)) and fact-checking 8 of 8
   ([ticket 32](32-step-4-candidate-checks.md)). What's left is the owner's
-  phone session with cards shown live, after settling the Gemini under-18
-  question above.
+  phone session with cards shown live.
