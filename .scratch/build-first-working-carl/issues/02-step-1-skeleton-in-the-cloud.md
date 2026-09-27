@@ -95,18 +95,68 @@ and the cold start are known.
 
 ## Done when
 
-- [ ] pytest passes in GitHub Actions on push to `main`: the access-pass
+- [x] pytest passes in GitHub Actions on push to `main`: the access-pass
       checks, the cookie, the prompt loader's placeholder check and the
       config loading, with no live provider calls.
 - [ ] Deployed, and `faktat.vempai.men` opened on the phone behind an access
       pass, with the loading page seen on a cold start.
-- [ ] The 2-hour connection test is run and its results are written under an
+- [x] The 2-hour connection test is run and its results are written under an
       `## Answer` heading here: the real cut, CPU throttling with no page
       connected, and the cold start time.
-- [ ] If the handover looks unworkable, or the CPU is throttled while no page
+- [x] If the handover looks unworkable, or the CPU is throttled while no page
       is connected, this is raised with the owner before step 2. The
       fallback is a Scaleway Instance running the same image
       ([ADR 0002](../../../docs/adr/0002-scaleway-container-behind-a-cloudflare-loading-page.md)).
+
+## Answer
+
+The 2-hour connection test ran on 2026-09-27 from the owner's cloud
+environment, 12:39–15:18 UTC, with
+[`connection_test.py`](../connection-test/connection_test.py) holding a
+WebSocket to `wss://faktat.vempai.men/api/ws` through Cloudflare's proxy,
+sending the page's heartbeat and reconnecting after every close.
+
+**The real cut is exactly 60 minutes**, as the spec assumed. A WebSocket held
+with nothing but heartbeats from 14:18:55 was cut at 15:18:57: the server
+logged the disconnect at 3600 s, the client saw code 1006 at 3602 s, and it
+reconnected in 1.2 s. The cut counts from the request's start, not from
+idleness. The page's handover at `handover_s` (50 minutes) comes 10 minutes
+before it, so the handover design stands.
+
+**The CPU is not throttled while no page is connected.** A probe on the
+server ran a 1 ms task 10 times a second and reported each tick's lateness
+and work time. With the page connected, then with the page gone for 90 s
+and for 150 s (longer than the 2-minute reconnect grace):
+
+| Probe | Page | Ticks per s | Work median / p95 | Late median / p95 / max |
+| --- | --- | --- | --- | --- |
+| connected, 60 s | connected | 10.0 | 0.80 / 1.73 ms | 1.8 / 3.3 / 6.6 ms |
+| no page for 90 s | gone | 10.0 | 0.80 / 1.70 ms | 1.8 / 4.0 / 10.8 ms |
+| no page for 150 s | gone | 10.0 | 0.81 / 2.13 ms | 2.0 / 5.0 / 10.9 ms |
+
+No other request reached the container in those windows, so nothing else
+kept it awake. Every expected tick came.
+
+**A cold start takes about 5 s** from the first request until `/api/health`
+answers. The live container couldn't go cold during the test, since the
+owner's open tab and a scanner kept it awake, so it was measured on a
+throwaway copy of the container with the same settings and the step-1
+image, deleted afterwards: 5.3 s and 4.9 s. Of that, Scaleway starting the
+instance took about 4.2 s and Carl's own start about 1.0 s. The current
+image, with every step's code, takes about 2.1 s for Carl's part.
+
+**One unplanned drop.** At 13:17 a connection closed after 297 s with no
+cut due: the server heard nothing from the client for its 10 s silence
+limit, although the client was sending heartbeats. It reconnected in 0.8 s.
+It didn't recur in the rest of the run, and it was most likely
+this environment's proxy. The connections over the run were: 370 s (closed
+by the test for a probe), 297 s (the drop), 3451 s (closed by the test) and
+2838 s (closed by the test at the end); the separate hold took the full
+3602 s to the cut.
+
+Nothing needs raising with the owner before step 2: the cut is where the
+spec put it, and the CPU keeps its pace with no page connected, so the
+Scaleway Instance fallback isn't needed.
 
 ## Comments
 

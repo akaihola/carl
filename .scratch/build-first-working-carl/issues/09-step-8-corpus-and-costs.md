@@ -178,3 +178,13 @@ from its summary (date from Start, `listening_s`, `cost_eur`, no €/h) until
 the next hello brings the server's line; a summary's own `last_session`
 would win if the server adds one. Checked with Playwright against a mock
 at 900x420, 640x360, 420x900 and 360x740.
+
+## Comments
+
+- 2026-09-27: Built, CI passes on every push, and deployed on
+  `faktat.vempai.men` (image `558c6b7`). A smoke session through the
+  deployed server got its generated `corpus/<id>.md`, which `check`
+  passed, and was then deleted with `carl owner delete`. No recordings are
+  kept now. What's left is the owner's: correcting one corpus file and
+  putting it back through `check`, and a phone session that shows the cost
+  summary and the last-session line.

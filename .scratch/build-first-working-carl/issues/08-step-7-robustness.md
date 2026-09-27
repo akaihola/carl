@@ -73,7 +73,7 @@ session. Split it into further tickets in this folder before starting.
 
 ## Done when
 
-- [ ] pytest passes in GitHub Actions on push to `main`, with fake adapters
+- [x] pytest passes in GitHub Actions on push to `main`, with fake adapters
       and no live provider calls: the "Can't hear" and "Can't check" rules
       and their thresholds, failure-log entries and outages, resuming from
       saved state, and the Soniox backoff.
@@ -91,3 +91,8 @@ session. Split it into further tickets in this folder before starting.
   [35](35-step-7-page-robustness.md) the page's indicator, buffer and
   handover, and [36](36-step-7-resume-from-saved-state.md) resuming after a
   restart.
+- 2026-09-27: Sub-tickets 34–36 are resolved, CI passes on every push, and
+  the step is deployed on `faktat.vempai.men` (image `558c6b7`, with every
+  later step's code). What's left is the owner's: a phone session of more
+  than an hour, so the handover runs, and trying a dropped connection, a
+  Pause and a server restart by hand.

@@ -96,7 +96,7 @@ Dinners recorded, with no checks yet.
 
 ## Done when
 
-- [ ] pytest passes in GitHub Actions on push to `main`, with fake adapters
+- [x] pytest passes in GitHub Actions on push to `main`, with fake adapters
       and no live provider calls: utterance splitting and the
       speech-to-text cost maths.
 - [ ] Deployed and used for one recording session on the phone, at a real
@@ -120,3 +120,10 @@ Dinners recorded, with no checks yet.
   [25](25-step-2-owner-script.md) the owner script and
   [26](26-step-2-dev-file-source.md) the dev file source. The WebSocket
   messages are in [`docs/websocket.md`](../../../docs/websocket.md).
+- 2026-09-27: Sub-tickets 20–26 are resolved, CI passes on every push, and
+  the step is deployed on `faktat.vempai.men` (image `558c6b7`, with every
+  later step's code). Dress rehearsals from the owner's cloud environment
+  played recorded speech into a local server and into the deployed one,
+  and `carl owner` exported, generated and deleted those recordings. What's
+  left is the owner's: a recording session on the phone, its `export` and
+  `delete`, the Android 2-hour check and the Soniox note.

@@ -91,11 +91,11 @@ Dinners that record what Carl would have checked.
 
 ## Done when
 
-- [ ] pytest passes in GitHub Actions on push to `main`, with fake adapters
+- [x] pytest passes in GitHub Actions on push to `main`, with fake adapters
       and no live provider calls: the backchannel skip, the repeat and
       candidate thresholds, card language, the location accuracy cuts and
       the decision model's cost maths.
-- [ ] The decision prompt's example cases have been run by hand against the
+- [x] The decision prompt's example cases have been run by hand against the
       configured model.
 - [ ] Deployed and used for one recording session on the phone, at a real
       dinner or with a Finnish radio talk show playing beside it. Its event
@@ -107,3 +107,8 @@ Dinners that record what Carl would have checked.
   [27](27-step-3-typed-answers-and-model-calls.md) typed answers and model
   calls, [28](28-step-3-decision-call.md) the decision call and
   [29](29-step-3-location.md) location.
+- 2026-09-27: Sub-tickets 27–29 are resolved, CI passes on every push, and
+  the step is deployed on `faktat.vempai.men` (image `558c6b7`, with every
+  later step's code). The example cases ran by hand: 16 of 16 as expected
+  ([ticket 28](28-step-3-decision-call.md)). What's left is the owner's
+  phone session.

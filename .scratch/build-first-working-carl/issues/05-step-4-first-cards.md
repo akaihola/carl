@@ -101,11 +101,11 @@ Cards live at the table.
 
 ## Done when
 
-- [ ] pytest passes in GitHub Actions on push to `main`, with fake adapters
+- [x] pytest passes in GitHub Actions on push to `main`, with fake adapters
       and no live provider calls: the hedged band, the blocklist's suffix
       matching, excerpt matching, the late-card cut-off and the fact-finding
       and fact-checking cost maths.
-- [ ] The new prompts' example cases have been run by hand against the
+- [x] The new prompts' example cases have been run by hand against the
       configured models.
 - [ ] Deployed and used for one session on the phone, at a real dinner or
       with a Finnish radio talk show playing beside it, with cards shown
@@ -125,3 +125,10 @@ Cards live at the table.
   one decision to settle before the first dinner: Gemini's terms, which reach
   fact-finder B through Perplexity, bar apps "likely to be accessed by
   individuals under the age of 18", and children may be at the table.
+- 2026-09-27: Sub-tickets 30–33 are resolved, CI passes on every push, and
+  the step is deployed on `faktat.vempai.men` (image `558c6b7`, with every
+  later step's code). The example cases ran by hand: fact-finding 6 of 6
+  ([ticket 30](30-step-4-fact-finders.md)) and fact-checking 8 of 8
+  ([ticket 32](32-step-4-candidate-checks.md)). What's left is the owner's
+  phone session with cards shown live, after settling the Gemini under-18
+  question above.

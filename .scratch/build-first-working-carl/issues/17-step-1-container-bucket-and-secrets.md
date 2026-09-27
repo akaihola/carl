@@ -1,7 +1,7 @@
 # Step 1: Container, bucket and secrets
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 12, 13, 14, 15
 
 Part of [step 1](02-step-1-skeleton-in-the-cloud.md). The
@@ -39,7 +39,7 @@ It needs the Scaleway credentials (`SCW_*`).
 
 ## Done when
 
-- [ ] The container runs the image and answers `/api/health` on its
+- [x] The container runs the image and answers `/api/health` on its
       Scaleway endpoint, behind the access pass.
 - [x] The bucket exists with its three lifecycle rules and no versioning,
       and the scoped key can reach it.
@@ -82,3 +82,11 @@ It needs the Scaleway credentials (`SCW_*`).
     refused `scw container container create`, so the session stopped
     before it and left the decision to the owner. The command is step 5
     of the first-time setup in `docs/operations.md`.
+- 2026-09-27: The owner approved creating the container, and it is done:
+  the container `carl` in the namespace `carl` (scaled to zero, max scale
+  1, 1 GB and 560 mvCPU, timeout 3600 s), with all eight secrets set in
+  one update by `deploy/secrets.py`: `CARL_PASSWORDS`, `TOKEN_SECRET`, the
+  bucket key and the four provider keys. It answers `/api/health` on its
+  Scaleway endpoint, and everything else there sits behind the access
+  pass. `deploy/deploy.sh` has deployed each step since; the running image
+  is `rg.fr-par.scw.cloud/carl/carl:558c6b7`.
