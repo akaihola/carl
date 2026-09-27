@@ -149,6 +149,7 @@ class Summary:
     recording: Literal["kept", "stopped", "none"]
     cards: int | None = None
     month_eur: float | None = None
+    last_session: dict[str, Any] | None = None  # the Start screen's new line, as in hello
 
     def message(self, session_id: str) -> dict[str, Any]:
         return {"type": "ended", "session": session_id, "summary": asdict(self)}
@@ -472,6 +473,7 @@ class Session:
                                round(costs_module.to_eur(self.config, self.cost_usd), 6), recording, cards, month)
         await self.write_costs(ended=ended_at)
         await self.sessions.costs.set_last_session(self.cost_summary(ended_at))
+        self.summary.last_session = await self.sessions.last_session()
         log.info("session %s ended (%s) after %.0f s listening", self.id, reason, self.listening_s)
         self.sessions.finished(self)
         return self.summary

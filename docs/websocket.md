@@ -23,7 +23,7 @@ know. This page lists the messages as of build step 7.
 | server → page | `{"type": "speech"}` | Speech-to-text is hearing words, at most every 500 ms: the listening indicator's dot pulses |
 | page → server | `{"type": "pause"}` / `{"type": "resume"}` | Pause taps. The page stops the microphone track on pause and opens it again on resume |
 | page → server | `{"type": "end"}` | End, confirmed in the top bar, or the page being hidden for good (`pagehide`) |
-| server → page | `{"type": "ended", "session": "<id>", "summary": {"listening_s": 5400.0, "cost_usd": 0.18, "cost_eur": 0.16, "recording": "kept", "cards": 4, "month_eur": 1.24}}` | The session is over. `recording` is `kept`, `stopped` or `none`. `cards` counts the cards sent to the page and not withdrawn, `null` when Carl ran with no checks |
+| server → page | `{"type": "ended", "session": "<id>", "summary": {"listening_s": 5400.0, "cost_usd": 0.18, "cost_eur": 0.16, "recording": "kept", "cards": 4, "month_eur": 1.24, "last_session": {…}}}` | The session is over. `recording` is `kept`, `stopped` or `none`. `cards` counts the cards sent to the page and not withdrawn, `null` when Carl ran with no checks. `last_session` is the Start screen's new line, as `hello` gives it |
 
 `pause`, `resume` and `end` carry no session id: they act on the session
 this connection started or rejoined. After a reconnect the page sends

@@ -193,3 +193,13 @@ async def test_the_last_sessions_line_has_its_rate_per_hour(store, config):
     rate = config.currency.ecb_usd_per_eur
     assert last == {"started": "2026-09-27T18:02:11.000Z", "timezone": "Europe/Helsinki", "listening_s": 5400.0,
                     "cost_eur": round(0.53 / rate, 4), "eur_per_hour": round(0.53 / rate / 1.5, 4)}
+
+
+async def test_the_ended_summary_carries_the_start_screens_new_line(unlocked, stt):
+    from .test_session import connect, receive, start
+
+    ws = await connect(unlocked)
+    await start(ws, record=False)
+    await ws.send_json({"type": "end"})
+    last = (await receive(ws, "ended"))["summary"]["last_session"]
+    assert last is not None and {"started", "timezone", "listening_s", "cost_eur"} <= set(last)
