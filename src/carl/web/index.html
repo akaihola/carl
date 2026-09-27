@@ -14,12 +14,18 @@
 <main>
 
 <!-- The Start screen (spec section 8): Start on the left in landscape, above
-     everything else in portrait. The Location switch comes with step 3. -->
+     everything else in portrait. The Location switch is on the first time
+     and then remembered on the phone. The place names come from
+     OpenStreetMap, whose Nominatim usage policy asks for its credit. -->
 <section id="start" class="screen start" aria-label="Start">
   <div class="go"><button id="start-button" class="big-start" disabled>Start</button></div>
   <div class="side">
-    <button id="record" class="switch" role="switch" aria-checked="false">
+    <button id="record" class="switch rec" role="switch" aria-checked="false">
       <span>Record this session<small>A test: read the disclosure to the table first</small></span>
+      <span class="knob" aria-hidden="true"></span>
+    </button>
+    <button id="location" class="switch" role="switch" aria-checked="true">
+      <span>Location<small>Place names © OpenStreetMap contributors</small></span>
       <span class="knob" aria-hidden="true"></span>
     </button>
     <p id="month" class="cost" hidden>This month <b id="month-eur"></b></p>

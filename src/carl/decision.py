@@ -26,11 +26,10 @@ import logging
 import string
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any, Literal
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .language import CardLanguage, card_language
+from .location import date_time
 from .models import CallRecord, ModelError, Question, TypedAnswer, TypedModel, http_session, make_typed_model
 from .models.questions import TypedPrompt
 from .session import Heard, Marker, Session, Sessions
@@ -113,17 +112,6 @@ def context(before: Sequence[Heard | Marker], heard: Heard, most: int, window_s:
     while picked and isinstance(picked[-1], Marker):
         picked.pop()
     return picked[::-1]
-
-
-def date_time(timezone: str, when: datetime | None = None) -> str:
-    """The local date, time and timezone: `Sunday 27 September 2026, 21:04
-    (Europe/Helsinki)`. A timezone Carl doesn't know is taken as UTC."""
-    try:
-        zone = ZoneInfo(timezone)
-    except (ValueError, ZoneInfoNotFoundError):
-        zone, timezone = ZoneInfo("UTC"), "UTC"
-    now = (when or datetime.now(UTC)).astimezone(zone)
-    return f"{now:%A} {now.day} {now:%B %Y, %H:%M} ({timezone})"
 
 
 def fields(utterance: str, conversation: Sequence[str], place_and_time: str, earlier: Sequence[str]) -> dict[str, str]:

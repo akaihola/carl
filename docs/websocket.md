@@ -4,7 +4,7 @@ One WebSocket at `/api/ws`, behind the access pass (First working Carl spec,
 [One WebSocket](../.scratch/first-working-carl/spec.md#one-websocket)).
 Binary frames carry audio from the page. JSON text frames carry everything
 else, each an object with a `type`. Either side ignores a `type` it doesn't
-know. This page lists the messages as of build step 2.
+know. This page lists the messages as of build step 3.
 
 ## Always
 
@@ -45,3 +45,28 @@ page's connection drops, with the speech-to-text stream kept open.
 | --- | --- | --- |
 | page → server | `{"type": "stop_recording", "session": "<id>"}` | "Stop recording?" confirmed. The page keeps the stop in local storage until the server confirms it, and sends it again on every connection, even after the session ended |
 | server → page | `{"type": "recording_stopped", "session": "<id>"}` | Everything recorded for the session is deleted and nothing more will be. The session carries on as a normal session. Every stop with a well-formed session id is confirmed, even one for a session the server no longer knows |
+
+## Location
+
+The Location switch on the Start screen (on the first time Carl is opened,
+then remembered on the phone) is fixed at Start: `start` carries
+`"location": true` or `false`, and a recording's start event keeps it. With
+it off, the page never asks for location and sends none of these. With it
+on, the page runs `watchPosition` while the session is listening, and stops
+it on Pause and at End (First working Carl spec,
+[Location](../.scratch/first-working-carl/spec.md#12-location)).
+
+| Direction | Message | Meaning |
+| --- | --- | --- |
+| page → server | `{"type": "location", "fix": {"lat": 60.1841, "lon": 24.9497, "accuracy_m": 20, "time": "2026-09-27T18:04:00.000Z"}}` | A raw fix: degrees, the accuracy radius in metres, and when the phone took it. The session's first fix, then another only when the phone has moved more than `new_fix_distance_m` (500 m) from the last fix sent, or when the accuracy has moved up a level. Sent only once the server has confirmed the session; one taken while the connection is down waits for the rejoin |
+| page → server | `{"type": "location", "denied": true}` | The phone refused location. Sent once, and the page doesn't ask again in that session |
+
+The accuracy levels are the server's cuts, from the hello's
+`config.location`: worse than `no_location_accuracy_m` (20 km) is no
+location, worse than `town_only_accuracy_m` (1 km) is the town only, and
+anything better is the full place name.
+
+The server doesn't answer these. It turns fixes into a place name with
+Nominatim (`src/carl/location.py`), and stages get only the place name and
+the local date, time and timezone. Coordinates never go to any model: they
+stay in server memory until End, and in a recording session's event log.

@@ -93,13 +93,15 @@ button:focus-visible { outline: 3px solid var(--soft); outline-offset: 2px; }
   border: 0; border-block: 1px solid var(--line); background: transparent;
   padding: 14px 0; font-size: 21px; text-align: left;
 }
+.switch + .switch { border-top: 0; margin-top: -16px; }  /* one line between two switches */
 .switch small { display: block; color: var(--muted); font-size: 15px; }
 .knob { position: relative; flex: none; width: 58px; height: 34px; border-radius: 99px; background: #3a4452; transition: background .15s; }
 .knob::after {
   content: ""; position: absolute; top: 4px; left: 4px; width: 26px; height: 26px;
   border-radius: 50%; background: #c9d1dc; transition: left .15s;
 }
-.switch[aria-checked="true"] .knob { background: var(--rec); }
+.switch[aria-checked="true"] .knob { background: var(--ok); }
+.switch.rec[aria-checked="true"] .knob { background: var(--rec); }
 .switch[aria-checked="true"] .knob::after { left: 28px; background: #fff; }
 .cost { color: var(--muted); font-size: 19px; font-variant-numeric: tabular-nums; }
 .cost b { color: var(--ink); }

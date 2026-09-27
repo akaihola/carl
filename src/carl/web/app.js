@@ -1,19 +1,21 @@
 // Carl's page (spec section 8): the Start screen, the recording disclosure,
 // the session screen's top bar and the "Session ended" summary. The server
-// holds the session: the page opens the microphone, sends the taps and shows
-// what the server says. The messages are in docs/websocket.md.
+// holds the session: the page opens the microphone and the location watch,
+// sends the taps and shows what the server says. The messages are in
+// docs/websocket.md.
 
+import {Geo} from "./geo.js";
 import {Link} from "./link.js";
 import {Mic} from "./mic.js";
 
-// The disclosure, word for word (spec section 9, The disclosure text). Until
-// step 3 there is no location, so the location clause (" sekä puhelimen
-// sijainnin" / " and the phone's location") is left out, as with Location off.
-const DISCLOSURE_FI = "Tämä on testi. Carl tallentaa keskustelun äänen ja tekstin. Ääni ja raakalokit poistuvat 6 kuukauden kuluttua; korjattu teksti ilman nimiä säilyy siihen asti, kunnes poistan sen. Vain minä ja testattavat tekoälypalvelut käsittelevät niitä. Kuka tahansa voi pyytää lopettamaan tallennuksen.";
-const DISCLOSURE_EN = "This is a test. Carl records the conversation's audio and text. Audio and raw logs are deleted after 6 months; the corrected text, without names, stays until I delete it. Only I and the AI services being tested handle them. Anyone can ask to stop the recording.";
+// The disclosure, word for word (spec section 9, The disclosure text). With
+// Location off, the location clause is left out.
+const disclosureFi = (withLocation) => `Tämä on testi. Carl tallentaa keskustelun äänen ja tekstin${withLocation ? " sekä puhelimen sijainnin" : ""}. Ääni ja raakalokit poistuvat 6 kuukauden kuluttua; korjattu teksti ilman nimiä säilyy siihen asti, kunnes poistan sen. Vain minä ja testattavat tekoälypalvelut käsittelevät niitä. Kuka tahansa voi pyytää lopettamaan tallennuksen.`;
+const disclosureEn = (withLocation) => `This is a test. Carl records the conversation's audio and text${withLocation ? " and the phone's location" : ""}. Audio and raw logs are deleted after 6 months; the corrected text, without names, stays until I delete it. Only I and the AI services being tested handle them. Anyone can ask to stop the recording.`;
 
 const PULSE_MS = 1500;  // the dot pulses this long after each `speech`
 const STOPS_KEY = "carl.pendingStops";  // stops the server hasn't confirmed yet
+const LOCATION_KEY = "carl.location";  // the Location switch, "on" or "off"
 const INDICATOR = {
   starting: "Starting…",
   listening: "Listening",
@@ -25,9 +27,15 @@ const RECORDING = {kept: "Kept", stopped: "Stopped and deleted"};
 const $ = (id) => document.getElementById(id);
 const link = new Link(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/ws`);
 const mic = new Mic();
+// Location messages go only to a session the server has confirmed.
+const geo = new Geo((message) => {
+  const s = session;
+  return !!s && !s.over && !!s.id && !s.rejoining && link.send(message);
+}, () => link.config.location);
 
 let screen = "start";  // start, disclosure, session or ended
 let recordOn = false;  // off by default every time, never remembered
+let locationOn = savedLocation();  // on the first time, then remembered on this phone
 let monthEur = null;
 let everConnected = false;
 let micRefused = false;
@@ -39,12 +47,14 @@ let session = null;
 // ---- the taps ----
 
 $("record").onclick = () => { recordOn = !recordOn; render(); };
+$("location").onclick = () => { locationOn = !locationOn; saveLocation(); render(); };
 $("start-button").onclick = () => {
   if (recordOn) { screen = "disclosure"; render(); } else begin(false, null);
 };
 $("back").onclick = () => { screen = "start"; render(); };
-$("agree").onclick = () => begin(true, {
-  text: `${DISCLOSURE_FI}\n\n${DISCLOSURE_EN}`, confirmed_at: new Date().toISOString(),
+$("agree").onclick = () => begin(true, {  // exactly the text shown
+  text: `${$("disclosure-fi").textContent}\n\n${$("disclosure-en").textContent}`,
+  confirmed_at: new Date().toISOString(),
 });
 $("no-record").onclick = () => begin(false, null);
 $("pause").onclick = () => togglePause();
@@ -57,19 +67,17 @@ $("stop-yes").onclick = () => { $("stop").close(); stopRecording(); };
 $("stop").onclick = (e) => { if (e.target === $("stop")) $("stop").close(); };  // the backdrop
 $("to-start").onclick = () => { session = null; recordOn = false; screen = "start"; render(); };
 
-$("disclosure-fi").textContent = DISCLOSURE_FI;
-$("disclosure-en").textContent = DISCLOSURE_EN;
-
 // Start, from the Start screen or the disclosure. The microphone opens first,
 // straight from the tap, and `start` goes once it is open.
 async function begin(record, disclosure) {
   if (session && !session.over) return;
   const s = session = {
-    id: null, start: null, state: null, recording: false, record,
+    id: null, start: null, state: null, recording: false, record, location: locationOn,
     paused: false, stopped: false, opening: true, rejoining: false,
     over: false, summary: null,
   };
   const opening = mic.open();  // before any await, while the tap still counts
+  geo.reset();
   micRefused = endAsk = false;
   screen = "session";
   holdWakeLock();
@@ -91,11 +99,12 @@ async function begin(record, disclosure) {
   }
   if (s !== session || s.over) return;
   s.start = {
-    type: "start", record, disclosure, mic: settings,
+    type: "start", record, disclosure, mic: settings, location: s.location,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     start_id: crypto.randomUUID(),  // a resent start carries on the same session
   };
   link.send(s.start);
+  if (s.location) geo.start();  // after the microphone, so the phone asks one thing at a time
   render();
 }
 
@@ -105,6 +114,7 @@ async function togglePause() {
   if (!s.paused) {
     s.paused = true;
     mic.close();
+    geo.stop();
     link.send({type: "pause"});
     render();
     return;
@@ -123,6 +133,7 @@ async function togglePause() {
   if (s !== session || s.over) return;
   s.paused = false;
   link.send({type: "resume"});
+  if (s.location) geo.start();
   render();
 }
 
@@ -146,6 +157,7 @@ function end() {
 
 function release() {
   mic.shutdown();
+  geo.stop();
   dropWakeLock();
   if ($("stop").open) $("stop").close();
 }
@@ -159,6 +171,14 @@ function stopRecording() {
   savePendingStops([...new Set([...pendingStops(), s.id])]);
   link.send({type: "stop_recording", session: s.id});
   render();
+}
+
+function savedLocation() {
+  try { return localStorage.getItem(LOCATION_KEY) !== "off"; } catch { return true; }
+}
+
+function saveLocation() {
+  try { localStorage.setItem(LOCATION_KEY, locationOn ? "on" : "off"); } catch { /* not kept past this page */ }
 }
 
 function pendingStops() {
@@ -222,6 +242,7 @@ function onSession(m) {
     if (s.paused && m.state === "listening") link.send({type: "pause"});
     else if (!s.paused && m.state === "paused" && mic.live) link.send({type: "resume"});
   }
+  geo.flush();  // a fix or denial that came while the session wasn't confirmed
   render();
 }
 
@@ -289,6 +310,9 @@ function render() {
   $("start-button").disabled = !connected;
   $("agree").disabled = $("no-record").disabled = !connected;
   $("record").setAttribute("aria-checked", String(recordOn));
+  $("location").setAttribute("aria-checked", String(locationOn));
+  $("disclosure-fi").textContent = disclosureFi(locationOn);
+  $("disclosure-en").textContent = disclosureEn(locationOn);
   $("month").hidden = monthEur == null;
   if (monthEur != null) $("month-eur").textContent = `≈ ${euros(monthEur)}`;
   const note = !connected ? down : micRefused ? "Carl couldn't open the microphone." : "";

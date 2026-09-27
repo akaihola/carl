@@ -24,6 +24,9 @@ uv run carl owner list [--dev]                          # recording sessions in 
   `.secrets.bucket.env` they write to the gitignored folder `.carl-store/`
   instead. `.secrets.providers.env` holds the provider keys, such as
   `SONIOX_API_KEY`, which the server needs to start.
+- Reverse geocoding uses the public Nominatim server. `CARL_NOMINATIM_URL`
+  points Carl at another one, as Nominatim's usage policy asks for heavier
+  use.
 - `carl dev-send <file>` sends an audio file to a local server as if from
   the microphone.
 - `carl serve --config … --prompts …` picks another config file or prompts
