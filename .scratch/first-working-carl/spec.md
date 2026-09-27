@@ -176,17 +176,20 @@ reuses its pieces. See its `docs/operations.md`, `docs/recovery.md`,
   `vempai.men` zone, proxied, pointing at the container endpoint. The zone's
   SSL setting is "Full", and Scaleway keeps its own certificate for the
   domain.
-- **A loading page sits in front.**
+- **A Cloudflare Worker sits in front,** with a loading page.
   - It is a copy of drum-transcribe's Cloudflare Worker
     (`deploy/cloudflare/worker.js`, free plan) on the route
     `faktat.vempai.men/*`. If the Worker fails, requests go straight through.
+  - It answers every request without an access-pass cookie itself, as the
+    gate would, so the scanners that probe the address don't wake the
+    container. Only the pass form's POST and requests with the cookie reach
+    it.
   - When the container doesn't answer a page load within 2.5 s, the Worker
     shows a "Starting up…" page with a seconds counter. It polls a cheap
     endpoint with no side effects and reloads once the container is up.
-  - A second route, `faktat.vempai.men/api/*`, has no Worker. The session
-    WebSocket, the health poll and all API calls go straight through
-    Cloudflare's proxy.
-  - To switch the loading page off, set the DNS record back to "DNS only".
+  - A second route, `faktat.vempai.men/api/ws`, has no Worker. The session
+    WebSocket goes straight through Cloudflare's proxy.
+  - To switch the Worker off, set the DNS record back to "DNS only".
 - **Scaleway ends every request after 60 minutes.** A WebSocket is taken to be
   a request too. At about 50 minutes the page therefore opens a second
   WebSocket, moves the audio onto it and closes the old one. Nothing is lost,
@@ -199,7 +202,9 @@ reuses its pieces. See its `docs/operations.md`, `docs/recovery.md`,
 ### Access passes
 
 - The whole site is behind an **access pass**: page, WebSocket, API and admin
-  routes. Only the health endpoint and the loading page are open.
+  routes. Only the health endpoint and the loading page are open, and at
+  `faktat.vempai.men` the health endpoint answers only with the cookie
+  (Hosting).
 - The owner can issue several passes. Each is a scrypt entry (`salt:hash`) in
   the `CARL_PASSWORDS` secret variable.
 - A `hash-password` command makes an entry. It can also generate a four-word

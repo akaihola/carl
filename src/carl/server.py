@@ -1,9 +1,9 @@
 """Carl's server: the page, the WebSocket and the API (spec section 2).
 
 Everything is behind the access-pass gate except `/api/health` and the pass
-form itself. Every path under `/api/` skips the loading Worker, so the
-WebSocket, the health poll and the API go straight through Cloudflare's
-proxy.
+form itself. In front of it, the loading Worker answers every request that
+carries no access-pass cookie itself, so scanners never wake the container;
+only `/api/ws` skips the Worker (docs/operations.md).
 """
 
 from __future__ import annotations
@@ -48,34 +48,9 @@ PAGE_CSP = (
 # before the pass is accepted.
 PASS_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
 
-PASS_PAGE = """<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
-<title>Carl</title>
-<style>
-  body {{ margin: 0; min-height: 100vh; display: grid; place-items: center;
-         background: #0f1319; color: #e9edf2;
-         font: 18px/1.5 "Atkinson Hyperlegible", Verdana, system-ui, sans-serif; }}
-  form {{ display: grid; gap: .8em; width: min(22em, 100vw - 3em); }}
-  h1 {{ margin: 0; font-size: 1.6em; }}
-  input {{ font: inherit; color: inherit; background: #1b222c; border: 1px solid #2c3542;
-          border-radius: 8px; padding: .6em .8em; }}
-  button {{ font: inherit; font-weight: 700; border: 0; border-radius: 8px; padding: .6em;
-           background: #8fd3a6; color: #0d1a12; }}
-  p {{ margin: 0; color: #f08a5d; }}
-</style>
-<form method="post" action="/api/unlock">
-  <h1>Carl</h1>
-  <label for="pass">Access pass</label>
-  <input id="pass" name="pass" type="password" autocomplete="current-password"
-         autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus>
-  {error}
-  <button>Open Carl</button>
-</form>
-</html>
-"""
+# The pass form, which the loading Worker also serves to anyone without an
+# access-pass cookie (deploy/cloudflare/worker.js).
+PASS_PAGE = (resources.files("carl") / "pass.html").read_text(encoding="utf-8")
 
 
 def create_app(config: Config, prompts: dict[str, Prompt], passes: Passes, sessions: Sessions) -> web.Application:
@@ -129,7 +104,7 @@ async def headers(request: web.Request, handler) -> web.StreamResponse:
 
 
 def pass_page(error: bool = False) -> web.Response:
-    text = PASS_PAGE.format(error="<p>That access pass didn’t work.</p>" if error else "")
+    text = PASS_PAGE.replace("<!-- error -->", "<p>That access pass didn’t work.</p>") if error else PASS_PAGE
     response = web.Response(text=text, status=401, content_type="text/html")
     response.headers["Content-Security-Policy"] = PASS_CSP
     response.headers["Cache-Control"] = "no-store"

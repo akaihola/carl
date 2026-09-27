@@ -1,6 +1,8 @@
-# The Worker in front of faktat.vempai.men: a "Starting up…" page while the
-# scaled-to-zero Scaleway container wakes. See docs/operations.md.
-# The /api/* route with no Worker, and fail-open on this route, are set
+# The Worker in front of faktat.vempai.men: it answers requests without an
+# access-pass cookie itself, so they don't wake the scaled-to-zero Scaleway
+# container, and shows a "Starting up…" page while the container wakes. It
+# bundles ../../src/carl/pass.html. See docs/operations.md.
+# The /api/ws route with no Worker, and fail-open on this route, are set
 # through the Cloudflare API, outside this file.
 name = "faktat-front"
 main = "worker.js"

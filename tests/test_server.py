@@ -21,6 +21,7 @@ async def test_the_page_asks_for_an_access_pass(client):
     text = await response.text()
     assert '<form method="post" action="/api/unlock">' in text
     assert 'type="password"' in text
+    assert "didn’t work" not in text
 
 
 async def test_everything_else_is_behind_the_gate(client):

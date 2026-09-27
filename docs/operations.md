@@ -45,7 +45,7 @@ and the Cloudflare zone **vempai.men**.
 | Bucket | `carl-faktat` | No versioning. Lifecycle rules: `recordings/` 180 days, `failures/` 30 days, `sessions/` 1 day, and the same three under `dev/` |
 | IAM application | `carl-server` | Policy `carl-server-objects`: read, write and delete objects and read buckets, in this project only. Its API key expires on 2027-09-27 |
 | Address | `faktat.vempai.men` | CNAME to the container's endpoint, proxied, zone SSL "Full". Scaleway keeps its own certificate for the domain |
-| Worker | `faktat-front` | The loading page on `faktat.vempai.men/*`, failing open. `faktat.vempai.men/api/*` has no Worker |
+| Worker | `faktat-front` | On `faktat.vempai.men/*`, failing open: answers requests without an access-pass cookie itself, and shows the loading page. `faktat.vempai.men/api/ws` has no Worker |
 
 The container's plain environment variables are `S3_ENDPOINT`,
 `S3_REGION` and `S3_BUCKET`. Its secret ones are set only with
@@ -53,7 +53,8 @@ The container's plain environment variables are `S3_ENDPOINT`,
 
 The container's own endpoint is
 `https://carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud`. It works too,
-behind the same access pass, but without the loading page.
+behind the same access pass, but without the Worker, so every request to it
+reaches the container.
 
 ## Deploying
 
@@ -75,9 +76,12 @@ the commit, and then:
 
 It needs `docker login rg.fr-par.scw.cloud/carl -u nologin
 --password-stdin` (the password is the Scaleway secret key) and `scw` with
-the owner's Scaleway API key. Then check `https://faktat.vempai.men/api/health`.
+the owner's Scaleway API key. Then check
+`https://carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud/api/health`: at
+`faktat.vempai.men` it answers only with the access-pass cookie.
 
-The Worker is deployed on its own, only when `deploy/cloudflare/` changes:
+The Worker is deployed on its own, only when `deploy/cloudflare/` or
+`src/carl/pass.html` (the pass form, which it bundles) changes:
 
 ```sh
 cd deploy/cloudflare && set -a && . ../../.secrets.cloudflare.env && set +a && npx wrangler@4 deploy
@@ -163,25 +167,39 @@ template='{{ .ID }}'`).
 7. The Worker. `npx wrangler@4 deploy` from `deploy/cloudflare/`,
    then through the Cloudflare API:
    - `POST /zones/<zone>/workers/routes` with
-     `{"pattern": "faktat.vempai.men/api/*"}` and no `script`: the more
-     specific pattern wins, so `/api/*` skips the Worker;
+     `{"pattern": "faktat.vempai.men/api/ws"}` and no `script`: the more
+     specific pattern wins, so the WebSocket skips the Worker. A pattern
+     without `*` matches only that path, whatever the query string;
    - set `request_limit_fail_open: true` on the `faktat.vempai.men/*`
      route, so requests over the free plan's daily limit skip the Worker
      instead of failing.
 
-## The loading page
+## The Worker
 
-- The Worker answers a page load that the container hasn't answered within
-  2.5 s with "Starting up…" and a seconds counter (status 503,
-  `Cache-Control: no-store`). The original request carries on and keeps
-  waking the container. The page polls `/api/health` every 2 s and reloads
-  once it answers.
-- Only page loads (`Sec-Fetch-Mode: navigate`) can get the loading page.
-  Everything else passes through untouched.
-- `/api/*` never reaches the Worker, so the WebSocket and the health poll
-  don't count against the free plan's 100,000 Worker requests a day.
+- **Scanners never reach the container.** They probe `faktat.vempai.men`
+  every 10–30 minutes, and each request that reached the container would
+  wake it and keep it up for about 15 minutes. So the Worker answers every
+  request without an access-pass cookie itself, as Carl's gate would: the
+  pass form (401) for a GET outside `/api/`, and a 401 "An access pass is
+  needed." for anything else, `/api/health` included. Only the pass form's
+  own `POST /api/unlock` and requests with the cookie go through. The
+  Worker only looks for the cookie; Carl's gate checks it.
+- The pass form is `src/carl/pass.html`, which the server serves too and
+  the Worker bundles, so a change to it needs the Worker deployed as well.
+- **The loading page.** The Worker answers a GET page load that the
+  container hasn't answered within 2.5 s with "Starting up…" and a seconds
+  counter (status 503, `Cache-Control: no-store`). The original request
+  carries on and keeps waking the container. The page polls `/api/health`
+  every 2 s and reloads once it answers. Only page loads
+  (`Sec-Fetch-Mode: navigate`) can get it; everything else with the cookie
+  passes through untouched. The pass form's POST gets no loading page: it
+  just waits for the container.
+- Only `/api/ws` skips the Worker, so the WebSocket doesn't count against
+  the free plan's 100,000 Worker requests a day. The health poll does, a
+  few requests per cold start.
 - **Off switch:** set the `faktat` DNS record back to "DNS only". The site
-  then works as before, without the loading page.
+  then works as before, without the Worker, and scanners wake the
+  container again.
 - Cloudflare gives up on an origin that hasn't answered in 100 s (error
   524). The health poll just retries.
 
@@ -209,9 +227,12 @@ version, then one line per page connecting and leaving.
   which also found the CPU keeps its pace while no page is connected.
 - A cold start takes 5–10 s from the first request until `/api/health`
   answers: 4–7 s is Scaleway starting the instance, and about 2.4 s is
-  Carl's own start. The loading Worker shows "Starting up…" for page loads
-  that wait longer than 2.5 s.
+  Carl's own start. The Worker shows "Starting up…" for page loads that
+  wait longer than 2.5 s. The first time a phone enters its access pass,
+  the pass form's POST waits out the cold start instead.
 - The container scales to zero after about 15 minutes without a request.
   An open WebSocket counts as a request, so it keeps the container up.
+  Requests without an access-pass cookie don't reach it (the Worker answers
+  them), so scanners don't.
 - On a redeploy or scale-down the server closes every WebSocket with code
   1001, so pages reconnect at once.

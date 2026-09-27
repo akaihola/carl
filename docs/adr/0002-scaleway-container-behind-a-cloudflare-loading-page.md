@@ -16,6 +16,10 @@ language.
   the build.
 - Session state is saved to the bucket, since memory is lost when the
   container scales down or restarts.
+- Scanners probe the address every 10–30 minutes, and each request that
+  reached the container would keep it up for about 15 minutes. So the Worker
+  answers every request without an access-pass cookie itself, with the pass
+  form or a 401, and only `/api/ws` skips it.
 - If the handover or CPU throttling while no page is connected proves
   unworkable, the fallback is a Scaleway Instance (about €3.50 a month,
   always on) running the same container image.

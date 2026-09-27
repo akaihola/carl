@@ -1,12 +1,26 @@
+// Carl's front door. Scanners probe faktat.vempai.men every 10–30 minutes,
+// and each request that reached Carl's container would wake it and keep it
+// up for about 15 minutes. So a request without an access-pass cookie never
+// reaches it: this Worker answers it as Carl's gate would, with the pass form
+// for a GET of a page and a 401 for anything else. Only the pass form's own
+// POST and requests with the cookie go through. The cookie is only looked
+// for here; Carl's gate checks it.
+//
 // Page loads that Carl's container doesn't answer within WAIT_MS (it is
 // scaled to zero and starting) get a "Starting up…" page instead of a blank
-// tab. Everything else passes through untouched. Copied from
-// akaihola/drum-transcribe's loading page; see docs/operations.md.
+// tab. Copied from akaihola/drum-transcribe's loading page; see
+// docs/operations.md.
 //
-// /api/* never reaches this Worker: a second route with no Worker sends the
-// WebSocket, the health poll and the API straight through Cloudflare's proxy.
+// /api/ws never reaches this Worker: a second route with no Worker sends the
+// WebSocket straight through Cloudflare's proxy.
+
+import PASS_PAGE from "../../src/carl/pass.html";  // server.py serves the same file
 
 const WAIT_MS = 2500;
+const PASS_COOKIE = /(?:^|;\s*)carl_pass=[^;\s]/;  // gate.COOKIE
+const PASS_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+const HEADERS = {"Cache-Control": "no-store, no-transform",
+                 "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"};
 
 const LOADING = `<!doctype html>
 <html lang="en"><meta charset="utf-8">
@@ -46,10 +60,22 @@ const loading = () => new Response(LOADING, {
             "Cache-Control": "no-store", "Retry-After": "5"},
 });
 
+// What Carl's gate answers a request without an access pass (server.py).
+const turnAway = (request, url) => request.method === "GET" && !url.pathname.startsWith("/api/")
+  ? new Response(PASS_PAGE, {status: 401, headers: {
+      ...HEADERS, "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": PASS_CSP}})
+  : new Response("An access pass is needed.", {status: 401, headers: {
+      ...HEADERS, "Content-Type": "text/plain; charset=utf-8"}});
+
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const unlocking = request.method === "POST" && url.pathname === "/api/unlock";
+    if (!unlocking && !PASS_COOKIE.test(request.headers.get("Cookie") ?? "")) return turnAway(request, url);
     const upstream = fetch(request, {redirect: "manual"});
-    if (request.headers.get("Sec-Fetch-Mode") !== "navigate") return upstream;
+    // The loading page reloads what it stands in for, so only a GET gets it:
+    // the pass form's POST just waits for the container.
+    if (request.method !== "GET" || request.headers.get("Sec-Fetch-Mode") !== "navigate") return upstream;
     ctx.waitUntil(upstream.catch(() => {}));  // keep waking the container
     const late = new Promise(r => setTimeout(r, WAIT_MS, null));
     const response = await Promise.race([upstream, late]).catch(() => null);

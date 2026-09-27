@@ -35,4 +35,4 @@ if [ "$(scw container container get "$container" region=fr-par -o template='{{ .
 else
     scw container container update "$container" image="$image" region=fr-par -o template='{{ .Name }}: {{ .Status }}'
 fi
-echo "deploying $image; check with: curl https://faktat.vempai.men/api/health"
+echo "deploying $image; check with: curl https://carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud/api/health"
