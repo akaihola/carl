@@ -23,7 +23,14 @@ TOKEN_SECRET = "x" * 40
 
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
-    """No live provider calls: only connections to this machine are allowed."""
+    """No live provider calls: only connections to this machine are allowed.
+
+    The proxy variables go too, since a proxy on this machine could carry a
+    request out.
+    """
+    for name in ("HTTPS_PROXY", "HTTP_PROXY", "WSS_PROXY", "WS_PROXY", "ALL_PROXY"):
+        monkeypatch.delenv(name, raising=False)
+        monkeypatch.delenv(name.lower(), raising=False)
     real_connect = socket.socket.connect
 
     def connect(self, address):
