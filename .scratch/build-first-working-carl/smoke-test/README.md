@@ -15,7 +15,7 @@ Carl imports it.
 | `decision-luna` | Decision model | GPT-6 Luna, typed JSON schema, reasoning `none`, logprobs | Provisional |
 | `finder-a-openai` | Fact-finder A | GPT-6 Luna with OpenAI `web_search`: Responses API, effort `none`, `tool_choice: "required"`, JSON schema, `store: false` | Provisional |
 | `finder-b-perplexity` | Fact-finder B | `google/gemini-3.8-flash` pinned on Perplexity's Agent API, with its `web_search` and a JSON schema | Provisional |
-| `checker-jev` | Fact-checking model | TypeSafe Jev `jev-1.13.0`: verdicts and the agreement call | Provisional |
+| `checker-jev` | Fact-checking model | TypeSafe Jev `typesafe/jev-1.13` through OpenRouter: verdicts and the agreement call | Provisional |
 | `finder-a-perplexity` | Fact-finder A | `openai/gpt-6-luna` on Perplexity's Agent API | Fallback |
 | `checker-gemini` | Fact-checking model | Gemini 3.5 Flash-Lite, typed, with logprobs, no grounding | Fallback |
 | `finder-b-<model>` | Fact-finder B | Any other model on Perplexity's Agent API, named with `--alt-model` | Fallback |
@@ -61,7 +61,9 @@ choice, asked about named fields:
    ([Secrets](../../first-working-carl/spec.md#secrets)).
    - OpenAI: platform.openai.com.
    - Perplexity: the API settings of perplexity.ai.
-   - TypeSafe: console.typesafe.ai/keys.
+   - OpenRouter, for Jev: openrouter.ai/settings/keys. Give the key a credit
+     limit. OpenRouter's `/api/v1/systemone` takes TypeSafe's own request
+     format at TypeSafe's price, so no TypeSafe account is needed.
    - Google AI Studio, for the fallback only. A key made there since
      2026-05-28 is an auth key and works as it is. An older standard key
      needs "Restrict to Gemini API only".
@@ -71,7 +73,7 @@ choice, asked about named fields:
    ```sh
    OPENAI_API_KEY=...
    PERPLEXITY_API_KEY=...
-   TYPESAFE_API_KEY=...
+   OPENROUTER_API_KEY=...
    GEMINI_API_KEY=...
    ```
 
@@ -135,7 +137,9 @@ Write the summary table and these judgements under `## Answer` in
 
 ## Things the vendors' docs left open
 
-These were read on 2026-09-26, and the first real run settles them.
+These were read on 2026-09-26. The first real run, on 2026-09-27, settled
+the ones it touched; see the answer in
+[ticket 01](../issues/01-step-0-provider-smoke-test.md#answer).
 
 - **Luna:** whether OpenAI's `web_search` combines with a JSON schema is not
   documented either way. Logprobs are only allowed with reasoning effort

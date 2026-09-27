@@ -41,13 +41,14 @@ PROMPTS = HERE / "prompts"
 
 OPENAI_URL = "https://api.openai.com/v1/responses"
 PERPLEXITY_URL = "https://api.perplexity.ai/v1/agent"
-TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone"
+# TypeSafe Jev through OpenRouter, which takes TypeSafe's own request format.
+JEV_URL = "https://openrouter.ai/api/v1/systemone"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 KEY_NAMES = {
     "openai": "OPENAI_API_KEY",
     "perplexity": "PERPLEXITY_API_KEY",
-    "typesafe": "TYPESAFE_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
     "gemini": "GEMINI_API_KEY",
 }
 
@@ -57,7 +58,7 @@ PRICES = {
     "openai/gpt-6-luna": {"input": 0.10, "cached": 0.10, "output": 0.50},
     "google/gemini-3.8-flash": {"input": 0.75, "cached": 0.075, "output": 3.75},
     "gemini-3.5-flash-lite": {"input": 0.30, "cached": 0.03, "output": 2.50},
-    "jev-1.13.0": {"input": 0.042, "cached": 0.0, "output": 0.0},
+    "typesafe/jev-1.13": {"input": 0.042, "cached": 0.0, "output": 0.0},
 }
 # USD per search call.
 SEARCH_PRICES = {"openai": 10.00 / 1000, "perplexity-web": 2.50 / 1000, "perplexity-fast": 1.00 / 1000}
@@ -291,6 +292,7 @@ class TypedResult:
     probs: dict[str, float] | None = None  # None: the provider gave none
     probs_note: str = ""
     cost: float | None = None
+    provider_cost: float | None = None  # the provider's own figure, when it gives one
     model: str = ""
     call: Call = field(default_factory=Call)
 
@@ -474,7 +476,7 @@ def typed_jev(client, key, model, prompt: TypedPrompt, fields, recorder, check, 
         },
     }
     result = TypedResult(model=model)
-    call = post(client, TYPESAFE_URL, {"Authorization": f"Bearer {key}"}, body, TYPED_TIMEOUT_S)
+    call = post(client, JEV_URL, {"Authorization": f"Bearer {key}"}, body, TYPED_TIMEOUT_S)
     recorder.save(check, case, body, call)
     result.call = call
     if call.error:
@@ -491,6 +493,7 @@ def typed_jev(client, key, model, prompt: TypedPrompt, fields, recorder, check, 
         result.probs_note = f"Jev confidence {answer['confidence']:.2f}"
     usage = call.body.get("usage") or {}
     result.cost = token_cost(model, usage.get("input_tokens", 0), 0, usage.get("output_tokens", 0))
+    result.provider_cost = usage.get("cost")
     return result
 
 
@@ -748,7 +751,7 @@ def all_checks(alt_models: list[str]) -> list[Check]:
         Check("decision-luna", "decision model", "provisional", "openai", "gpt-6-luna", "decision"),
         Check("finder-a-openai", "fact-finder A", "provisional", "openai", "gpt-6-luna", "finding"),
         Check("finder-b-perplexity", "fact-finder B", "provisional", "perplexity", "google/gemini-3.8-flash", "finding"),
-        Check("checker-jev", "fact-checking model", "provisional", "typesafe", "jev-1.13.0", "checking"),
+        Check("checker-jev", "fact-checking model", "provisional", "openrouter", "typesafe/jev-1.13", "checking"),
         Check("finder-a-perplexity", "fact-finder A", "fallback", "perplexity", "openai/gpt-6-luna", "finding"),
         Check("checker-gemini", "fact-checking model", "fallback", "gemini", "gemini-3.5-flash-lite", "checking"),
     ]
@@ -758,7 +761,7 @@ def all_checks(alt_models: list[str]) -> list[Check]:
     return checks
 
 
-TYPED = {"openai": typed_openai, "gemini": typed_gemini, "typesafe": typed_jev}
+TYPED = {"openai": typed_openai, "gemini": typed_gemini, "openrouter": typed_jev}
 
 
 @dataclass
@@ -831,11 +834,12 @@ def run_typed(check: Check, cases: list[dict], place: Place, env) -> list[Row]:
         got = decision_outcome(r.answer, r.probs) if check.kind == "decision" else r.answer
         expected = case["expected"]
         match = got == expected or (got == "same as *" and expected.startswith("same as "))
-        row = Row(case["id"], True, match, call.elapsed_s, r.cost, probs=bool(r.probs))
+        row = Row(case["id"], True, match, call.elapsed_s, r.cost, r.provider_cost, probs=bool(r.probs))
         rows.append(row)
         mark = "ok  " if match else "MISS"
         shown = got if got == r.answer else f"{got} (chose {r.answer})"
-        print(f"  {case['id']:<26} {mark} {shown:<32} {call.elapsed_s:5.2f} s  {fmt_cost(r.cost)}")
+        cost = fmt_cost(r.cost) + (f" (provider {fmt_cost(r.provider_cost)})" if r.provider_cost is not None else "")
+        print(f"  {case['id']:<26} {mark} {shown:<32} {call.elapsed_s:5.2f} s  {cost}")
         if not match:
             print(f"      expected: {expected}")
         print(f"      p: {fmt_probs(r.probs)}" + (f"   [{r.probs_note}]" if r.probs_note else ""))

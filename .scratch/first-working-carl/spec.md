@@ -397,7 +397,7 @@ log.
 | Decision model (decision and settle calls) | GPT-6 Luna, typed JSON schema, reasoning off (about $0.06/h) | TypeSafe Jev, tried in the comparison |
 | Fact-finder A | GPT-6 Luna with OpenAI web search: Responses API, reasoning effort `none`, `tool_choice: "required"`, JSON output | Luna on Perplexity's Agent API |
 | Fact-finder B | Perplexity's Agent API with the model pinned to `gemini-3.8-flash`, Perplexity's `web_search` ($2.50 per 1,000 searches) and a JSON schema | Another non-OpenAI model on Perplexity's Agent API with its `web_search`. As a stopgap, fact-finder A alone, which allows hedged cards only |
-| Fact-checking model (verdicts and agreement call) | TypeSafe Jev | Gemini 3.5 Flash-Lite, typed, with logprobs, called directly without grounding |
+| Fact-checking model (verdicts and agreement call) | TypeSafe Jev, pinned as `typesafe/jev-1.13` through OpenRouter | Gemini 3.5 Flash-Lite, typed, with logprobs, called directly without grounding |
 
 - Build step 0 either confirms each text stage's provisional model or picks its
   fallback.
@@ -406,6 +406,10 @@ log.
   Perplexity).
 - Fact-finder B's model is pinned so that Perplexity's `fast` preset can't
   change the model under Carl.
+- Jev goes through OpenRouter's `/api/v1/systemone`, which takes TypeSafe's
+  own request format and is served by TypeSafe at TypeSafe's price. Its
+  `~typesafe/jev-latest` alias is not used, since it could change the model
+  under Carl. Requests there are limited to 32k tokens.
 - Calls to OpenAI send `store: false`.
 - **No Anthropic models:** the owner's subscription can't be used for API
   calls.

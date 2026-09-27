@@ -1,12 +1,13 @@
-# Read OpenAI's and Perplexity's legal terms
+# Read OpenAI's, Perplexity's and OpenRouter's legal terms
 
 Type: task
 Status: open
 Blocked by:
 
-**This is a job for the owner.** An agent can't do it: both vendors' legal
-pages returned a Cloudflare challenge (HTTP 403) to every automated fetch, so
-they have to be read in a browser. It is the last row of
+**This is a job for the owner.** An agent can't do it: OpenAI's and
+Perplexity's legal pages returned a Cloudflare challenge (HTTP 403) to every
+automated fetch, so they have to be read in a browser. (OpenRouter's pages do
+load for an agent.) It is the last row of
 [Early checks](../../first-working-carl/spec.md#early-checks), and it has to be
 done before step 4 (ticket 05), whose first dinner with fact-finders keeps
 their search results in its recording.
@@ -42,6 +43,15 @@ Search them for "web search", "search results", "cache" and "store".
   especially Schedule 1
 - [Acceptable Use Policy](https://www.perplexity.ai/hub/legal/aup)
 
+**OpenRouter**, added on 2026-09-27, when the fact-checking model's calls to
+TypeSafe Jev moved there. Every verdict and agreement call sends it the
+candidate utterance with its context window, the draft card and its excerpt.
+
+- [Terms of Service](https://openrouter.ai/terms)
+- [Privacy Policy](https://openrouter.ai/privacy)
+- [Provider logging](https://openrouter.ai/docs/guides/privacy/provider-logging)
+  and [data collection](https://openrouter.ai/docs/guides/privacy/data-collection)
+
 ## Questions to answer
 
 1. May Carl keep the fact-finders' responses and search results in a
@@ -54,7 +64,10 @@ Search them for "web search", "search results", "cache" and "store".
    `web_search` tool? If it does, Perplexity may keep and use the search
    queries Carl sends, which are drawn from the table's conversation. Does
    the disclosure or the documentation then need to say so?
-5. Anything else that touches how Carl uses either API.
+5. What do OpenRouter and TypeSafe keep of the text Carl sends to Jev, for
+   how long, and may either use it for training? Is there an account
+   setting that should be switched off?
+6. Anything else that touches how Carl uses these APIs.
 
 ## Done when
 
