@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 03
+Blocked by: 03, 27, 28, 29
 
 Build step 3 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
 The spec is the source of truth. This ticket lists what the step builds and
@@ -100,3 +100,10 @@ Dinners that record what Carl would have checked.
 - [ ] Deployed and used for one recording session on the phone, at a real
       dinner or with a Finnish radio talk show playing beside it. Its event
       log shows the candidates and repeats Carl found.
+
+## Comments
+
+- 2026-09-27: Split into sub-tickets:
+  [27](27-step-3-typed-answers-and-model-calls.md) typed answers and model
+  calls, [28](28-step-3-decision-call.md) the decision call and
+  [29](29-step-3-location.md) location.

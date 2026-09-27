@@ -34,6 +34,7 @@ SECRETS = [
     "TOKEN_SECRET",  # .secrets.carl.env
     "S3_ACCESS_KEY",  # .secrets.bucket.env
     "S3_SECRET_KEY",  # .secrets.bucket.env
+    "SONIOX_API_KEY",  # .secrets.providers.env (step 2)
 ]
 
 
