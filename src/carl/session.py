@@ -408,7 +408,7 @@ class Sessions:
         if start_id := str(message.get("start_id") or "")[:100]:
             self.started[start_id] = session.id
         await session.attach(link)
-        header = {k: message.get(k) for k in ("disclosure", "mic", "timezone")}
+        header = {k: message.get(k) for k in ("disclosure", "mic", "timezone", "location")}
         await session.begin(header)
         log.info("session %s started, %s", session.id, "recording" if session.record else "not recording")
         return session
