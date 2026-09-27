@@ -171,11 +171,12 @@ button:focus-visible { outline: 3px solid var(--soft); outline-offset: 2px; }
 }
 .indicator[data-state="listening"] { color: var(--ok); }
 .indicator[data-state="paused"] { color: var(--pause); background: #2a2720; }
-.indicator[data-state="dropped"] {
+/* "Can't hear" and "Can't check": the striped orange pill. */
+.indicator[data-state="cant_hear"], .indicator[data-state="cant_check"] {
   color: var(--fail); box-shadow: inset 0 0 0 1px #6a3a26;
   background: repeating-linear-gradient(135deg, #3a261d 0 7px, #231a16 7px 14px);
 }
-.indicator[data-state="dropped"] .dot { border-radius: 2px; transform: rotate(45deg) scale(.85); }
+.indicator[data-state="cant_hear"] .dot, .indicator[data-state="cant_check"] .dot { border-radius: 2px; transform: rotate(45deg) scale(.85); }
 .indicator[data-state="listening"].speaking .dot { animation: pulse .9s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.5); opacity: .55; } }
 @keyframes blink { 50% { opacity: .35; } }

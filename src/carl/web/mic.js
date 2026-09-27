@@ -2,15 +2,29 @@
 // phone's echo cancellation and noise suppression off and its gain control on,
 // resampled by the AudioContext to 16 kHz and cut by mic-worklet.js into
 // 100 ms chunks of 16-bit PCM.
+//
+// It also tells when the open microphone is lost (spec section 10, Can't
+// hear): its track ended or was muted, or the permission was revoked; when a
+// muted track is back; and when the permission is granted again, so an
+// ended track can be replaced.
 
 const RATE = 16000;
 const CONSTRAINTS = {audio: {echoCancellation: false, noiseSuppression: false, autoGainControl: true}};
 
 export class Mic {
   #ctx = null; #ready = null; #node = null; #stream = null; #source = null;
+  #permission = null;  // the PermissionStatus, where the browser has one
   onchunk = null;  // called with each chunk, an ArrayBuffer
+  onlost = null;  // called with "ended", "muted" or "permission"
+  onback = null;  // a muted track unmuted
+  ongranted = null;  // the permission granted again
 
   get live() { return this.#stream !== null; }
+
+  get muted() { return !!this.#stream?.getAudioTracks()[0]?.muted; }
+
+  // "granted", "denied", "prompt", or null where the browser doesn't say.
+  get permission() { return this.#permission?.state ?? null; }
 
   // Opens the microphone and returns its track's settings. Call it straight
   // from a tap: the AudioContext is made and resumed before the first await,
@@ -42,7 +56,34 @@ export class Mic {
       for (const track of stream.getTracks()) track.stop();
       throw e;
     }
-    return stream.getAudioTracks()[0].getSettings();
+    const track = stream.getAudioTracks()[0];
+    this.#watch(stream, track);
+    this.#watchPermission();
+    if (track.muted) this.onlost?.("muted");
+    return track.getSettings();
+  }
+
+  // Only the open stream's track counts; stopping it here fires nothing.
+  #watch(stream, track) {
+    const current = () => this.#stream === stream;
+    track.addEventListener("ended", () => {
+      if (current()) this.onlost?.(this.permission === "denied" ? "permission" : "ended");
+    });
+    track.addEventListener("mute", () => { if (current()) this.onlost?.("muted"); });
+    track.addEventListener("unmute", () => { if (current()) this.onback?.(); });
+  }
+
+  async #watchPermission() {
+    if (this.#permission || !navigator.permissions?.query) return;
+    try {
+      this.#permission = await navigator.permissions.query({name: "microphone"});
+    } catch {
+      return;  // not a permission this browser reports
+    }
+    this.#permission.addEventListener("change", () => {
+      if (this.#permission.state === "denied") { if (this.live) this.onlost?.("permission"); }
+      else if (this.#permission.state === "granted") this.ongranted?.();
+    });
   }
 
   // Pause: stops the track, so the phone's own microphone indicator goes off,

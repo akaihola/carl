@@ -34,28 +34,27 @@ const DEFAULTS = {min_on_screen_s: 8, late_card_s: 20};
 const RANK = {waiting: 0, current: 1, filed: 2, failed: 3};  // a card only moves forward
 
 export class Cards {
-  #current; #list; #empty; #report; #config;
+  #current; #list; #empty; #report; #failed; #config;
   // id -> {card, state, seq, el, and while or once on screen: shown, the
   // visible time on screen before `since`, the moment it last became visible}
   #cards = new Map();
   #withdrawn = new Set();  // ids withdrawn this session, even before their card came
+  #broken = new Set();  // ids that failed to render, each passed to `failed` once
   #seq = 0;
   #timer = 0;
   #running = false;
   #shownId = null;
   #historyKey = "";
-  // Cards that failed to render, kept for the page's failure buffer (build
-  // step 7 sends them on reconnect).
-  failures = [];
-
   // `current` is the current card's region, `history` the card history.
-  // `report(message)` takes each card_shown and card_filed, and `config()`
+  // `report(message)` takes each card_shown and card_filed, `failed(id)`
+  // each card that failed to render (for the page's buffer), and `config()`
   // gives the hello's screen settings.
-  constructor({current, history, report, config}) {
+  constructor({current, history, report, failed, config}) {
     this.#current = current;
     this.#list = history.querySelector(".entries");
     this.#empty = history.querySelector(".empty");
     this.#report = report;
+    this.#failed = failed;
     this.#config = config;
     current.addEventListener("click", (e) => { if (!e.target.closest("a")) this.#tap(); });
     current.addEventListener("keydown", (e) => {
@@ -71,7 +70,7 @@ export class Cards {
     this.stop();
     this.#cards.clear();
     this.#withdrawn.clear();
-    this.failures = [];
+    this.#broken.clear();
     this.#running = true;
     this.#render();
   }
@@ -228,8 +227,8 @@ export class Cards {
     this.#report({type: "card_filed", id: c.card.id, at: new Date().toISOString(), late});
   }
 
-  // The card's own screen, built once. A card that fails to render is set
-  // aside for the failure buffer and never shown.
+  // The card's own screen, built once. A card that fails to render is
+  // passed to `failed` and never shown.
   #element(c) {
     if (c.el) return c.el;
     try {
@@ -237,10 +236,16 @@ export class Cards {
     } catch (e) {
       console.warn("card:", e);
       c.state = "failed";
-      this.failures.push({id: c.card.id, at: new Date().toISOString()});
+      this.#broke(c.card.id);
       return null;
     }
     return c.el;
+  }
+
+  #broke(id) {
+    if (this.#broken.has(id)) return;
+    this.#broken.add(id);
+    this.#failed?.(id);
   }
 
   // ---- drawing ----
@@ -293,7 +298,7 @@ export class Cards {
         rows.push(historyRow(c.card));
       } catch (e) {
         console.warn("card:", e);
-        this.failures.push({id: c.card.id, at: new Date().toISOString()});
+        this.#broke(c.card.id);
       }
     }
     this.#list.replaceChildren(...rows);

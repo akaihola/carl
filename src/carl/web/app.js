@@ -3,6 +3,12 @@
 // session: the page opens the microphone and the location watch, sends the
 // taps and shows what the server says. The cards are paced in cards.js. The
 // messages are in docs/websocket.md.
+//
+// The listening indicator (spec section 10): the server's "Can't hear" or
+// "Can't check", and the page's own "Can't hear" when the connection is
+// down, the microphone is lost or the page is hidden. What only the page
+// sees goes into its buffer of page events, sent once the server can take
+// them: at once while connected, else after the rejoin.
 
 import {Cards} from "./cards.js";
 import {Geo} from "./geo.js";
@@ -15,14 +21,18 @@ const disclosureFi = (withLocation) => `Tämä on testi. Carl tallentaa keskuste
 const disclosureEn = (withLocation) => `This is a test. Carl records the conversation's audio and text${withLocation ? " and the phone's location" : ""}. Audio and raw logs are deleted after 6 months; the corrected text, without names, stays until I delete it. Only I and the AI services being tested handle them. Anyone can ask to stop the recording.`;
 
 const PULSE_MS = 1500;  // the dot pulses this long after each `speech`
+const MIC_RETRY_MS = 5000;  // an ended microphone is tried again this often
+const MIC_OPEN_MS = 8000;  // a reopen that hasn't finished by then has failed
 const STOPS_KEY = "carl.pendingStops";  // stops the server hasn't confirmed yet
 const LOCATION_KEY = "carl.location";  // the Location switch, "on" or "off"
 const INDICATOR = {
   starting: "Starting…",
   listening: "Listening",
   paused: "Paused",
-  dropped: "Connection lost, reconnecting…",  // "Can't hear" comes with step 7
+  cant_hear: "Can't hear",
+  cant_check: "Can't check",
 };
+const PROBLEMS = new Set(["cant_hear", "cant_check"]);
 const RECORDING = {kept: "Kept", stopped: "Stopped and deleted"};
 
 const $ = (id) => document.getElementById(id);
@@ -34,8 +44,11 @@ const geo = new Geo((message) => !session?.over && confirmedSend(message), () =>
 const cards = new Cards({
   current: $("current"), history: $("history"),
   report: (message) => { reports.push(message); sendReports(); },
+  failed: (id) => note({kind: "card-render-failed", at: now(), id}),
   config: () => link.config?.screen,
 });
+// The handover waits while a start or a rejoin is on its way.
+link.canHandover = () => !session || session.over || (!!session.id && !session.rejoining);
 
 let screen = "start";  // start, disclosure, session or ended
 let recordOn = false;  // off by default every time, never remembered
@@ -48,6 +61,14 @@ let endAsk = false;
 // server's; `paused` and `stopped` are this page's taps, which win.
 let session = null;
 let reports = [];  // card_shown and card_filed not sent yet
+// The page's buffer (spec section 10, What the page buffers), and the
+// stretches still open.
+let events = [];  // page_events not sent yet
+let gapStart = null;  // the connection dropped during the session
+let hiddenStart = null;  // the page hidden during the session
+let micLost = null;  // {detail, start} while the microphone is lost
+let micTold = null;  // the last `mic` state the server heard: "lost" or "back"
+let micRetry = 0, micOpening = false;
 
 // ---- the taps ----
 
@@ -78,13 +99,16 @@ async function begin(record, disclosure) {
   if (session && !session.over) return;
   const s = session = {
     id: null, start: null, state: null, recording: false, record, location: locationOn,
-    paused: false, stopped: false, opening: true, rejoining: false,
-    over: false, summary: null,
+    paused: false, stopped: false, opening: true, rejoining: false, handover: false,
+    problem: null, over: false, summary: null,
   };
   const opening = mic.open();  // before any await, while the tap still counts
   geo.reset();
   micRefused = endAsk = false;
   reports = [];
+  events = [];
+  gapStart = hiddenStart = micLost = micTold = null;
+  clearTimeout(micRetry);
   cards.reset();
   screen = "session";
   holdWakeLock();
@@ -140,6 +164,8 @@ async function togglePause() {
   if (s !== session || s.over) return;
   s.paused = false;
   link.send({type: "resume"});
+  micBack();  // a microphone lost before the pause is open again
+  if (mic.muted) mic.onlost("muted");
   if (s.location) geo.start();
   render();
 }
@@ -157,6 +183,8 @@ function end() {
     return;
   }
   // Without an id there is nothing to rejoin, so no summary will come.
+  closeStretches();
+  sendEvents();
   sendReports();
   if (!link.send({type: "end"}) && !s.id) s.summary = {};
   screen = "ended";
@@ -164,6 +192,7 @@ function end() {
 }
 
 function release() {
+  clearTimeout(micRetry);
   cards.stop();
   mic.shutdown();
   geo.stop();
@@ -214,15 +243,55 @@ function sendReports() {
   while (reports.length && confirmedSend(reports[0])) reports.shift();
 }
 
+const now = () => new Date().toISOString();
+
+// A page event: into the buffer, and to the server if it can take it now.
+function note(event) {
+  events.push(event);
+  sendEvents();
+}
+
+function sendEvents() {
+  if (events.length && confirmedSend({type: "page_events", events})) events = [];
+}
+
+// The connection gap ends when the server has the session again.
+function closeGap() {
+  if (gapStart) events.push({kind: "gap", start: gapStart, end: now()});
+  gapStart = null;
+}
+
+// At End, whatever is still open ends too.
+function closeStretches() {
+  const t = now();
+  if (hiddenStart) events.push({kind: "hidden", start: hiddenStart, end: t});
+  if (micLost) events.push({kind: "mic-lost", start: micLost.start, end: t, detail: micLost.detail});
+  hiddenStart = micLost = null;
+}
+
+// The server hears the microphone's state live when it can; after a rejoin
+// it hears it again.
+function tellMic() {
+  if (micLost && micTold !== "lost") {
+    if (confirmedSend({type: "mic", state: "lost", detail: micLost.detail})) micTold = "lost";
+  } else if (!micLost && micTold === "lost") {
+    if (confirmedSend({type: "mic", state: "back"})) micTold = "back";
+  }
+}
+
 // Each hello: pending stops first, so a rejoin already sees them, then carry
 // on with the session, or finish ending it if the connection dropped before
 // its summary came.
 link.addEventListener("state", ({detail}) => {
+  const s = session;
+  if (detail === "dropped" && s) {
+    s.handover = false;
+    if (!s.summary && (s.id || s.start)) gapStart ??= now();
+  }
   if (detail === "connected") {
     everConnected = true;
     monthEur = link.costs?.month_eur ?? null;
     for (const id of pendingStops()) link.send({type: "stop_recording", session: id});
-    const s = session;
     if (s && !s.over && s.id) {
       s.rejoining = true;
       link.send({type: "rejoin", session: s.id});
@@ -236,49 +305,84 @@ link.addEventListener("state", ({detail}) => {
   render();
 });
 
-link.addEventListener("message", ({detail: m}) => {
-  if (m.type === "session") onSession(m);
+// The handover's second socket said hello: it rejoins the session, or just
+// takes over when there is none.
+link.addEventListener("handover", () => {
+  const s = session;
+  if (s && !s.over && (!s.id || s.rejoining)) link.abortHandover();
+  else if (s?.id && !s.summary && link.sendNext({type: "rejoin", session: s.id})) s.handover = true;
+  else link.switchover();
+});
+
+// The answer to the handover's rejoin, on the second socket: it takes over.
+function tookOver(s, handover) {
+  if (!handover || !s?.handover) return false;
+  s.handover = false;
+  link.switchover();
+  for (const id of pendingStops()) link.send({type: "stop_recording", session: id});
+  return true;
+}
+
+link.addEventListener("message", ({detail: m, handover}) => {
+  if (m.type === "session") onSession(m, handover);
+  else if (m.type === "indicator") onIndicator(m);
   else if (m.type === "speech") pulse();
   else if (m.type === "card") { if (session?.id && !session.over) cards.add(m.card); }
   else if (m.type === "cards") { if (session?.id && !session.over) cards.restore(m); }
   else if (m.type === "card_withdrawn") { if (session?.id && !session.over) cards.withdraw(m.id); }
-  else if (m.type === "ended") onEnded(m);
+  else if (m.type === "ended") onEnded(m, handover);
   else if (m.type === "recording_stopped") {
     savePendingStops(pendingStops().filter((id) => id !== m.session));
   }
 });
 
-function onSession(m) {
+function onSession(m, handover) {
   const s = session;
   if (!s || (s.id && m.session !== s.id)) return;
+  const back = tookOver(s, handover) || s.rejoining;
   s.id = m.session;
   if (s.over) {
     // Ended here while the connection was down: the rejoin found it running.
-    if (s.rejoining) { s.rejoining = false; sendReports(); link.send({type: "end"}); }
+    if (back) { s.rejoining = false; closeGap(); sendEvents(); sendReports(); link.send({type: "end"}); }
     return;
   }
   s.state = m.state;
   s.recording = m.recording;
-  if (s.rejoining) {
-    // Taps made while the connection was down win.
+  if (back) {
+    // Taps made while the connection was down, or during the handover, win.
     s.rejoining = false;
     if (s.paused && m.state === "listening") link.send({type: "pause"});
     else if (!s.paused && m.state === "paused" && mic.live) link.send({type: "resume"});
+    if (micLost) micTold = null;  // said again, in case the server lost it
   }
+  closeGap();
   geo.flush();  // a fix or denial that came while the session wasn't confirmed
   sendReports();  // cards shown or filed while the connection was down
+  tellMic();
+  sendEvents();
   render();
 }
 
-function onEnded(m) {
+function onEnded(m, handover) {
   if (m.summary?.month_eur != null) monthEur = m.summary.month_eur;
   const s = session;
+  tookOver(s, handover);
   if (s?.id && m.session === s.id) {
     if (!s.over) { s.over = true; endAsk = false; release(); screen = "ended"; }
     s.rejoining = false;
     s.summary = m.summary ?? {};
     reports = [];
+    events = [];
+    gapStart = hiddenStart = micLost = null;
   }
+  render();
+}
+
+// The server's side of the indicator. Its reason code is for the log only.
+function onIndicator(m) {
+  const s = session;
+  if (!s || s.over) return;
+  s.problem = PROBLEMS.has(m.problem) ? m.problem : null;
   render();
 }
 
@@ -287,6 +391,65 @@ mic.onchunk = (chunk) => {
   const s = session;
   if (s && !s.over && !s.paused && !s.rejoining && s.state === "listening") link.sendAudio(chunk);
 };
+
+// ---- the microphone lost ----
+
+// Its track ended or was muted, or the permission was revoked (spec section
+// 10, Can't hear). Paused, the microphone is closed on purpose.
+mic.onlost = (detail) => {
+  const s = session;
+  if (!s || s.over || s.paused) return;
+  if (micLost) {
+    if (detail === "permission" && micLost.detail !== detail) { micLost.detail = detail; micTold = null; tellMic(); }
+    return;
+  }
+  micLost = {detail, start: now()};
+  tellMic();
+  render();
+  if (detail !== "muted") reopenSoon(0);
+};
+mic.onback = () => micBack();  // unmuted
+mic.ongranted = () => { if (micLost && micLost.detail !== "muted") reopenSoon(0); };
+
+function micBack() {
+  if (!micLost) return;
+  note({kind: "mic-lost", start: micLost.start, end: now(), detail: micLost.detail});
+  micLost = null;
+  clearTimeout(micRetry);
+  tellMic();
+  render();
+}
+
+function reopenSoon(ms) {
+  clearTimeout(micRetry);
+  micRetry = setTimeout(reopenMic, ms);
+}
+
+// An ended track is replaced by opening the microphone again, while the page
+// is visible and the permission isn't denied (a grant brings it back).
+async function reopenMic() {
+  const s = session;
+  if (!micLost || micLost.detail === "muted" || micOpening || !s || s.over || s.paused || s.opening) return;
+  if (document.visibilityState !== "visible" || mic.permission === "denied") return;
+  micOpening = true;
+  let opened = false;
+  try {
+    await Promise.race([mic.open(), new Promise((_, no) => setTimeout(() => no(new Error("timed out")), MIC_OPEN_MS))]);
+    opened = true;
+  } catch (e) {
+    console.warn("microphone:", e);
+  } finally {
+    micOpening = false;
+  }
+  if (s !== session || s.over) return;
+  if (s.paused) { if (opened) mic.close(); return; }  // paused meanwhile
+  if (!opened) {
+    if (mic.permission !== "prompt") reopenSoon(MIC_RETRY_MS);
+    return;
+  }
+  micBack();
+  if (mic.muted) mic.onlost("muted");
+}
 
 let pulseTimer = 0;
 function pulse() {
@@ -305,22 +468,41 @@ async function holdWakeLock() {
     const lock = await navigator.wakeLock.request("screen");
     if (session && !session.over) {
       wakeLock = lock;
-      lock.addEventListener("release", () => { if (wakeLock === lock) wakeLock = null; });
+      // Released by the browser, as when the page is hidden; asked for again
+      // when it is visible.
+      lock.addEventListener("release", () => {
+        if (wakeLock !== lock) return;
+        wakeLock = null;
+        if (session && !session.over) note({kind: "wake-lock", at: now(), state: "released"});
+      });
     } else lock.release();
   } catch (e) {
-    console.warn("wake lock:", e);  // step 7 logs it; the session carries on
+    console.warn("wake lock:", e);  // the session carries on
+    if (session && !session.over) note({kind: "wake-lock", at: now(), state: "refused"});
   } finally {
     wakeLockAsked = false;
   }
 }
 
 function dropWakeLock() {
-  wakeLock?.release().catch(() => {});
-  wakeLock = null;
+  const lock = wakeLock;
+  wakeLock = null;  // first, so its release isn't noted
+  lock?.release().catch(() => {});
 }
 
+// The page hidden is "Can't hear" (spec section 10), and a page event.
 document.addEventListener("visibilitychange", () => {
-  if (session && !session.over) holdWakeLock();
+  const s = session;
+  if (s && !s.over) {
+    if (document.visibilityState !== "visible") hiddenStart ??= now();
+    else {
+      if (hiddenStart) note({kind: "hidden", start: hiddenStart, end: now()});
+      hiddenStart = null;
+      holdWakeLock();
+      if (micLost && micLost.detail !== "muted") reopenSoon(0);
+    }
+  }
+  render();
 });
 addEventListener("pagehide", () => end());
 
@@ -350,12 +532,18 @@ function render() {
   // Session
   const s = session;
   if (screen === "session" && s) {
-    const state = !connected || s.rejoining ? "dropped"
+    // The connection down wins over Pause; Pause over everything else; the
+    // page's own "Can't hear" and the server's over its "Can't check".
+    const unheard = !!micLost || document.visibilityState !== "visible";
+    const state = !connected || s.rejoining ? "cant_hear"
       : s.paused || s.state === "paused" ? "paused"
-      : s.state === "listening" ? "listening" : "starting";
+      : s.state !== "listening" ? "starting"
+      : unheard || s.problem === "cant_hear" ? "cant_hear"
+      : s.problem === "cant_check" ? "cant_check" : "listening";
     $("indicator").dataset.state = state;
     $("indicator-text").textContent = INDICATOR[state];
-    $("rec-mark").hidden = state === "dropped" || !s.recording || s.paused || s.stopped;
+    // The server says whether audio is written; the page knows when none reaches it.
+    $("rec-mark").hidden = !connected || s.rejoining || !!micLost || !s.recording || s.paused || s.stopped;
     if ($("rec-mark").hidden && $("stop").open) $("stop").close();
     $("pause").textContent = s.paused ? "Resume" : "Pause";
     $("pause").classList.toggle("on", s.paused);
