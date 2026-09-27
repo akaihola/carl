@@ -200,6 +200,7 @@ async def main() -> None:
     parser.add_argument("--no-cold-start", action="store_true")
     parser.add_argument("--base", default=BASE, help="Carl's address (default: %(default)s)")
     parser.add_argument("--scale", type=float, default=1.0, help="shrink the probe plan, for a dry run")
+    parser.add_argument("--hold-only", action="store_true", help="only hold the WebSocket: no probes, no pauses")
     args = parser.parse_args()
     globals()["BASE"] = args.base.rstrip("/")
 
@@ -217,6 +218,8 @@ async def main() -> None:
         end = time.monotonic() + args.hours * 3600
         # (minute, name, probe seconds, seconds with no page connected)
         plan = [(3, "connected", 60, 0), (6, "no page for 90 s", 150, 90), (70, "no page for 150 s", 200, 150)]
+        if args.hold_only:
+            plan = []
         for minute, name, seconds, gone in plan:
             wait = end - args.hours * 3600 + minute * 60 * args.scale - time.monotonic()
             if wait > 0:
