@@ -298,3 +298,10 @@ The recording and test corpus plans need no change.
 [ts-privacy]: https://typesafe.ai/legal/privacy-policy
 [or-settings]: https://openrouter.ai/workspaces/default/settings
 [or-observability]: https://openrouter.ai/workspaces/default/observability
+
+## Comments
+
+- 2026-09-27: The owner switched off "OpenRouter Use of Inputs/Outputs"
+  and "Private Input & Output Logging" in the OpenRouter account. The
+  guard against routing to providers that may train on paid models wasn't
+  reported.

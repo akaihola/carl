@@ -1,7 +1,7 @@
 # Step 1: Skeleton in the cloud
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01, 12, 13, 14, 15, 16, 17, 18, 19
 
 Build step 1 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
@@ -98,7 +98,7 @@ and the cold start are known.
 - [x] pytest passes in GitHub Actions on push to `main`: the access-pass
       checks, the cookie, the prompt loader's placeholder check and the
       config loading, with no live provider calls.
-- [ ] Deployed, and `faktat.vempai.men` opened on the phone behind an access
+- [x] Deployed, and `faktat.vempai.men` opened on the phone behind an access
       pass, with the loading page seen on a cold start.
 - [x] The 2-hour connection test is run and its results are written under an
       `## Answer` heading here: the real cut, CPU throttling with no page
@@ -217,3 +217,5 @@ Scaleway Instance fallback isn't needed.
   loading page was seen on a real cold start of `faktat.vempai.men`. The
   one box left is the owner's: opening `faktat.vempai.men` on the phone
   behind the access pass.
+- 2026-09-27: The owner opened `faktat.vempai.men` on the phone and got
+  past the access pass. Every box is ticked, so step 1 is resolved.

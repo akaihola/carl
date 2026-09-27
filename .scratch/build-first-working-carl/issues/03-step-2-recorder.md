@@ -127,3 +127,9 @@ Dinners recorded, with no checks yet.
   and `carl owner` exported, generated and deleted those recordings. What's
   left is the owner's: a recording session on the phone, its `export` and
   `delete`, the Android 2-hour check and the Soniox note.
+- 2026-09-27: The owner started the phone recording session, with a
+  Finnish radio talk show playing beside it. The live container runs
+  `558c6b7`, which has the code of every step through 8, so the same
+  session can also tick step 3's box (candidates and repeats in the event
+  log), step 4's (cards shown live) and, if it runs over an hour, step 7's
+  first box (no gap at the handover).
