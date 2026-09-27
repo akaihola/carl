@@ -8,6 +8,17 @@ which answer access and deletion requests (spec section 9):
     carl owner export <id> [--out DIR] [--dev]       # DIR/<id>/: audio.wav, events.jsonl, corpus.md
     carl owner delete <id> [--yes] [--dev]           # recordings/<id>/ and corpus/<id>.md
 
+Step 8 brings the test corpus (spec section 9, Correcting it; `carl.corpus`)
+and the month's totals (section 11):
+
+    carl owner generate <id> | --all [--dev]         # corpus/<id>.md from the recording's event log
+    carl owner fetch <id> [--out FILE] [--dev]       # corpus/<id>.md to ~/carl-corpus/<id>.md, to correct it
+    carl owner check <file> [--dev]                  # a corrected file against its recording
+    carl owner put <file> [--dev]                    # check, then upload over corpus/<id>.md
+    carl owner month [YYYY-MM] [--dev]               # the month's costs per provider and per stage
+
+`generate` never overwrites a corpus file whose correction has started.
+
 The bucket key comes from the environment or the gitignored
 `.secrets.bucket.env` at the repo root, the environment winning. Without
 `--dev` it reads the cloud's recordings; with it, local runs' ones under
@@ -31,10 +42,14 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from . import corpus
+from .costs import month_of
 from .storage import BucketStore, FolderStore, Store
 
 SECRETS = Path(__file__).resolve().parents[2] / ".secrets.bucket.env"
 EXPORTS = Path.home() / "carl-exports"
+CORPUS = Path.home() / "carl-corpus"
+MONTH = re.compile(r"[0-9]{4}-(0[1-9]|1[0-2])")
 SESSION_ID = re.compile(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}")
 SAMPLE_RATE, SAMPLE_BYTES = 16000, 2
 BYTES_PER_S = SAMPLE_RATE * SAMPLE_BYTES
@@ -43,6 +58,10 @@ HELSINKI = ZoneInfo("Europe/Helsinki")
 
 class OwnerError(Exception):
     pass
+
+
+class Kept(OwnerError):
+    """`generate` keeps a corpus file whose correction has started."""
 
 
 def add_parser(sub: argparse._SubParsersAction) -> None:
@@ -57,17 +76,43 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     delete_ = commands.add_parser("delete", parents=[where], help="delete everything kept for a session, for good")
     delete_.add_argument("id", help="the session id, as `list` shows it")
     delete_.add_argument("--yes", action="store_true", help="don't ask first")
+    generate_ = commands.add_parser("generate", parents=[where],
+                                    help="write corpus/<id>.md from a recording's event log")
+    generate_.add_argument("id", nargs="?", help="the session id, as `list` shows it")
+    generate_.add_argument("--all", action="store_true", help="every recording, keeping corpus files already started")
+    fetch_ = commands.add_parser("fetch", parents=[where], help="download corpus/<id>.md, to correct it")
+    fetch_.add_argument("id", help="the session id, as `list` shows it")
+    fetch_.add_argument("--out", type=Path, help=f"the .md file, or a folder for <id>.md (default: {CORPUS}/<id>.md)")
+    check_ = commands.add_parser("check", parents=[where], help="check a corrected corpus file against its recording")
+    check_.add_argument("file", type=Path, help="the corrected corpus file")
+    put_ = commands.add_parser("put", parents=[where], help="check a corrected corpus file, then upload it")
+    put_.add_argument("file", type=Path, help="the corrected corpus file")
+    month_ = commands.add_parser("month", parents=[where], help="the month's cost per provider and per stage")
+    month_.add_argument("month", nargs="?", help="YYYY-MM, a Helsinki calendar month (default: this one)")
     owner.set_defaults(run=run)
 
 
 def run(args: argparse.Namespace) -> int:
     try:
         store = open_store(args.dev)
-        if args.owner_command == "list":
+        command = args.owner_command
+        if command == "list":
             return asyncio.run(list_sessions(store))
-        if args.owner_command == "export":
+        if command == "export":
             return asyncio.run(export(store, args.id, args.out))
-        return asyncio.run(delete(store, args.id, yes=args.yes))
+        if command == "delete":
+            return asyncio.run(delete(store, args.id, yes=args.yes))
+        if command == "generate":
+            if args.all == (args.id is not None):
+                raise OwnerError("give a session id or --all")
+            return asyncio.run(generate_all(store) if args.all else generate(store, args.id))
+        if command == "fetch":
+            return asyncio.run(fetch_corpus(store, args.id, args.out))
+        if command == "check":
+            return asyncio.run(check_corpus(store, args.file))
+        if command == "put":
+            return asyncio.run(put_corpus(store, args.file))
+        return asyncio.run(month_totals(store, args.month))
     except OwnerError as e:
         print(f"carl owner: {e}", file=sys.stderr)
         return 1
@@ -360,3 +405,156 @@ async def delete(store: Store, session_id: str, *, yes: bool = False) -> int:
         raise OwnerError(f"deleted {count(n, 'object')}, but {len(left)} are still there, such as {left[0]}")
     print(f"Deleted {count(n, 'object')}: {' and '.join(what)}.")
     return 0
+
+
+# --- The test corpus (spec section 9, Correcting it) ---------------------------------------
+
+
+async def read_events(store: Store, session_id: str) -> list[dict[str, Any]]:
+    """Every event of the recording's log, part by part in order; empty when it is gone."""
+    events: list[dict[str, Any]] = []
+    async for part in fetch(store, sorted(await store.list(f"recordings/{session_id}/events/"))):
+        events += parse_events(part)
+    return events
+
+
+async def generate(store: Store, session_id: str) -> int:
+    """Write `corpus/<id>.md` from the recording's event log, unless a corpus
+    file for it has been started: its status isn't `not started`, or it holds
+    the owner's marks, notes or missed blocks all the same."""
+    session_id = check_id(session_id)
+    events = await read_events(store, session_id)
+    if not events:
+        raise OwnerError(f"session {session_id} has no event log to generate from: its recording was stopped "
+                         "and deleted, has expired, or never was")
+    if (existing := await store.get(corpus_key(session_id))) is not None:
+        if why := corpus.started(existing.decode(errors="replace")):
+            raise Kept(f"{corpus_key(session_id)} is kept as it is: {why}")
+    try:
+        markdown = corpus.generate(events, session_id)
+    except corpus.CorpusError as e:
+        raise OwnerError(f"session {session_id}: {e}") from None
+    await store.put(corpus_key(session_id), markdown.encode())
+    print(f"{'Rewrote' if existing is not None else 'Wrote'} {corpus_key(session_id)}: {corpus.describe(markdown)}.")
+    return 0
+
+
+async def generate_all(store: Store) -> int:
+    """`generate` for every recording kept. A corpus file already started is
+    kept, which isn't a failure."""
+    ids = sorted({k.split("/")[1] for k in await store.list("recordings/") if len(k.split("/")) > 2})
+    failed = 0
+    for session_id in ids:
+        try:
+            await generate(store, session_id)
+        except Kept as e:
+            print(f"{e}.")
+        except OwnerError as e:
+            print(f"{session_id}: {e}")
+            failed += 1
+    if not ids:
+        print("No recordings.")
+    return 1 if failed else 0
+
+
+async def fetch_corpus(store: Store, session_id: str, out: Path | None) -> int:
+    """Download `corpus/<id>.md` to correct it: to `out`, a file or a folder
+    (one that exists, or a name without a suffix), by default
+    `~/carl-corpus/<id>.md`. A local file that differs is never overwritten,
+    since it may hold corrections not yet put."""
+    session_id = check_id(session_id)
+    data = await store.get(corpus_key(session_id))
+    if data is None:
+        raise OwnerError(f"there is no {corpus_key(session_id)}: make it with `carl owner generate {session_id}`")
+    target = (out or CORPUS).expanduser()
+    if out is None or target.is_dir() or not target.suffix:
+        target = target / f"{session_id}.md"
+    if target.exists():
+        if target.read_bytes() == data:
+            print(f"{target} is already the same as {corpus_key(session_id)}.")
+            return 0
+        raise OwnerError(f"{target} exists and differs from {corpus_key(session_id)}: put it first, or move it away")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    print(f"{corpus_key(session_id)} → {target}: {corpus.describe(data.decode(errors='replace'))}.")
+    return 0
+
+
+async def checked(store: Store, file: Path) -> tuple[str, str]:
+    """The corrected file's session id and text, after `corpus.check` against
+    the recording; its problems are printed and raise OwnerError."""
+    try:
+        markdown = file.expanduser().read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise OwnerError(f"can't read {file}: {e}") from None
+    try:
+        session_id = check_id(corpus.session_of(markdown))
+    except corpus.CorpusError as e:
+        raise OwnerError(f"{file}: {e}") from None
+    events = await read_events(store, session_id)
+    if not events:
+        print(f"The recording of {session_id} is gone, so {file} is checked on its own, not against it.")
+    problems = corpus.check(markdown, events or None)
+    if problems:
+        print(f"{file} has {count(len(problems), 'problem')}:")
+        for problem in problems:
+            print(f"  {problem}")
+        raise OwnerError(f"{file} doesn't pass the check")
+    return session_id, markdown
+
+
+async def check_corpus(store: Store, file: Path) -> int:
+    """Check a corrected corpus file against its recording."""
+    _, markdown = await checked(store, file)
+    print(f"{file} passes the check: {corpus.describe(markdown)}.")
+    return 0
+
+
+async def put_corpus(store: Store, file: Path) -> int:
+    """Check a corrected corpus file, then upload it over `corpus/<id>.md`."""
+    session_id, markdown = await checked(store, file)
+    await store.put(corpus_key(session_id), markdown.encode())
+    print(f"{file} → {corpus_key(session_id)}: {corpus.describe(markdown)}.")
+    if corpus.status(markdown) == corpus.STATUSES[0] and corpus.started(markdown):
+        print("Its status is still `not started`: set `status: in progress` so that it can't be taken for a draft.")
+    return 0
+
+
+# --- Month totals (spec section 11) --------------------------------------------------------
+
+
+async def month_totals(store: Store, month: str | None) -> int:
+    """Print a month's cost per provider and per stage from `costs/month-YYYY-MM.json`,
+    to compare with the providers' dashboards."""
+    month = month or month_of(datetime.now(UTC))
+    if not MONTH.fullmatch(month):
+        raise OwnerError(f"not a month: {month!r} (one looks like 2026-09)")
+    key = f"costs/month-{month}.json"
+    data = await store.get(key)
+    if data is None:
+        print(f"No costs for {month}.")
+        return 0
+    try:
+        total = json.loads(data)
+        usd, estimated, charges = float(total["usd"]), float(total.get("estimated_usd") or 0), int(total["charges"])
+        parts = {title: sorted(((str(k), float(v)) for k, v in (total.get(field) or {}).items()),
+                               key=lambda r: (-r[1], r[0]))
+                 for title, field in (("provider", "by_provider"), ("stage", "by_stage"))}
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        raise OwnerError(f"{key} can't be read: {e!r}") from None
+    updated = event_time({"time": total.get("updated")})
+    when = f", the last at {updated.astimezone(HELSINKI):%Y-%m-%d %H:%M} Helsinki time" if updated else ""
+    print(f"{month} in Helsinki time: {count(charges, 'charge')}{when}. USD, as billed.")
+    for title, rows in parts.items():
+        print()
+        table([(title, "USD"), *((name, f"{v:.4f}") for name, v in rows), ("total", f"{usd:.4f}")])
+    if estimated:
+        print(f"\nOf the total, {estimated:.4f} USD is estimated: calls whose usage wasn't known.")
+    return 0
+
+
+def table(rows: list[tuple[str, str]]) -> None:
+    """Two columns, the second right-aligned."""
+    widths = [max(len(r[i]) for r in rows) for i in (0, 1)]
+    for name, amount in rows:
+        print(f"{name.ljust(widths[0])}  {amount.rjust(widths[1])}")
