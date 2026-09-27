@@ -44,6 +44,7 @@
   --bg: #0f1319; --bar: #131820; --deep: #0c1015; --raise: #1b222c; --raise2: #26303c;
   --ink: #e9edf2; --soft: #b9c6d6; --muted: #8894a5; --dim: #5d6878; --line: #2c3542;
   --ok: #8fd3a6; --ok-ring: #16241b; --pause: #d8c38a; --fail: #f08a5d; --rec: #ff5c5c;
+  --claim: #e7a64a; --question: #5fcfc3; --link: #9cc2ff; --hedge-edge: #56627a;
   --legible: "Atkinson Hyperlegible", Verdana, system-ui, sans-serif;
 }
 
@@ -195,12 +196,86 @@ button:focus-visible { outline: 3px solid var(--soft); outline-offset: 2px; }
 .bar-button.danger { background: var(--rec); border-color: var(--rec); color: #1c0909; }
 .bar-button:disabled { opacity: .5; }
 
-/* ---- the session screen: the current card and the card history (step 4) ---- */
+/* ---- the session screen: the current card ---- */
+/* The card takes the rest of the screen, and its type is in cqmin of that
+   region, scaled down by cards.js (--fit) until a long fact fits. Below the
+   smallest sizes the fact scrolls within the card. */
 .stage { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) 30%; }
-.current { min-height: 0; min-width: 0; }
-.history { min-height: 0; overflow-y: auto; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--deep); }
-.history h2 { margin-bottom: 8px; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.empty { color: var(--dim); font-size: 16px; }
+.current { position: relative; min-height: 0; min-width: 0; container-type: size; }
+.card-area {
+  --fit: 1;
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
+  gap: 2.5cqmin; padding: 4cqmin 6cqmin 3cqmin; overflow: hidden; cursor: pointer;
+}
+.card-area:focus-visible { outline: 3px solid var(--soft); outline-offset: -6px; }
+.card { display: flex; flex-direction: column; gap: calc(2.4cqmin * var(--fit)); min-height: 0; }
+.card > * { flex: none; min-width: 0; }
+.label {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3em .6em; line-height: 1.2;
+  font-size: max(15px, calc(3.8cqmin * var(--fit))); font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+}
+.card.claim .label { color: var(--claim); }
+.card.question .label { color: var(--question); }
+.tag { border: 1px dashed currentColor; border-radius: 99px; padding: .08em .6em; font-size: .9em; letter-spacing: .06em; }
+.title { font-size: max(17px, calc(5.6cqmin * var(--fit))); line-height: 1.2; font-weight: 400; color: var(--soft); }
+.card > .fact {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  font-size: max(21px, calc(10.5cqmin * var(--fit))); line-height: 1.18; font-weight: 700; text-wrap: pretty;
+}
+.card.hedged > .fact { font-weight: 400; }
+/* A fact that still doesn't fit fades out at the bottom until it is
+   scrolled to its end. */
+.card > .fact.scrolls:not(.at-end) {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 1.6em), transparent);
+}
+.title, .fact, .entry-title, .entry-fact { overflow-wrap: break-word; hyphens: auto; }
+/* While cards.js measures, words stay whole, so a word too long for the
+   line shrinks the type rather than breaking. */
+.card-area.measuring .title, .card-area.measuring .fact { overflow-wrap: normal; }
+.source { display: flex; font-size: max(16px, calc(4.2cqmin * var(--fit))); line-height: 1.25; }
+.source a, .entry-source a { display: inline-flex; align-items: baseline; gap: .35em; max-width: 100%; color: var(--link); text-decoration: none; }
+.source-text { text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+.source a { padding-block: .45em; }  /* a bigger target, so a near miss doesn't move on */
+.source-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arrow { flex: none; }
+.card-area.enter .card { animation: enter .45s ease-out; }
+@keyframes enter { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .card-area.enter .card { animation: none; } }
+
+/* "+N waiting" and the bar, under the card. The row keeps its place while
+   nothing waits, so the card's type doesn't jump when a card arrives. */
+.pace { flex: none; display: flex; flex-direction: column; gap: .4em; font-size: max(14px, 3.4cqmin); color: var(--muted); visibility: hidden; }
+.pace.on { visibility: visible; }
+.track { display: block; height: 6px; border-radius: 3px; background: var(--raise); overflow: hidden; }
+.pace-bar { display: block; height: 100%; background: var(--muted); transform-origin: left; }
+
+/* ---- the session screen: the card history ---- */
+/* Small type, newest on top, older rows dimmer. ≠ a claim, ? a question,
+   a dashed edge for a hedged card. */
+.history {
+  min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 12px 14px;
+  border-top: 1px solid var(--line); background: var(--deep);
+}
+.history h2 { margin-bottom: 8px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.empty { color: var(--dim); font-size: 15px; }
+.entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.entry {
+  display: grid; grid-template-columns: 1.1em minmax(0, 1fr); gap: 1px 8px;
+  padding: 7px 10px 6px; border: 1px solid transparent; border-radius: 8px; background: var(--raise);
+}
+.entry.hedged { background: transparent; border: 1px dashed var(--hedge-edge); }
+.entry:nth-child(2) { opacity: .82; }
+.entry:nth-child(3) { opacity: .66; }
+.entry:nth-child(n+4) { opacity: .52; }
+.entry > * { grid-column: 2; min-width: 0; }
+.entry-mark { grid-column: 1; grid-row: 1 / span 3; font-size: 19px; font-weight: 700; line-height: 1.15; text-align: center; }
+.entry.claim .entry-mark { color: var(--claim); }
+.entry.question .entry-mark { color: var(--question); }
+.entry-title { font-size: 12px; line-height: 1.3; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.entry-fact { font-size: 15px; line-height: 1.3; }
+.entry-source { display: flex; font-size: 13px; line-height: 1.3; }
+.entry-source a { padding-block: 3px; }
 @media (orientation: landscape) {
   .stage { grid-template-rows: none; grid-template-columns: minmax(0, 1fr) 30%; }
   .history { border-top: 0; border-left: 1px solid var(--line); }

@@ -71,25 +71,27 @@
     </div>
   </header>
   <div class="stage">
-    <!-- STEP 4: the current card takes this region, and it stays empty
-         between cards. -->
-    <div id="current" class="current"></div>
-    <!-- STEP 4: the card history, newest first: a column on the right (about
-         30% of the width) in landscape, a strip along the bottom (about 30%
-         of the height) in portrait. -->
+    <!-- The current card takes this region, and it stays empty between
+         cards. cards.js fills it: a tap on the card moves on, a tap on its
+         source opens the source in a new tab. -->
+    <div id="current" class="current" aria-live="polite"></div>
+    <!-- The card history, newest first by utterance time: a column on the
+         right (about 30% of the width) in landscape, a strip along the
+         bottom (about 30% of the height) in portrait. -->
     <aside id="history" class="history" aria-label="Card history">
       <h2>Earlier cards</h2>
       <p class="empty">No cards yet</p>
+      <ol class="entries"></ol>
     </aside>
   </div>
 </section>
 
-<!-- "Session ended" (spec section 8, After the session). The card count
-     comes with step 4. -->
+<!-- "Session ended" (spec section 8, After the session). -->
 <section id="ended" class="screen ended" aria-labelledby="ended-title" hidden>
   <h1 id="ended-title">Session ended</h1>
   <dl class="summary">
     <div><dt>Listening time</dt><dd id="sum-listening">…</dd></div>
+    <div><dt>Cards</dt><dd id="sum-cards">…</dd></div>
     <div><dt>Cost</dt><dd id="sum-cost">…</dd></div>
     <div id="sum-recording-row"><dt>Recording</dt><dd id="sum-recording">…</dd></div>
   </dl>

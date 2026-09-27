@@ -1,9 +1,10 @@
 // Carl's page (spec section 8): the Start screen, the recording disclosure,
-// the session screen's top bar and the "Session ended" summary. The server
-// holds the session: the page opens the microphone and the location watch,
-// sends the taps and shows what the server says. The messages are in
-// docs/websocket.md.
+// the session screen and the "Session ended" summary. The server holds the
+// session: the page opens the microphone and the location watch, sends the
+// taps and shows what the server says. The cards are paced in cards.js. The
+// messages are in docs/websocket.md.
 
+import {Cards} from "./cards.js";
 import {Geo} from "./geo.js";
 import {Link} from "./link.js";
 import {Mic} from "./mic.js";
@@ -28,10 +29,13 @@ const $ = (id) => document.getElementById(id);
 const link = new Link(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/ws`);
 const mic = new Mic();
 // Location messages go only to a session the server has confirmed.
-const geo = new Geo((message) => {
-  const s = session;
-  return !!s && !s.over && !!s.id && !s.rejoining && link.send(message);
-}, () => link.config.location);
+const geo = new Geo((message) => !session?.over && confirmedSend(message), () => link.config.location);
+// The cards' reports wait, in order, for the session to be confirmed again.
+const cards = new Cards({
+  current: $("current"), history: $("history"),
+  report: (message) => { reports.push(message); sendReports(); },
+  config: () => link.config?.screen,
+});
 
 let screen = "start";  // start, disclosure, session or ended
 let recordOn = false;  // off by default every time, never remembered
@@ -43,6 +47,7 @@ let endAsk = false;
 // The running or just-ended session. `state` and `recording` are the
 // server's; `paused` and `stopped` are this page's taps, which win.
 let session = null;
+let reports = [];  // card_shown and card_filed not sent yet
 
 // ---- the taps ----
 
@@ -79,6 +84,8 @@ async function begin(record, disclosure) {
   const opening = mic.open();  // before any await, while the tap still counts
   geo.reset();
   micRefused = endAsk = false;
+  reports = [];
+  cards.reset();
   screen = "session";
   holdWakeLock();
   render();
@@ -150,12 +157,14 @@ function end() {
     return;
   }
   // Without an id there is nothing to rejoin, so no summary will come.
+  sendReports();
   if (!link.send({type: "end"}) && !s.id) s.summary = {};
   screen = "ended";
   render();
 }
 
 function release() {
+  cards.stop();
   mic.shutdown();
   geo.stop();
   dropWakeLock();
@@ -194,6 +203,17 @@ function savePendingStops(ids) {
 
 // ---- the server ----
 
+// Sends a message that belongs to the session, once the server has
+// confirmed it on this connection. False if it couldn't go yet.
+function confirmedSend(message) {
+  const s = session;
+  return !!s?.id && !s.rejoining && link.state === "connected" && link.send(message);
+}
+
+function sendReports() {
+  while (reports.length && confirmedSend(reports[0])) reports.shift();
+}
+
 // Each hello: pending stops first, so a rejoin already sees them, then carry
 // on with the session, or finish ending it if the connection dropped before
 // its summary came.
@@ -219,6 +239,8 @@ link.addEventListener("state", ({detail}) => {
 link.addEventListener("message", ({detail: m}) => {
   if (m.type === "session") onSession(m);
   else if (m.type === "speech") pulse();
+  else if (m.type === "card") { if (session?.id && !session.over) cards.add(m.card); }
+  else if (m.type === "cards") { if (session?.id && !session.over) cards.restore(m); }
   else if (m.type === "ended") onEnded(m);
   else if (m.type === "recording_stopped") {
     savePendingStops(pendingStops().filter((id) => id !== m.session));
@@ -231,7 +253,7 @@ function onSession(m) {
   s.id = m.session;
   if (s.over) {
     // Ended here while the connection was down: the rejoin found it running.
-    if (s.rejoining) { s.rejoining = false; link.send({type: "end"}); }
+    if (s.rejoining) { s.rejoining = false; sendReports(); link.send({type: "end"}); }
     return;
   }
   s.state = m.state;
@@ -243,6 +265,7 @@ function onSession(m) {
     else if (!s.paused && m.state === "paused" && mic.live) link.send({type: "resume"});
   }
   geo.flush();  // a fix or denial that came while the session wasn't confirmed
+  sendReports();  // cards shown or filed while the connection was down
   render();
 }
 
@@ -253,6 +276,7 @@ function onEnded(m) {
     if (!s.over) { s.over = true; endAsk = false; release(); screen = "ended"; }
     s.rejoining = false;
     s.summary = m.summary ?? {};
+    reports = [];
   }
   render();
 }
@@ -343,6 +367,7 @@ function render() {
   if (screen === "ended" && s) {
     const sum = s.summary, waiting = "…";
     $("sum-listening").textContent = sum ? duration(sum.listening_s) : waiting;
+    $("sum-cards").textContent = !sum ? waiting : sum.cards == null ? "—" : String(sum.cards);
     $("sum-cost").textContent = !sum ? waiting : sum.cost_eur == null ? "—" : `≈ ${euros(sum.cost_eur)}`;
     const recording = s.stopped ? "stopped" : sum?.recording ?? (s.record ? null : "none");
     $("sum-recording-row").hidden = recording === "none";
