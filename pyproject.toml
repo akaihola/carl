@@ -5,6 +5,7 @@ description = "A live conversation fact-checker for private, personal use"
 requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.12",
+    "boto3>=1.40",
 ]
 
 [project.scripts]

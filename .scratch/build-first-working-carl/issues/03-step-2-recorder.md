@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 02
+Blocked by: 02, 20, 21, 22, 23, 24, 25, 26
 
 Build step 2 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
 The spec is the source of truth. This ticket lists what the step builds and
@@ -109,3 +109,14 @@ Dinners recorded, with no checks yet.
 - [ ] After the first recorded dinner, a note here on how Soniox did at a
       real table: Finnish, code-switching, and speaker attribution at
       1–2 m. It gates nothing.
+
+## Comments
+
+- 2026-09-27: Split into sub-tickets: [20](20-step-2-speech-to-text-and-soniox.md)
+  speech-to-text and Soniox, [21](21-step-2-utterance-splitting.md) utterance
+  splitting, [22](22-step-2-recording-and-costs.md) recording and costs,
+  [23](23-step-2-sessions.md) sessions on the server,
+  [24](24-step-2-the-page.md) the page,
+  [25](25-step-2-owner-script.md) the owner script and
+  [26](26-step-2-dev-file-source.md) the dev file source. The WebSocket
+  messages are in [`docs/websocket.md`](../../../docs/websocket.md).

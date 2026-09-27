@@ -30,7 +30,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     pw.add_argument("password", nargs="?", help="the access pass (default: a new four-word passphrase)")
 
+    from . import devsource, owner
+
+    owner.add_parser(sub)
+    devsource.add_parser(sub)
+
     args = parser.parse_args(argv)
+    if hasattr(args, "run"):
+        return args.run(args)
     if args.command == "hash-password":
         password = args.password or generate_passphrase()
         if len(password) < MIN_PASS_LENGTH:
