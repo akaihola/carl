@@ -1,0 +1,160 @@
+# Hand-written example cases for prompts/decision.md, in Finnish and English
+# (First working Carl spec, section 7, Testing prompts). `carl examples
+# decision` runs them against the configured decision model and prints each
+# typed answer next to the expected one. Run it by hand after a prompt
+# change, never in CI: it costs money and needs the network.
+#
+# `conversation` lines are "LABEL: text" as Carl writes them (A1, A2… in the
+# first stream, B1, B2… in the next) or a "(paused)" or "(gap)" marker, oldest
+# first. The last line is the utterance judged. `earlier_candidates` are the
+# session's earlier candidates, "Cn: text". `expected` is the outcome: claim,
+# open question, none or same as Cn.
+
+# Where the table is. The date and time come from the clock at run time.
+place = "Kallio, Helsinki, Finland"
+timezone = "Europe/Helsinki"
+
+# --- Claims ------------------------------------------------------------------
+
+[[cases]]
+id = "en-claim"
+conversation = [
+  "A1: We had a talk at work about gifted kids today.",
+  "A2: Einstein failed maths at school, you know. There's hope for all of us.",
+]
+expected = "claim"
+
+[[cases]]
+id = "fi-claim"
+conversation = [
+  "A1: Helsingissä on ollut olympialaisetkin.",
+  "A2: Joo, vuonna 1956. Isä kävi katsomassa.",
+]
+expected = "claim"
+
+# --- Open questions ---------------------------------------------------------
+
+[[cases]]
+id = "en-open-question"
+conversation = [
+  "A1: I watched Casablanca again last night.",
+  "A2: Who played Rick in it? It's on the tip of my tongue.",
+]
+expected = "open question"
+
+[[cases]]
+id = "fi-open-question"
+conversation = [
+  "A1: Katsoin eilen taas Casablancan.",
+  "A2: Kuka siinä näytteli Rickiä? Se on ihan kielen päällä.",
+]
+expected = "open question"
+
+[[cases]]
+id = "en-short-disagreement"
+conversation = [
+  "A1: The Berlin Wall came down when I was in school.",
+  "A2: '89 or '90?",
+]
+expected = "open question"
+
+[[cases]]
+id = "fi-short-question"
+conversation = [
+  "A1: Näin eilen sen vanhan Tuntemattoman sotilaan. Se Rokkaa esittänyt näyttelijä oli tosi hyvä.",
+  "A2: Kuka se oli?",
+]
+expected = "open question"
+
+# --- Nothing to check ---------------------------------------------------------
+
+[[cases]]
+id = "en-opinion"
+conversation = [
+  "A1: Honestly, this risotto is the best thing you've cooked all year.",
+]
+expected = "none"
+
+[[cases]]
+id = "fi-opinion"
+conversation = [
+  "A1: Mitä piditte siitä leffasta?",
+  "A2: Se oli kyllä ihan liian pitkä, ei ollut kolmen tunnin arvoinen.",
+]
+expected = "none"
+
+[[cases]]
+id = "fi-small-talk"
+conversation = [
+  "A1: Otatko vielä kahvia?",
+  "A2: Joo, puoli kupillista, kiitos.",
+]
+expected = "none"
+
+[[cases]]
+id = "en-private-fact"
+conversation = [
+  "A1: Have you been to Paris?",
+  "A2: Yeah, I was there in 2019 with my sister.",
+]
+expected = "none"
+
+# The subject of the claim can't be worked out from the window.
+
+[[cases]]
+id = "fi-unclear-subject"
+conversation = [
+  "A1: Ei se niin mennyt. Se oli kyllä vuonna 1987, ihan varmasti.",
+]
+expected = "none"
+
+[[cases]]
+id = "en-unclear-subject-after-pause"
+conversation = [
+  "A1: Could you pass the salt?",
+  "(paused)",
+  "B2: No, it was definitely 1987. I remember it well.",
+]
+expected = "none"
+
+# --- Repeats and new claims on the same topic ----------------------------------
+
+[[cases]]
+id = "en-repeat"
+earlier_candidates = ["C1: Einstein failed maths at school, you know."]
+conversation = [
+  "A2: Einstein failed maths at school, you know.",
+  "A3: No way.",
+  "A2: He did fail maths, though. I read it somewhere.",
+]
+expected = "same as C1"
+
+[[cases]]
+id = "fi-repeat-across-languages"
+earlier_candidates = [
+  "C1: Helsingin olympialaiset oli vuonna 1956.",
+  "C2: Einstein failed maths at school, you know.",
+]
+conversation = [
+  "A1: Mä en vieläkään usko sitä Einsteinia.",
+  "A2: Kyllä se reputti matikan koulussa, mä luin sen jostain.",
+]
+expected = "same as C2"
+
+[[cases]]
+id = "en-same-topic-new-claim"
+earlier_candidates = ["C1: Einstein failed maths at school, you know."]
+conversation = [
+  "A1: Einstein failed maths at school, you know.",
+  "A2: Not maths. He failed physics, actually.",
+]
+expected = "claim"
+
+[[cases]]
+id = "fi-same-topic-new-claim"
+earlier_candidates = ["C1: Einstein reputti matikan koulussa."]
+conversation = [
+  "A1: Einstein reputti matikan koulussa.",
+  "A2: No ei ehkä matikassa, mutta fysiikassa se kyllä reputti.",
+]
+expected = "claim"

@@ -41,6 +41,7 @@ REOPEN_BACKOFF_S = (1, 2, 4, 8, 16, 30)
 # silence before a manual finalise. It goes to speech-to-text only, never to
 # the recording.
 FINALIZE_SILENCE = b"\0" * 6400
+CHECKS_AT_END_S = 25.0  # End waits this long for decisions still running, so they are recorded and charged
 
 
 def new_session_id() -> str:
@@ -118,6 +119,7 @@ class Session:
     listening_since: float | None = None
     last_pulse: float = 0.0
     tasks: set[asyncio.Task] = field(default_factory=set)
+    checks: set[asyncio.Task] = field(default_factory=set)  # decisions and, later, checks: End waits for them
     grace: asyncio.Task | None = None
     summary: Summary | None = None
     timezone: str = "UTC"  # the phone's, from `start`
@@ -196,6 +198,8 @@ class Session:
         if self.grace is not None and self.grace is not asyncio.current_task():
             self.grace.cancel()
         await self.close_stream(finalize=was_listening)
+        if self.checks:  # decisions still running, incl. those on the utterances the finalise just gave
+            await asyncio.wait(set(self.checks), timeout=CHECKS_AT_END_S)
         if self.recorder is not None:
             self.recorder.audio_break()
         self.log("session end", reason=reason, listening_s=round(self.listening_s, 1),
@@ -458,7 +462,9 @@ class Sessions:
     def on_utterance(self, session: Session, heard: Heard) -> None:
         """Each utterance goes to the decision call, which runs as its own task."""
         if self.decider is not None:
-            session.spawn(self.decider.on_utterance(session, heard))
+            task = session.spawn(self.decider.on_utterance(session, heard))
+            session.checks.add(task)
+            task.add_done_callback(session.checks.discard)
 
     async def on_location(self, session: Session, message: dict[str, Any]) -> None:
         if self.locator is not None:

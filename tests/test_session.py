@@ -225,3 +225,22 @@ async def test_a_start_resent_after_a_drop_carries_on_the_same_session(unlocked,
     await ws.send_json({"type": "end"})
     await receive(ws, "ended")
     assert len({k.split("/")[1] for k in await store.list("recordings/")}) == 1
+
+
+async def test_end_waits_for_a_decision_still_running(unlocked, stt, store):
+    from carl.server import SESSIONS
+
+    class SlowDecider:
+        async def on_utterance(self, session, heard):
+            await asyncio.sleep(0.3)
+            session.log("decision", utterance=heard.id, outcome="none")
+
+    unlocked.server.app[SESSIONS].decider = SlowDecider()
+    ws = await connect(unlocked)
+    session_id = (await start(ws))["session"]
+    stt.streams[0].say("1", "Pariisi on Italian pääkaupunki.")
+    await settle()
+    await ws.send_json({"type": "end"})
+    await receive(ws, "ended")
+    names = [e["event"] for e in await events(store, session_id)]
+    assert names.index("decision") < names.index("session end")

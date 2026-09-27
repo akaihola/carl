@@ -32,9 +32,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     pw.add_argument("password", nargs="?", help="the access pass (default: a new four-word passphrase)")
 
-    from . import devsource, owner
+    from . import devsource, examples, owner
 
     owner.add_parser(sub)
+    examples.add_parser(sub)
     devsource.add_parser(sub)
 
     args = parser.parse_args(argv)
@@ -76,8 +77,12 @@ def serve_command(args: argparse.Namespace) -> int:
     sessions = Sessions(config, prompts, store, stt, commit())
     from . import decision, location
 
-    decision.install(sessions, os.environ)
-    location.install(sessions, os.environ)
+    try:
+        decision.install(sessions, os.environ)
+        location.install(sessions, os.environ)
+    except ValueError as e:
+        print(f"carl: can't start: {e}", file=sys.stderr)
+        return 2
 
     logging.getLogger(__name__).info(
         "commit %s, config %s, prompts %s, store %s",
