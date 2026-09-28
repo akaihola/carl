@@ -55,11 +55,11 @@ An utterance the decision model flags as worth fact-checking; either a claim or 
 _Avoid_: Detection, hit, trigger
 
 **Repeat**:
-An utterance that asserts the same thing, or asks the same question, as an earlier candidate in the same session, in any language or wording. It gets nothing new, unless the earlier candidate failed at a stage; then it is checked as a new candidate.
+An utterance that asserts the same thing, or asks the same question, as an earlier candidate in the same session, in any language or wording. It gets nothing new, unless the earlier candidate failed at a stage or was settled before its card reached the screen; then it is checked as a new candidate, since saying it again reopens it.
 _Avoid_: Duplicate, re-trigger
 
 **Settled**:
-What a candidate becomes when a later utterance at the table corrects its claim, answers its open question or ends its disagreement, the candidate's own speaker included. A settled candidate gets no card if its card isn't on screen yet; a card on screen is marked "Settled at the table" only if the table's answer agrees with it. The settling utterance is judged as a candidate in its own right, so a false correction still gets checked.
+What a candidate becomes when a later utterance at the table corrects its claim, answers its open question or ends its disagreement, the candidate's own speaker included. Agreeing with a claim, repeating it or talking more about it settles nothing. A settled candidate gets no card if its card isn't on screen yet; a card on screen is marked "Settled at the table" only if the table's answer agrees with it. The settling utterance is judged as a candidate in its own right, so a false correction still gets checked.
 _Avoid_: Resolved, answered, closed
 
 **Claim**:
