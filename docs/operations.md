@@ -284,6 +284,11 @@ Scaleway's proxy, 127.0.0.1) with how the request came at the end:
 
 ## Things to know
 
+- In the first phone session (2026-09-27, 65.6 minutes) the phone's audio
+  reached the server at 0.9882 of real time. Carl dates an utterance by its
+  place in the audio, so the gap grew by 0.715 s a minute, and it counts
+  against the candidate timeout and the card ages. The cause isn't known
+  yet: [ticket 43](../.scratch/build-first-working-carl/issues/43-audio-falls-behind-real-time.md).
 - Cloudflare stores responses with cacheable extensions (`.js`, `.css`,
   `.woff2`) in its edge cache unless told not to, and its 4-hour browser
   cache setting overrides `no-cache`. So everything behind the gate is sent

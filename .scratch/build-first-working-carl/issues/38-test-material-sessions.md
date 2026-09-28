@@ -123,3 +123,12 @@ is built, each session's id and material go under `## Answer` here.
 - [ ] Session 3 ran through `dev-send`, with a note here on what it showed.
 - [ ] `delete` was tried on a throwaway recording (ticket 03).
 - [ ] Each session's id and material are listed under `## Answer` here.
+
+## Comments
+
+- 2026-09-28: In the first phone session the audio fell behind real time by
+  0.715 s a minute (ticket [43](43-audio-falls-behind-real-time.md)). A
+  check's time and a card's age count from the audio's time, so once the
+  gap passes 60 s every candidate times out; at that rate, after about 80
+  minutes. Session 1 runs 2 h 20 min, so settle ticket 43 first, or read
+  session 1's timeouts and late cards with it in mind.
