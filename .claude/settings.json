@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(deploy/deploy.sh)",
+      "Bash(deploy/worker.sh)",
+      "Bash(python3 deploy/secrets.py)",
+      "Bash(python3 deploy/secrets.py --check)",
+      "Bash(python3 deploy/logs.py)",
+      "Bash(python3 deploy/logs.py *)",
+      "Bash(scw container container list *)",
+      "Bash(scw container container get *)",
+      "Bash(scw container container logs *)",
+      "Bash(scw container namespace list *)",
+      "mcp__Claude_Code_Remote__create_session"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh" } ] }
+    ]
+  }
+}

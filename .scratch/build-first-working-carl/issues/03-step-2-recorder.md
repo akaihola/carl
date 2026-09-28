@@ -142,3 +142,8 @@ Dinners recorded, with no checks yet.
   closes the phone session, `export` and the Android 2-hour check, and
   `delete` is tried on a throwaway recording. The Soniox note still waits
   for the first real dinner.
+- 2026-09-28: The phone session above is `20260927T175631Z-308317`, 65.6
+  minutes, ended 19:02 UTC. Its audio reached the server at 0.9882 of real
+  time, so the gap between an utterance's time in the audio and the moment
+  Carl heard it grew from 0.7 s to 44.1 s, and all 9 of its cards were filed
+  late: ticket [43](43-audio-falls-behind-real-time.md).
