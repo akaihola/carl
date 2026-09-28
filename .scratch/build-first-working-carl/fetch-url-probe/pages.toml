@@ -1,0 +1,45 @@
+# Extra pages for the fetch_url probe, beside the sources fact-finder A cites
+# for the example cases. They have no card excerpt: only the depth probes
+# run on them. Chosen for length (where truncation would show), for Finnish,
+# and for sites that turn Carl's own download away. Checked by hand with
+# Carl's User-Agent on 2026-09-28.
+
+[[pages]]
+url = "https://en.wikipedia.org/wiki/Albert_Einstein"
+note = "very long, English (1.8 MB of HTML)"
+
+[[pages]]
+url = "https://fi.wikipedia.org/wiki/Suomi"
+note = "very long, Finnish (1.1 MB of HTML)"
+
+[[pages]]
+url = "https://fi.wikipedia.org/wiki/Kes%C3%A4olympialaiset_1952"
+note = "long, Finnish, tables"
+
+[[pages]]
+url = "https://en.wikipedia.org/wiki/Casablanca_(film)"
+note = "long, English"
+
+[[pages]]
+url = "https://www.olympedia.org/editions/13"
+note = "not a wiki, mostly tables"
+
+[[pages]]
+url = "https://kansallisbiografia.fi/kansallisbiografia/henkilo/1600"
+note = "Finnish, small page, possibly behind a login"
+
+[[pages]]
+url = "https://www.hel.fi/fi/kulttuuri-ja-vapaa-aika"
+note = "Finnish, a city's own site"
+
+[[pages]]
+url = "https://www.britannica.com/biography/Albert-Einstein"
+note = "answers Carl's download with 403"
+
+[[pages]]
+url = "https://www.imdb.com/title/tt0034583/"
+note = "answers Carl's download with an empty 202 (a bot challenge)"
+
+[[pages]]
+url = "https://www.olympics.com/en/olympic-games/helsinki-1952"
+note = "answers Carl's download with 403"
