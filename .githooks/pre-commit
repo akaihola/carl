@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs the tests before a commit that changes anything they read, so a
+# failing suite is never committed (.scratch/session-retro/report.md,
+# failure 4). A commit of tickets or docs alone skips them. The tests run on
+# the working tree, not only what is staged.
+#
+# On in cloud sessions (.claude/hooks/session-start.sh); anywhere else,
+# turn it on with `git config core.hooksPath .githooks`.
+if ! git diff --cached --name-only |
+    grep -qE '^(src/|tests/|prompts/|deploy/|config\.toml$|pyproject\.toml$|uv\.lock$|\.python-version$)'
+then
+    exit 0
+fi
+echo "pre-commit: uv run pytest -q" >&2
+if ! uv run --locked pytest -q; then
+    echo "pre-commit: the tests failed, so nothing was committed. Fix them; never --no-verify." >&2
+    exit 1
+fi

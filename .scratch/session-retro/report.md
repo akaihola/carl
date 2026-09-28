@@ -90,3 +90,30 @@ settings rather than skills.
 [mp-handoff]: https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md
 [aw1]: https://github.com/travisvn/awesome-claude-skills
 [aw2]: https://github.com/hesreallyhim/awesome-claude-code
+
+## Comments
+
+- 2026-09-28: Adopted the ranked recommendations.
+  1. Carl's own [`verify-before-claiming`](../../.claude/skills/verify-before-claiming/SKILL.md)
+     skill. Copying superpowers' SKILL.md was refused by the cloud
+     session's permission classifier as untrusted code, so the owner can
+     copy it by hand if the original is wanted. Also
+     [`.githooks/pre-commit`](../../.githooks/pre-commit), which runs
+     pytest before a commit that changes code.
+  2. [AGENTS.md](../../AGENTS.md)'s Sessions: subagents that edit files run
+     one at a time or in worktrees; stop processes by PID.
+  3. [`deploy/worker.sh`](../../deploy/worker.sh), so the Worker's deploy
+     is one command an allow rule can match. The allow rules themselves go
+     in `.claude/settings.json`, which the classifier refused to let the
+     agent write (self-modification), so the owner adds them.
+  4. [`deploy/cloud-setup.sh`](../../deploy/cloud-setup.sh), for the owner
+     to paste into the environment's setup script, and the SessionStart
+     hook [`.claude/hooks/session-start.sh`](../../.claude/hooks/session-start.sh),
+     which the same `.claude/settings.json` registers.
+  5. The [issue tracker's build-ticket rules](../../docs/agents/issue-tracker.md#build-tickets),
+     `Waiting on:` lines on the tickets that wait on the owner, the
+     [`next-step`](../../.claude/skills/next-step/SKILL.md) skill (one
+     ticket per session, then the next session starts by itself or the
+     owner gets a prompt to paste), and [`deploy/logs.py`](../../deploy/logs.py)
+     with its rule in [docs/operations.md](../../docs/operations.md#logs):
+     judge the container's idleness from its logs.

@@ -10,6 +10,33 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - State is recorded as a `Status:` line near the top of each issue file
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
+## Build tickets
+
+Rules for writing and working the build tickets, such as
+`.scratch/build-first-working-carl/issues/`, from step 1's cloud session
+([session retro](../../.scratch/session-retro/report.md)):
+
+- **One session per ticket.** Size a ticket for one agent session, and split
+  a bigger one into sub-tickets before starting it. The session ends with
+  the `next-step` skill.
+- **`Waiting on:`** near the top names what an open ticket waits for
+  besides its blockers. `Waiting on: owner` means what's left needs the
+  owner: a phone session, a decision, a correction. A condition, such as
+  `Waiting on: a day of logs after 2026-09-27 19:47 UTC`, means it waits on
+  that. Remove the line once it's met. The `next-step` skill never hands
+  such a ticket to a session by itself.
+- **A figure goes into the ticket as soon as it is measured, never
+  before.** Give its date, how it was measured and the raw number. Never
+  write an expected figure to correct later.
+- **Name the condition to wait on, not a duration:** "once `python3
+  deploy/logs.py --until-quiet` returns", not "wait 20 minutes".
+- **Dry-run a long test on a compressed schedule first,** with minutes as
+  seconds, so a flaw in the test shows in a minute rather than an hour. A
+  connection being observed gets its own process, apart from any probes.
+- **A ticket that deploys behind Cloudflare** checks that gated responses
+  stay out of its cache (`Cache-Control: private`; see "Things to know" in
+  [docs/operations.md](../operations.md)).
+
 ## When a skill says "publish to the issue tracker"
 
 Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).

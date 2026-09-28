@@ -2,6 +2,7 @@
 
 Type: task
 Status: open
+Waiting on: owner
 Blocked by: 07, 34, 35, 36
 
 Build step 7 of the [First working Carl spec](../../first-working-carl/spec.md#14-build-order).
