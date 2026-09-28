@@ -1,7 +1,7 @@
 # fetch_url probe
 
 A local, throwaway script for
-[ticket 43](../issues/43-fetch-url-instead-of-the-source-download.md). It
+[ticket 44](../issues/44-fetch-url-instead-of-the-source-download.md). It
 measures whether Perplexity's `fetch_url` tool could stand in for Carl's own
 download of fact-finder A's source page, the one that makes a **verified
 excerpt** (First working Carl spec, section 6). Nothing in Carl imports it.
