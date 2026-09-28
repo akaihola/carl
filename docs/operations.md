@@ -70,10 +70,11 @@ The container's plain environment variables are `S3_ENDPOINT`,
 `S3_REGION` and `S3_BUCKET`. Its secret ones are set only with
 `deploy/secrets.py` (below).
 
-The container's own endpoint is
-`https://carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud`. It works too,
-behind the same access pass, but without the Worker, so every request to it
-reaches the container.
+The container's own endpoint is `scw container container get <id>
+region=fr-par -o template='{{ .PublicEndpoint }}'`. It works too, behind the
+same access pass, but without the Worker, so every request to it reaches
+the container. Keep it out of this public repo: scanners that know it wake
+the container ([ticket 40](../.scratch/build-first-working-carl/issues/40-requests-that-skip-the-worker.md)).
 
 ## Deploying
 
@@ -95,9 +96,9 @@ the commit, and then:
 
 It needs `docker login rg.fr-par.scw.cloud/carl -u nologin
 --password-stdin` (the password is the Scaleway secret key) and `scw` with
-the owner's Scaleway API key. Then check
-`https://carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud/api/health`: at
-`faktat.vempai.men` it answers only with the access-pass cookie.
+the owner's Scaleway API key. Then check `/api/health` on the container's
+own endpoint, which the script prints: at `faktat.vempai.men` it answers
+only with the access-pass cookie.
 
 The Worker is deployed on its own, only when `deploy/cloudflare/` or
 `src/carl/pass.html` (the pass form, which it bundles) changes:
@@ -269,7 +270,7 @@ data source's URL comes from
 ```sh
 curl -sG -H "X-Auth-Token: $SCW_SECRET_KEY" \
   https://7e80bd3c-d744-4807-acfb-405a598cc91f.logs.cockpit.fr-par.scw.cloud/loki/api/v1/query_range \
-  --data-urlencode 'query={resource_name="carl2255fb5c-carl"} |= "aiohttp.access"' \
+  --data-urlencode 'query={resource_type="serverless_container", resource_name=~".+-carl"} |= "aiohttp.access"' \
   --data-urlencode "start=$(date -d '-1 day' +%s)000000000" --data-urlencode limit=5000
 ```
 
