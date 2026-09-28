@@ -2,6 +2,7 @@
 
 Type: task
 Status: open
+Waiting on: owner
 
 For the owner. Steps 2–8 are built and deployed together, so what's left
 in tickets [03](03-step-2-recorder.md) to [09](09-step-8-corpus-and-costs.md)

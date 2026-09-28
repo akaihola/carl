@@ -82,6 +82,36 @@ develop on or push to a `claude/...` feature branch:
 - Push with `git push origin main`. Do not create or push feature branches, and
   do not open pull requests unless the owner asks for one.
 
+## Sessions
+
+Rules from step 1's cloud session
+([session retro](.scratch/session-retro/report.md)):
+
+- **One ticket per session.** A session works on one ticket: the one the
+  owner names, or else the next one the `next-step` skill finds. When that
+  ticket is done, or can't go on without the owner, end with the
+  `next-step` skill. It stops the session and either starts the next one or
+  gives the owner a prompt to paste. Never go on to a second ticket in the
+  same context.
+- **Check before claiming.** Follow the `verify-before-claiming` skill
+  before every commit and push, every ticked box and every figure written
+  into a ticket. In cloud sessions `.githooks/pre-commit` runs the tests
+  before any commit that changes code. Never skip it with `--no-verify`, and
+  never judge a test run through a pipe such as `| tail` that hides its exit
+  status.
+- **Subagents that edit files run one at a time**, or each with the Agent
+  tool's `isolation: "worktree"`, committing there. Cherry-pick each commit
+  onto `main` and run the tests. Worktree branches stay local and are never
+  pushed. Read-only subagents that search or research can run side by side.
+  Writers sharing one checkout break each other's test runs.
+- **Wait on a condition, not a duration:** a log line, a file, a status.
+  Run the wait in the background. For the container, see "Judge whether the
+  container is idle" in [docs/operations.md](docs/operations.md#logs).
+- **Stop a process by its PID** (`$!` or its pid file). Never use `pkill -f`,
+  whose pattern also matches the shell running it.
+- **Never deploy while a session is live:** a redeploy drops it. Check
+  `python3 deploy/logs.py` for a page still connected.
+
 ## Agent skills
 
 ### Issue tracker

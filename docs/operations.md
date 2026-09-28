@@ -48,6 +48,8 @@ uv run carl owner tail --checks -f                      # the candidates' checks
   results.
 - `carl serve --config … --prompts …` picks another config file or prompts
   folder.
+- `git config core.hooksPath .githooks` runs the tests before each commit
+  that changes code. Cloud sessions turn it on themselves.
 
 ## The cloud
 
@@ -101,10 +103,13 @@ The Worker is deployed on its own, only when `deploy/cloudflare/` or
 `src/carl/pass.html` (the pass form, which it bundles) changes:
 
 ```sh
-cd deploy/cloudflare && set -a && . ../../.secrets.cloudflare.env && set +a && npx wrangler@4 deploy
+deploy/worker.sh
 ```
 
-Afterwards check that the main route still fails open (below).
+It refuses to run while either has uncommitted changes, and takes the
+`CLOUDFLARE_*` variables from the environment or else from
+`.secrets.cloudflare.env`. Afterwards check that the main route still fails
+open (below).
 
 ### Secrets
 
@@ -124,18 +129,31 @@ step adds a provider, add its key to `SECRETS` in the script and to
 
 ### From a Claude Code cloud session
 
-The owner's cloud environment has the `SCW_*` and `CLOUDFLARE_*` variables.
-What it needs, found on 2026-09-27:
+The owner's cloud environment has the `SCW_*`, `CLOUDFLARE_*` and provider
+key variables. Two scripts set up the rest, so `deploy/deploy.sh`,
+`deploy/worker.sh` and a local server work there as they do anywhere:
 
-- Start Docker's daemon with `dockerd` in the background.
+- **The environment's setup script** is the text of
+  [`deploy/cloud-setup.sh`](../deploy/cloud-setup.sh), pasted into the
+  environment's settings (Setup script), since it runs before the repo is
+  cloned. It installs `scw` and caches wrangler, and its result is cached
+  with the environment. A change to the file needs pasting again.
+- **The SessionStart hook**, [`.claude/hooks/session-start.sh`](../.claude/hooks/session-start.sh),
+  runs in every cloud session: it turns on the pre-commit test hook
+  (`.githooks/`), runs `uv sync`, exports `CA_BUNDLE` and `WSS_PROXY`, and
+  starts Docker's daemon in the background. It says so if `scw` is missing.
+
+Why, found on 2026-09-27:
+
 - Docker Hub answers anonymous pulls with 429, so the Dockerfile's base
   image comes from Google's mirror, `mirror.gcr.io`.
 - TLS goes through a proxy that re-signs it, so builds need its CA:
-  `CA_BUNDLE=/root/.ccr/ca-bundle.crt deploy/deploy.sh`. The CA reaches the
-  build only as a BuildKit secret and never enters the image.
-- `scw` can't be downloaded from GitHub there. Take it from its image:
-  `docker create mirror.gcr.io/scaleway/cli:latest`, then `docker cp
-  <id>:/usr/bin/scw ~/.local/bin/scw`.
+  `deploy/deploy.sh` passes `CA_BUNDLE` to the build only as a BuildKit
+  secret, and it never enters the image.
+- `scw` can't be downloaded from GitHub there (403). The setup script takes
+  it from its image, `mirror.gcr.io/scaleway/cli:latest`, or else builds it
+  with `go install`. By hand: `docker create mirror.gcr.io/scaleway/cli:latest`,
+  then `docker cp <id>:/usr/bin/scw /usr/local/bin/scw`.
 - aiohttp takes a `wss://` connection's proxy from `WSS_PROXY`, so a local
   server there reaches Soniox only with `WSS_PROXY=$HTTPS_PROXY` set.
 - The secrets files don't survive the session. The owner keeps them in the
@@ -224,9 +242,24 @@ template='{{ .ID }}'`).
 
 ## Logs
 
-`scw container container logs <id>` shows the container's output. At
-startup the server logs its commit, the config's version and each prompt's
-version, then one line per page connecting and leaving.
+`scw container container logs <id>` shows the container's output, newest
+first. At startup the server logs its commit, the config's version and each
+prompt's version, then one line per page connecting and leaving. Each line
+carries the instance's name, which changes with every start.
+
+```sh
+python3 deploy/logs.py                  # the last hour's newest 20 lines, oldest first
+python3 deploy/logs.py -n 100 --since 6h
+python3 deploy/logs.py --until-quiet    # wait until no line for 16 minutes
+```
+
+**Judge whether the container is idle from its logs, never from a clock.**
+Scanners at its own address, the loading page's polls or a forgotten tab
+keep it warm while a timer runs out; step 1's cold-start measurement failed
+that way twice. Before a cold start, wait with `--until-quiet` (in the
+background) rather than a fixed sleep. Afterwards, the logs must show
+`carl.cli: starting` on a new instance just before the measured request, or
+it wasn't a cold start and doesn't count.
 
 The same logs are in the project's Cockpit, in the data source "Scaleway
 Logs", and the Scaleway secret key reads them through its Loki API (the
