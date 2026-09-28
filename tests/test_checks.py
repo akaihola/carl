@@ -20,7 +20,7 @@ from carl.session import Card, Heard, Marker, Session, Sessions, iso_time
 from carl.stt.fake import words
 from carl.utterances import Utterance
 
-from .conftest import ROOT
+from .conftest import ROOT, GatedStore
 from .test_decision import Events
 from .test_decision import FakeModel as DecisionModel
 from .test_session import connect, events, receive, settle, start
@@ -874,6 +874,21 @@ async def test_two_agreeing_verified_cards_make_a_plain_card(sessions, session, 
     assert card["source"] == {"url": A_CARD.source_url, "title": A_CARD.source_title}
     assert candidate.state == "ready" and len(judge.asked("fact-checking")) == 2 and len(judge.asked("same-fact")) == 1
     assert pages.asked == [(A_CARD.source_url, 3.0)]  # A's page, with the config's timeout; B's snippets
+
+
+async def test_a_hanging_bucket_holds_up_no_card(config, prompts, stt, pages):
+    store = GatedStore()
+    sessions = Sessions(config, prompts, store, stt, "test")
+    session = Session(sessions, "20260927T180000Z-abcdef", record=True, timezone="Europe/Helsinki")
+    session.recorder, session.link = Events(), FakeLink()
+    judge = Judge(verdicts(0.95, 0.9), SAME)
+    candidate, band = await asyncio.wait_for(pair(sessions, session, wrong(A_CARD), wrong(FI_CARD), judge), 1)
+    assert candidate.state == "ready" and band["band"] == "plain" and session.link.sent[0]["type"] == "card"
+    assert len(session.recorder.of("model call")) == 5  # both findings, both verdicts, the agreement
+    assert store.waiting == 1  # the month's total is still being written
+    store.gate.set()
+    month = await sessions.costs.month()
+    assert month["charges"] == 5 and month["usd"] == pytest.approx(session.cost_usd)
 
 
 @pytest.mark.parametrize("a, b, agreement, band, reason, shown", [

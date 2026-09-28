@@ -76,7 +76,7 @@ async def test_every_charge_reaches_the_sessions_summary_and_the_month(sessions,
         session, say(session, "Otatko kahvia?"))
     await Decider(sessions, DecisionModel("timeout")).on_utterance(session, say(session, "Entä teetä?"))
     await check(sessions, session, olympics(session), FakeFinder(reply("claim is right")))
-    await session.add_cost("speech-to-text", "soniox", "stt-rt-v5", 0.002)
+    session.add_cost("speech-to-text", "soniox", "stt-rt-v5", 0.002)
     summary = session.cost_summary()
     assert summary["by_stage"]["decision"] == {"usd": pytest.approx(0.0000585 + 0.0000675),
                                                "estimated_usd": 0.0000675, "charges": 2}
@@ -141,7 +141,7 @@ async def test_a_stop_after_the_end_still_gets_its_line(unlocked, stt, store):
 async def test_the_summary_is_kept_current_while_the_session_runs(sessions, session):
     resume.install(sessions)
     session.start_saving()
-    await session.add_cost("decision", "openai", "gpt-6-luna", 0.00005)
+    session.add_cost("decision", "openai", "gpt-6-luna", 0.00005)
     session.save_soon()
     await asyncio.sleep(0.05)
     summary = await sessions.costs.session(session.id)
@@ -150,7 +150,7 @@ async def test_the_summary_is_kept_current_while_the_session_runs(sessions, sess
 
 
 async def test_a_suspended_session_keeps_its_costs_across_a_restart(sessions, session):
-    await session.add_cost("fact-finding B", "perplexity", "google/gemini-3.8-flash", 0.0081, own_usd=0.00812)
+    session.add_cost("fact-finding B", "perplexity", "google/gemini-3.8-flash", 0.0081, own_usd=0.00812)
     session.recording_stopped_at = 1_790_000_000.0
     again = restore(sessions, json.loads(json.dumps(snapshot(session))), time.time())
     assert again.spend.event() == session.spend.event()

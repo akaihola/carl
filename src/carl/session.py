@@ -360,16 +360,17 @@ class Session:
 
     # --- Cost -----------------------------------------------------------------------
 
-    async def add_cost(self, stage: str, provider: str, model: str, usd: float, *, estimated: bool = False,
-                       when: datetime | None = None, own_usd: float | None = None) -> None:
-        """Charge a cost to this session and to its month. `own_usd` is
+    def add_cost(self, stage: str, provider: str, model: str, usd: float, *, estimated: bool = False,
+                 when: datetime | None = None, own_usd: float | None = None) -> None:
+        """Charge a cost to this session and to its month, without waiting
+        for the month's total to be written (`Costs.charge`). `own_usd` is
         Carl's own figure when `usd` is the provider's."""
         self.cost_usd += usd
         self.spend.add(stage, provider, usd, estimated, own_usd)
         try:
-            await self.sessions.costs.charge(stage, provider, model, usd, estimated=estimated, when=when)
-        except Exception:  # noqa: BLE001 - a cost that can't be written is logged, never fatal
-            log.exception("session %s: couldn't write a charge of $%.6f", self.id, usd)
+            self.sessions.costs.charge(stage, provider, model, usd, estimated=estimated, when=when)
+        except Exception:  # noqa: BLE001 - a cost that can't be charged is logged, never fatal
+            log.exception("session %s: couldn't charge $%.6f", self.id, usd)
 
     def cost_summary(self, ended: float | None = None) -> dict[str, Any]:
         """The session's cost summary (`carl.costs`): no conversation content."""
@@ -669,7 +670,7 @@ class Session:
                 await asyncio.wait_for(asyncio.shield(run.reader), 10)
             run.reader.cancel()
         self.flush_utterances(run, run.splitter.endpoint())
-        await self.charge(run, time.time())
+        self.charge(run, time.time())
         self.log("stt closed", stream=run.index)
 
     async def finalize(self, run: StreamRun | None) -> None:
@@ -741,7 +742,7 @@ class Session:
         self.health.begin("stt-reopening")
         self.run = None
         self.flush_utterances(run, run.splitter.endpoint())
-        self.spawn(self.charge(run, time.time()))
+        self.charge(run, time.time())
         self.heard.append(Marker("gap", time.time()))
         self.spawn(self.reopen(0))
 
@@ -755,15 +756,15 @@ class Session:
     async def charge_periodically(self, run: StreamRun) -> None:
         while True:
             await asyncio.sleep(COST_EVERY_S)
-            await self.charge(run, time.time())
+            self.charge(run, time.time())
 
-    async def charge(self, run: StreamRun, until: float) -> None:
+    def charge(self, run: StreamRun, until: float) -> None:
         seconds, run.charged_until = until - run.charged_until, until
         if seconds <= 0:
             return
         stage = self.config.stages.speech_to_text
-        await self.add_cost("speech-to-text", stage.provider, stage.model,
-                            costs_module.stream_cost(self.config, stage, seconds))
+        self.add_cost("speech-to-text", stage.provider, stage.model,
+                      costs_module.stream_cost(self.config, stage, seconds))
 
 
 class Sessions:
@@ -903,7 +904,8 @@ class Sessions:
 
     async def close(self) -> None:
         """At shutdown, once every session has ended: close what the checks
-        hold open, and write out the failure log."""
+        hold open, and write out the failure log and the month's costs."""
         if self.checker is not None:
             await self.checker.close()
         await self.failures.flush()
+        await self.costs.flush()

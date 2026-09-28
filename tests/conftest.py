@@ -113,6 +113,21 @@ class ScriptedStt:
         return self.streams[-1]
 
 
+class GatedStore(MemoryStore):
+    """A bucket that holds every write until the test opens the gate."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.gate = asyncio.Event()
+        self.waiting = 0
+
+    async def put(self, key: str, data: bytes) -> None:
+        self.waiting += 1
+        await self.gate.wait()
+        self.waiting -= 1
+        await super().put(key, data)
+
+
 @pytest.fixture
 def store() -> MemoryStore:
     return MemoryStore()

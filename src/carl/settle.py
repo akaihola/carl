@@ -124,13 +124,13 @@ class Settler:
         try:
             answer = await self.model.ask(question, stage=STAGE)
         except ModelError as e:
-            await account(self.sessions, session, heard, question, e.record)
+            account(self.sessions, session, heard, question, e.record)
             session.failure(STAGE, e.kind, record=e.record)
             session.health.call(ok=False)
             session.log("settle", utterance=heard.id, outcome="failed", error=e.kind)
             log.warning("session %s: %s; no settle call on %s", session.id, e, heard.id)
             return
-        await account(self.sessions, session, heard, question, answer.record)
+        account(self.sessions, session, heard, question, answer.record)
         session.health.call(ok=True)
         chosen, probability = settle_outcome(answer.answer, answer.probs, question.choices, s.settle_threshold)
         event: dict[str, Any] = {"utterance": heard.id, "answer": answer.answer, "probs": answer.probs,

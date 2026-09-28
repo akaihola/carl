@@ -16,7 +16,7 @@ from carl.session import Heard, Marker, Session, Sessions
 from carl.stt.fake import words
 from carl.utterances import Utterance
 
-from .conftest import ROOT
+from .conftest import ROOT, GatedStore
 
 T0 = 1_790_000_000.0
 DISCLOSURE = {"text": "Tämä on testi. …", "confirmed_at": "2026-09-27T18:02:11.123Z"}
@@ -351,6 +351,20 @@ async def test_each_call_is_charged_to_the_month_and_the_session(sessions, sessi
     assert month["by_provider"] == {"openai": pytest.approx(USD)}
     assert month["estimated_usd"] == 0 and month["charges"] == 1
     assert session.cost_usd == pytest.approx(USD)
+
+
+async def test_a_hanging_bucket_holds_up_no_decision(config, prompts, stt):
+    store = GatedStore()
+    sessions = Sessions(config, prompts, store, stt, "test")
+    session = Session(sessions, "20260927T180000Z-abcdef", record=True, timezone="Europe/Helsinki")
+    session.recorder = Events()
+    await asyncio.wait_for(decide(sessions, session, say(session, "Einstein reputti matikan.", at=0),
+                                  ("claim", None)), 1)
+    assert [c.id for c in session.candidates] == ["C1"] and session.cost_usd == pytest.approx(USD)
+    await asyncio.sleep(0.01)
+    assert store.waiting == 1  # the month's total is still being written
+    store.gate.set()
+    assert (await sessions.costs.month())["charges"] == 1
 
 
 async def test_a_failed_call_drops_its_utterance_and_is_charged_an_estimate(sessions, session, caplog):

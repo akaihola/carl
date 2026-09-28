@@ -471,8 +471,7 @@ class Checker:
             try:
                 finding = await self.finders[letter].find(request, stage=STAGES[letter])
             except ModelError as e:
-                await self.account(session, candidate, e.record, finder=letter, attempt=attempt,
-                                   user_location=where)
+                self.account(session, candidate, e.record, finder=letter, attempt=attempt, user_location=where)
                 session.failure(STAGES[letter], e.kind, record=e.record, candidate=candidate.id)
                 if e.kind == "rate-limited" and attempt == 1 and time.time() - candidate.heard.time < RETRY_YOUNG_S:
                     log.info("session %s: %s; trying %s once more", session.id, e, candidate.id)
@@ -480,8 +479,7 @@ class Checker:
                     await asyncio.sleep(RETRY_AFTER_S)
                     continue
                 raise
-            await self.account(session, candidate, finding.record, finder=letter, attempt=attempt,
-                               user_location=where)
+            self.account(session, candidate, finding.record, finder=letter, attempt=attempt, user_location=where)
             return finding
 
     async def match(self, session: Session, candidate: Candidate, part: Part) -> Part:
@@ -550,12 +548,12 @@ class Checker:
             part.verdict = await self.model.ask(question, stage=STAGE)
         except ModelError as e:
             part.error = e
-            await self.account(session, candidate, e.record, finder=part.finder)
+            self.account(session, candidate, e.record, finder=part.finder)
             session.failure(STAGE, e.kind, record=e.record, candidate=candidate.id)
             session.log("verdict", **fields, answer=None, probs=None, error=e.kind)
             log.warning("session %s: %s; no verdict on %s's card for %s", session.id, e, part.finder, candidate.id)
             return
-        await self.account(session, candidate, part.verdict.record, finder=part.finder)
+        self.account(session, candidate, part.verdict.record, finder=part.finder)
         session.log("verdict", **fields, answer=part.verdict.answer, probs=part.verdict.probs)
 
     async def agree(self, session: Session, candidate: Candidate, a: Part, b: Part) -> tuple[Agreement | None,
@@ -567,25 +565,25 @@ class Checker:
         try:
             answer = await self.model.ask(question, stage=STAGE)
         except ModelError as e:
-            await self.account(session, candidate, e.record)
+            self.account(session, candidate, e.record)
             session.failure(STAGE, e.kind, record=e.record, candidate=candidate.id)
             session.log("agreement", candidate=candidate.id, answer=None, probs=None, error=e.kind)
             log.warning("session %s: %s; no agreement for %s", session.id, e, candidate.id)
             return None, e.kind
-        await self.account(session, candidate, answer.record)
+        self.account(session, candidate, answer.record)
         session.log("agreement", candidate=candidate.id, answer=answer.answer, probs=answer.probs)
         return Agreement(answer.answer, None if answer.probs is None else answer.probs.get(SAME_FACT, 0.0)), None
 
     # --- Accounts ----------------------------------------------------------------------------
 
-    async def account(self, session: Session, candidate: Candidate, record: CallRecord, **fields: Any) -> None:
+    def account(self, session: Session, candidate: Candidate, record: CallRecord, **fields: Any) -> None:
         """Record the call and charge its cost, an estimate included, to the
         month and the session."""
         event = record.event()
         event.pop("request", None)
         session.log("model call", candidate=candidate.id, utterance=candidate.heard.id, **fields, **event)
-        await session.add_cost(record.stage, record.provider, self.configs[record.stage].model, record.charged_usd,
-                               estimated=record.estimated, when=record.started_at, own_usd=record.cost_usd)
+        session.add_cost(record.stage, record.provider, self.configs[record.stage].model, record.charged_usd,
+                         estimated=record.estimated, when=record.started_at, own_usd=record.cost_usd)
 
     @staticmethod
     def finish(session: Session, candidate: Candidate, state: str, **fields: Any) -> None:

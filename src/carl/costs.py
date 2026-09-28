@@ -3,8 +3,9 @@
 Costs are stored in USD, as billed, and shown in euros at the config file's
 fixed rate, marked "≈". Months are calendar months in Europe/Helsinki time,
 and each charge is dated by its own time. `costs/month-<YYYY-MM>.json` holds
-the month-to-date total, rewritten by the single server instance on every
-charge.
+the month-to-date total, rewritten by the single server instance in the
+background after every charge, so a model call's cost never holds up the
+pipeline.
 
 Each session also has a cost summary, `costs/sessions/<id>.json`, kept
 indefinitely since it holds no conversation content: its start and
@@ -129,6 +130,17 @@ class SessionCosts:
                    {k: dict(v) for k, v in data["by_provider"].items()}, dict(data["provider_difference_usd"]))
 
 
+@dataclass(frozen=True)
+class Charge:
+    """A charge waiting to be added to its month's total."""
+
+    when: datetime
+    stage: str
+    provider: str
+    usd: float
+    estimated: bool
+
+
 def stream_cost(config: Config, stage: Stage, seconds: float) -> float:
     """USD for `seconds` of a speech-to-text stream, from the price table."""
     per_hour = config.price(stage).audio_hour
@@ -141,36 +153,79 @@ class Costs:
     """The month-to-date totals.
 
     The single server instance owns them: each month is read from the store
-    once, then kept here and written back on every charge. A failed write
-    keeps the charge, which goes out with the next one; a failed read raises,
-    since the total it would add to is unknown.
+    once, then kept here and written back after every charge. `charge` is
+    synchronous and never waits for the store: it queues the charge and a
+    task adds it and writes its month (`flush`). A month that can't be read
+    keeps its charges queued, since the total they add to is unknown; one
+    that can't be written goes out with the next write. `flush` writes
+    whatever is left, as at shutdown.
     """
 
     def __init__(self, store: Store, config: Config) -> None:
         self.store, self.config = store, config
         self._months: dict[str, dict[str, Any]] = {}
+        self._queued: list[Charge] = []
+        self._unwritten: set[str] = set()  # the months whose total is ahead of the store's
         self._lock = asyncio.Lock()
+        self._task: asyncio.Task | None = None
         self._last: dict[str, Any] | None = None  # the last session's line, {} when there is none
 
-    async def charge(self, stage: str, provider: str, model: str, usd: float, *, estimated: bool = False,
-                     when: datetime | None = None) -> None:
-        """Add a charge to its month's total (Helsinki month of `when`, now by default)."""
+    def charge(self, stage: str, provider: str, model: str, usd: float, *, estimated: bool = False,
+               when: datetime | None = None) -> None:
+        """Queue a charge for its month's total (Helsinki month of `when`, now by default)."""
         if not math.isfinite(usd) or usd < 0:
             raise ValueError(f"not a cost: {usd!r}")
-        when = when or datetime.now(UTC)
+        self._queued.append(Charge(when or datetime.now(UTC), stage, provider, usd, estimated))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        if self._task is None or self._task.done():
+            self._task = loop.create_task(self.flush())
+
+    async def flush(self) -> None:
+        """Add the queued charges to their months and write each month that
+        changed, until nothing more is queued or the store fails. Never raises."""
         async with self._lock:
-            total = await self._load(when)
-            total["usd"] += usd
-            if estimated:
-                total["estimated_usd"] += usd
-            total["by_stage"][stage] = total["by_stage"].get(stage, 0.0) + usd
-            total["by_provider"][provider] = total["by_provider"].get(provider, 0.0) + usd
+            while True:
+                queued, self._queued = self._queued, []
+                added = await self._add(queued)
+                written = await self._write()
+                if not (added and written and self._queued):
+                    return
+
+    async def _add(self, charges: list[Charge]) -> bool:
+        """Add `charges` to their months, in order. False when a month can't
+        be read: that charge and the rest go back to the queue's front."""
+        for i, c in enumerate(charges):
+            try:
+                total = await self._load(c.when)
+            except Exception:  # noqa: BLE001 - kept queued for the next flush
+                log.warning("reading %s failed; %d charges wait", month_key(c.when), len(charges) - i, exc_info=True)
+                self._queued[:0] = charges[i:]
+                return False
+            total["usd"] += c.usd
+            if c.estimated:
+                total["estimated_usd"] += c.usd
+            total["by_stage"][c.stage] = total["by_stage"].get(c.stage, 0.0) + c.usd
+            total["by_provider"][c.provider] = total["by_provider"].get(c.provider, 0.0) + c.usd
             total["charges"] += 1
             total["updated"] = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            self._unwritten.add(month_key(c.when))
+        return True
+
+    async def _write(self) -> bool:
+        """Write each month whose total is ahead of the store's. False when a write failed."""
+        written = True
+        for key in sorted(self._unwritten):
             try:
-                await self.store.put(month_key(when), json.dumps(total, indent=2).encode())
-            except Exception:
-                log.warning("writing %s failed; the charge goes out with the next one", month_key(when), exc_info=True)
+                await self.store.put(key, json.dumps(self._months[key], indent=2).encode())
+            except Exception:  # noqa: BLE001 - written with the next charge, or at shutdown
+                log.warning("writing %s failed; the charges go out with the next write", key, exc_info=True)
+                written = False
+            else:
+                self._unwritten.discard(key)
+        return written
 
     async def write_session(self, summary: dict[str, Any]) -> None:
         """Write a session's cost summary. Never raises: it is written again at the next chance."""
@@ -221,7 +276,9 @@ class Costs:
 
     async def month(self, when: datetime | None = None) -> dict[str, Any]:
         """The month-to-date object: {"month", "usd", "estimated_usd", "by_stage": {stage: usd},
-        "by_provider": {provider: usd}, "charges", "updated"}, all zero before the first charge."""
+        "by_provider": {provider: usd}, "charges", "updated"}, all zero before the first charge.
+        Every charge queued so far is in it. A failed read raises."""
+        await self.flush()
         async with self._lock:
             return copy.deepcopy(await self._load(when or datetime.now(UTC)))
 

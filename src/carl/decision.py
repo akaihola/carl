@@ -213,13 +213,13 @@ class Decider:
         try:
             answer = await self.model.ask(question, stage=STAGE)
         except ModelError as e:
-            await self.account(session, heard, question, e.record)
+            self.account(session, heard, question, e.record)
             session.log("decision", utterance=heard.id, outcome="dropped", error=e.kind)
             session.failure(STAGE, e.kind, record=e.record)
             session.health.call(ok=False, dropped=True)
             log.warning("session %s: %s; %s is dropped", session.id, e, heard.id)
             return
-        await self.account(session, heard, question, answer.record)
+        self.account(session, heard, question, answer.record)
         session.health.call(ok=True)
         chosen, probability = outcome(answer.answer, answer.probs, s.repeat_threshold, s.candidate_threshold)
         decided = {"utterance": heard.id, "answer": answer.answer, "probs": answer.probs}
@@ -272,11 +272,11 @@ class Decider:
                 log.exception("session %s: no place from location; the date and time only", session.id)
         return date_time(session.timezone)
 
-    async def account(self, session: Session, heard: Heard, question: Question, record: CallRecord) -> None:
-        await account(self.sessions, session, heard, question, record)
+    def account(self, session: Session, heard: Heard, question: Question, record: CallRecord) -> None:
+        account(self.sessions, session, heard, question, record)
 
 
-async def account(sessions: Sessions, session: Session, heard: Heard, question: Question, record: CallRecord) -> None:
+def account(sessions: Sessions, session: Session, heard: Heard, question: Question, record: CallRecord) -> None:
     """Record a decision model call (a decision or settle call) and charge
     its cost, an estimate included, to its stage.
 
@@ -287,8 +287,8 @@ async def account(sessions: Sessions, session: Session, heard: Heard, question: 
     event = record.event()
     event.pop("request", None)
     session.log("model call", utterance=heard.id, choices=list(question.choices), **event)
-    await session.add_cost(record.stage, record.provider, sessions.config.stages.decision.model, record.charged_usd,
-                           estimated=record.estimated, when=record.started_at, own_usd=record.cost_usd)
+    session.add_cost(record.stage, record.provider, sessions.config.stages.decision.model, record.charged_usd,
+                     estimated=record.estimated, when=record.started_at, own_usd=record.cost_usd)
 
 
 def install(sessions: Sessions, environ: Mapping[str, str]) -> None:
