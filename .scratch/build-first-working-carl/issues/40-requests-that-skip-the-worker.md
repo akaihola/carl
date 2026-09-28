@@ -5,9 +5,9 @@ Status: resolved
 
 Follows [ticket 37](37-worker-turns-away-requests-without-a-pass.md). The
 Worker answers every request to `faktat.vempai.men` that has no access-pass
-cookie, but a request to the container's own address,
-`carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud`, never meets it. The
-public repo names that address in `docs/operations.md` and `deploy/deploy.sh`.
+cookie, but a request to the container's own address (its Scaleway
+endpoint) never meets it. The public repo named that address in
+`docs/operations.md` and `deploy/deploy.sh`.
 
 On 2026-09-27 the owner's session ended at 19:02 (its page left at 19:08),
 and the container went cold. At 19:28 a new instance started for three
@@ -56,9 +56,8 @@ the Cloudflare token can't read analytics, and no tail was running.
 
 The one request from anyone else:
 
-- 2026-09-28 17:17:58, `GET /` (401), host
-  `carl2255fb5c-carl.functions.fnc.fr-par.scw.cloud`, user agent Chrome 150
-  on macOS. It fetched no `/favicon.ico`, as a browser would after a page,
+- 2026-09-28 17:17:58, `GET /` (401), host the container's own address,
+  user agent Chrome 150 on macOS. It fetched no `/favicon.ico`, as a browser would after a page,
   so it was most likely a script.
 
 With the 19:28 request on 2026-09-27 (ticket body), that is two direct
@@ -89,3 +88,10 @@ already have it. One day is a small sample: `|= "cf-ray=-"` in the Loki
 query (operations doc, Logs) shows whether direct hits grow.
 
 ## Comments
+
+- 2026-09-28: The owner chose to take the address out of the docs after
+  all. It's gone from every tracked file: `deploy/deploy.sh` and the
+  operations doc look it up with `scw container container get <id> -o
+  template='{{ .PublicEndpoint }}'`, and the Loki query picks the container
+  by `resource_name=~".+-carl"` (the same 18 access lines in the last 24
+  hours as the old query). It is still in the history from `c7adcb6` on.
