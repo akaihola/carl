@@ -41,6 +41,18 @@ Rules for writing and working the build tickets, such as
 
 Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
 
+## When `to-tickets` writes tickets
+
+Write them in the build tickets' form, not the skill's template, so the
+`next-step` skill can find them:
+
+- Carl has no triage labels. The top lines are plain `Type: task`,
+  `Status: open` and `Blocked by: NN, NN`, never `ready-for-agent` or bold
+  labels, since `next-step` only picks a ticket with `Status: open`.
+- A ticket that adds to an existing effort, such as
+  `build-first-working-carl`, goes in that effort's `issues/` and takes the
+  next free number there instead of starting again at `01`.
+
 ## When a skill says "fetch the relevant ticket"
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
