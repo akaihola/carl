@@ -14,3 +14,6 @@ __pycache__/
 
 # Local runs without a bucket key
 .carl-store/
+
+# The fetch_url probe's raw results
+.scratch/build-first-working-carl/fetch-url-probe/out/
