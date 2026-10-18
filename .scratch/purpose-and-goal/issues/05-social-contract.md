@@ -18,5 +18,5 @@ Settled with the owner in a grilling session.
 - **A card addresses the claim, never the person.** It gives the claim's gist in a few words, then the fact ("Einstein didn't fail maths: he excelled at it."). No speaker label, no name, no "you". Everyone heard who said it; pointing at them only adds sting.
 - **Tone: neutral reference-book voice** for both claims and open questions. Plain, short, factual. No "Actually", no exclamation marks, no jokes, no emoji. In a hedged fact card only "probably"/"maybe" carries the uncertainty, with no extra softening. In Finnish, the neutral encyclopedic register.
 
-Glossary updated in `CONTEXT.md`: *Owner*, *Table*, *Listening indicator*, *Pause*.
+Glossary updated in `GLOSSARY.md`: *Owner*, *Table*, *Listening indicator*, *Pause*.
 

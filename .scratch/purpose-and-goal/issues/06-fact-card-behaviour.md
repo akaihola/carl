@@ -32,4 +32,4 @@ Settled with the owner by reacting to the prototype.
 - **Check time (end of utterance to card): not decided here.** It moves to *Success criteria*, which already covers latency tolerances. In the prototype, a 3 s check showed the Great Wall card before the table corrected it; with 8 s the card never appeared.
 - Unchanged from earlier tickets: the listening indicator and one-tap Pause are always visible, and between cards they are the only things on screen.
 
-Glossary updated in `CONTEXT.md`: *Card history*, *Live transcript line*.
+Glossary updated in `GLOSSARY.md`: *Card history*, *Live transcript line*.

@@ -31,7 +31,7 @@ Settled with the owner in a grilling session (2026-09-26).
    sends a reason code. If both apply, "can't hear" wins. How it looks is for
    [The screen](24-the-screen.md).
 2. The time the indicator spends in this state is an **outage** (new term in
-   `CONTEXT.md`).
+   `GLOSSARY.md`).
 
 **Can't hear**
 

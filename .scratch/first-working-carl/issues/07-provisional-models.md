@@ -24,7 +24,7 @@ mic → speech-to-text → decision → fact-finding → fact-checking → card 
 
 The decision and fact-checking models give **typed answers only**, so that
 Jev-like models fit. The new **fact-finding model** searches the web and
-writes the **draft card**. See `CONTEXT.md` for the terms and
+writes the **draft card**. See `GLOSSARY.md` for the terms and
 [ADR 0001](../../../docs/adr/0001-typed-judges-around-a-writing-search.md)
 for why.
 

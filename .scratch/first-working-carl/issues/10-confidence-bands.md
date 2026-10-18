@@ -19,7 +19,7 @@ How does a verdict's confidence map to a plain fact card, a hedged fact card or 
 Settled with the owner in a grilling session (2026-09-26).
 
 **The signal is agreement plus Carl's own excerpt check**, never one model's
-self-reported confidence. See `CONTEXT.md` for **agreement** and **verified
+self-reported confidence. See `GLOSSARY.md` for **agreement** and **verified
 excerpt**.
 
 **Gathering the evidence**

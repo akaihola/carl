@@ -64,7 +64,7 @@ Settled with the owner in a grilling session (2026-09-26).
     per stream, so every new stream (after Pause, a Soniox drop, a server
     restart or rotation) gets fresh labels (e.g. B1, B2…), and the decision
     context gets a "(paused)" or "(gap)" marker at the boundary. No voice
-    matching across streams. **Speaker label** is now in `CONTEXT.md`.
+    matching across streams. **Speaker label** is now in `GLOSSARY.md`.
 
 No ADR: each choice is cheap to reverse through config or a small change,
 and the comparison map exists to revisit them.

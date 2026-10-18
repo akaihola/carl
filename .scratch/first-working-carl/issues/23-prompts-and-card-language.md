@@ -48,7 +48,7 @@ write the draft cards ([Provisional models](07-provisional-models.md)).
 
 **Card language**
 
-7. The **card language** (new term in `CONTEXT.md`) is the majority language
+7. The **card language** (new term in `GLOSSARY.md`) is the majority language
    by word count over the last 10 minutes of final utterances, from Soniox's
    per-token language tags. Carl works it out itself; no model decides it.
 8. With fewer than ~50 words in that window, or on a tie, the candidate
@@ -103,5 +103,5 @@ write the draft cards ([Provisional models](07-provisional-models.md)).
     needs the network), and its results aren't stored. Real test-corpus cases
     replace these examples in the comparison map.
 
-**Card language** is now in `CONTEXT.md`. No ADR: every choice here is a
+**Card language** is now in `GLOSSARY.md`. No ADR: every choice here is a
 prompt, config or small code change away from reversal.

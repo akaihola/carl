@@ -29,7 +29,7 @@ Settled with the owner in a grilling session.
 - **The table comes first.** If someone at the table corrects the claim or answers the open question before the card is ready, Carl drops it. A "correction" that is itself false is simply a new claim.
 - **Overhear only.** No wake word and no direct questions to Carl. A question asked out loud and left unanswered is already an open question.
 
-Glossary updated in `CONTEXT.md`: *Claim* (checkable against a public source), *Open question* (left unresolved by the table), new term *Hedged fact card*.
+Glossary updated in `GLOSSARY.md`: *Claim* (checkable against a public source), *Open question* (left unresolved by the table), new term *Hedged fact card*.
 
 ## Comments
 

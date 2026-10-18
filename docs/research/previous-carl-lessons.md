@@ -231,7 +231,7 @@ but it was never confirmed by running it.
 - Keeping the Live API awake with silence frames, and the hand-rolled RMS
   voice-activity gate.
 - The `CORRECT`/`SKIP` first-word text protocol. It should be replaced by a
-  structured verdict (outcome, answer, source, confidence) as `CONTEXT.md`
+  structured verdict (outcome, answer, source, confidence) as `GLOSSARY.md`
   already defines.
 - Streaming the verifier's prose directly to the screen, and the font-size
   work built around it.

@@ -47,7 +47,7 @@ Settled with the owner in a grilling session.
   - A **monthly cap** set by the owner. Carl stops cleanly when it is reached.
   - Fitting vendors to this stays with the vendor effort (out of scope).
 
-Glossary updated in `CONTEXT.md`: *Check time*, *Late card*, *Recording session*, *Test corpus*.
+Glossary updated in `GLOSSARY.md`: *Check time*, *Late card*, *Recording session*, *Test corpus*.
 
 ## Comments
 

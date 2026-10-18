@@ -92,5 +92,5 @@ Settled with the owner in a grilling session (2026-09-26).
 It can reuse this list of earlier candidates, e.g. with a `settles Cn`
 choice.
 
-**Repeat** is now in `CONTEXT.md`. No ADR: every choice is a config or prompt
+**Repeat** is now in `GLOSSARY.md`. No ADR: every choice is a config or prompt
 change away from reversal.

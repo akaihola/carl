@@ -24,7 +24,7 @@ we'd know it works. `AGENTS.md`'s Goal section is rewritten from it.
   (named people, quotes, unresolved pronouns). It conveys its confidence
   through its wording ("maybe", "probably"). This is the owner's standing
   preference for the prototype.
-- Use the vocabulary in `CONTEXT.md` (decision model, candidate, claim, open
+- Use the vocabulary in `GLOSSARY.md` (decision model, candidate, claim, open
   question, verdict, fact card). Grilling tickets also call `domain-modeling`.
 - Research lives in `docs/research/`; `docs/research/realtime-fact-checking.md`
   is the starting architecture research.

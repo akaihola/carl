@@ -5,7 +5,7 @@ table audio*
 (`.scratch/first-working-carl/issues/02-streaming-speech-to-text.md`),
 compiled 2026-09-25. It builds on the vendor list in
 [realtime-fact-checking.md](realtime-fact-checking.md) and uses the
-vocabulary of [CONTEXT.md](../../CONTEXT.md). An **utterance** is one final
+vocabulary of [GLOSSARY.md](../../GLOSSARY.md). An **utterance** is one final
 transcript segment attributed to a single speaker, so the question for each
 service is how directly its output can become utterances.
 

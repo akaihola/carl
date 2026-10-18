@@ -69,5 +69,5 @@ Settled with the owner in a grilling session (2026-09-26).
    back; in the can't-hear-or-check state it shows only if audio still
    reaches storage; after a stop it is gone for good.
 
-No ADR: each choice is cheap to reverse. `CONTEXT.md` updated: the listening
+No ADR: each choice is cheap to reverse. `GLOSSARY.md` updated: the listening
 indicator's recording mark, and a recording session's one-way stop.
