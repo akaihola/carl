@@ -40,7 +40,7 @@ Settled with the owner in a grilling session (2026-09-26).
    field in the decision call (probabilities for two fields at once are
    unverified for Luna and Jev).
 
-**What a settle does** (see **settled** in `CONTEXT.md`)
+**What a settle does** (see **settled** in `GLOSSARY.md`)
 
 5. **Before the card is on screen:** the candidate is dropped. Its checks are
    cancelled or their results discarded, a card already sent to the page is
@@ -72,7 +72,7 @@ Settled with the owner in a grilling session (2026-09-26).
 12. The 20 s cut-off is measured **at the moment the card would reach the
     screen**: a card that can't reach it within 20 s of its utterance (ready
     late, or waiting behind another card) is a late card and goes straight
-    into the card history. The **late card** definition in `CONTEXT.md` is
+    into the card history. The **late card** definition in `GLOSSARY.md` is
     updated to match.
 13. The card history is always ordered by utterance time, newest on top,
     on-time and late cards alike. The server sends each card with its

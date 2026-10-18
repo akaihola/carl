@@ -8,7 +8,7 @@ decided and adds no decisions of its own.
 - The [product spec][product] sets how Carl behaves and still applies. This
   spec says what the first version builds and how. Any behaviour it doesn't
   repeat comes from the product spec.
-- Terms in **bold** are defined in [`CONTEXT.md`][context]. Use them exactly.
+- Terms in **bold** are defined in [`GLOSSARY.md`][context]. Use them exactly.
 - Each section ends with the tickets it comes from. The reasoning and the
   rejected options are in those tickets.
 - Where tickets differ, the later decision wins and only that one appears
@@ -1674,7 +1674,7 @@ logs are left to the documentation (see
 [Access and deletion requests](#access-and-deletion-requests)).
 
 [product]: ../purpose-and-goal/spec.md
-[context]: ../../CONTEXT.md
+[context]: ../../GLOSSARY.md
 [adr1]: ../../docs/adr/0001-typed-judges-around-a-writing-search.md
 [adr2]: ../../docs/adr/0002-scaleway-container-behind-a-cloudflare-loading-page.md
 [t01]: issues/01-done-for-first-version.md

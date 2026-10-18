@@ -37,7 +37,7 @@ Settled with the owner in a grilling session.
   - Carl's documentation names each stage's provider and links to its retention terms.
   - The spec gives the owner a suggested disclosure line saying the conversation goes to cloud AI services, so the table's consent is informed.
 
-Glossary updated in `CONTEXT.md`: *Session*, *Card archive*, *Recording session*.
+Glossary updated in `GLOSSARY.md`: *Session*, *Card archive*, *Recording session*.
 
 ## Comments
 

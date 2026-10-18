@@ -5,7 +5,7 @@ Research on whether NVIDIA's open **Parakeet v3** model
 locally for free. Compiled 2026-09-25. It extends
 [streaming-speech-to-text.md](streaming-speech-to-text.md), which covered
 paid streaming services, and uses the vocabulary of
-[CONTEXT.md](../../CONTEXT.md). An **utterance** is one final transcript
+[GLOSSARY.md](../../GLOSSARY.md). An **utterance** is one final transcript
 segment attributed to a single speaker. The question is how directly a
 Parakeet setup can produce utterances with speaker labels, from a
 2–6 person Finnish/English table, for sessions of up to 2 hours, fast enough

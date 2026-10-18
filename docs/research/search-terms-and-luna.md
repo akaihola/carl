@@ -34,7 +34,7 @@ Pricing and Google's grounding terms are already in
 
 ## 1. May Carl store, keep and analyse search results and responses?
 
-What Carl wants to do (from `CONTEXT.md`): a **recording session** logs every
+What Carl wants to do (from `GLOSSARY.md`): a **recording session** logs every
 model call in full, including the fact-finding model's response and its
 search results. The raw logs are deleted 6 months after recording. The
 owner's corrected Markdown, which quotes draft cards and their source

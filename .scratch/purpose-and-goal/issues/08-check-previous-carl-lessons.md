@@ -24,7 +24,7 @@ Settled with the owner in a grilling session, going through each finding in [Les
 - **Situational questions count once where and when are known.** A claim or open question qualifies if it can be checked against a public source *given where and when the table is* ("when was this church built?", "is the pharmacy on the corner open on Sundays?"). Private facts ("how old is my sister?") and opinions ("what should we order?") stay out. This narrows the "situational" exclusion in Edges of the purpose.
 - **The screen stays on for the whole session.** The documentation tells the owner that a long session on a propped-up phone wants a charger.
 
-Glossary updated in `CONTEXT.md`: *Claim* and *Open question* (checkable given where and when), *Listening indicator* (can't-hear state), new term *Failure log*.
+Glossary updated in `GLOSSARY.md`: *Claim* and *Open question* (checkable given where and when), *Listening indicator* (can't-hear state), new term *Failure log*.
 
 ## Comments
 

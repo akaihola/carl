@@ -7,7 +7,7 @@ precise location, taken at session start and updated during it"
 ([spec](../../.scratch/purpose-and-goal/spec.md#context-carl-gets)), a
 **recording session** logs every model call including the location, and the
 **test corpus** keeps the location rounded to neighbourhood or town
-(`CONTEXT.md`). The previous Carl sent coordinates to OpenStreetMap Nominatim
+(`GLOSSARY.md`). The previous Carl sent coordinates to OpenStreetMap Nominatim
 and put the street address in every prompt, without weighing the privacy cost
 ([previous-carl-lessons.md](previous-carl-lessons.md)).
 

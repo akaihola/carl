@@ -1,7 +1,7 @@
 # Carl: product spec
 
 Assembled from the resolved tickets of the [Purpose and goal map](map.md).
-Terms in **bold** are defined in [`CONTEXT.md`](../../CONTEXT.md). Where two
+Terms in **bold** are defined in [`GLOSSARY.md`](../../GLOSSARY.md). Where two
 tickets differ, the later one wins; each section links the tickets it comes
 from, and the rationale lives there.
 

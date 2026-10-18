@@ -29,7 +29,7 @@ Conflicts and gaps found while assembling it were settled at arrival; see
 - **Provisional models only.** Pick models only as far as needed to build and
   record. The rigorous comparison is a later map (see Out of scope).
 - **Hedge, don't refuse; precision over recall.** Finnish and English, fully.
-- **Vocabulary:** use `CONTEXT.md` exactly (session, owner, table, utterance,
+- **Vocabulary:** use `GLOSSARY.md` exactly (session, owner, table, utterance,
   candidate, claim, open question, verdict, fact card, hedged fact card, card
   history, card archive, late card, check time, failure log, monthly budget,
   recording session, test corpus). Grilling tickets also call

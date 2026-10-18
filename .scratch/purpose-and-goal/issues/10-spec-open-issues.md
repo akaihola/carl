@@ -55,6 +55,6 @@ Settled with the owner in a grilling session.
   - The real-use wrong-card rate (per 10 h) is computed from these marks and
     listening times.
 
-Glossary updated in `CONTEXT.md`: new term *Monthly budget*; *Listening
+Glossary updated in `GLOSSARY.md`: new term *Monthly budget*; *Listening
 indicator*, *Failure log*, *Card archive*, *Recording session* and *Test
 corpus* updated.

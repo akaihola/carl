@@ -66,7 +66,7 @@ Settled with the owner by reacting to two rounds of the
    phone upright only sideways, so landscape is the main case, but the same
    page lays itself out for portrait too.
 2. **The session screen** (the round-2 prototype's P and L1):
-   - A one-row **top bar** (new term in `CONTEXT.md`): the listening
+   - A one-row **top bar** (new term in `GLOSSARY.md`): the listening
      indicator, its recording mark, then Pause, End and a ⋯ menu at the right
      end. In landscape the live transcript line, when on, sits in the bar
      between them; in portrait it goes under the current card.
@@ -108,5 +108,5 @@ Settled with the owner by reacting to two rounds of the
 8. **Look:** a dark screen whatever the phone's theme, in Atkinson
    Hyperlegible, carried over from the fact card prototype.
 
-No ADR: each choice is cheap to change in the page. `CONTEXT.md` gains
+No ADR: each choice is cheap to change in the page. `GLOSSARY.md` gains
 **Start screen** and **Top bar**.

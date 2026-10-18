@@ -120,4 +120,4 @@ Issues are tracked as local markdown files under `.scratch/`. See `docs/agents/i
 
 ### Domain docs
 
-Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: one root `GLOSSARY.md` plus `docs/adr/`. See `docs/agents/domain.md`.
