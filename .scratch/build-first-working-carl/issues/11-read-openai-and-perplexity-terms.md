@@ -231,8 +231,10 @@ The disclosure needn't mention search queries. Two caveats:
 switching off if they are still at their defaults:
 
 - [Privacy settings][or-settings]: "OpenRouter Use of Inputs/Outputs" off.
-  Also switch off routing to providers that may train on paid models. Jev's
-  only provider doesn't train, so this is a guard for later.
+  The optional guard against routing to providers that may train on paid
+  models is not required for the current tests: see the owner's
+  2026-11-10 decision in Comments. Jev's only provider did not train when
+  checked on 2026-09-27.
 - [Observability][or-observability]: "Private Input & Output Logging" off.
   Carl keeps its own log.
 
@@ -305,3 +307,9 @@ The recording and test corpus plans need no change.
   and "Private Input & Output Logging" in the OpenRouter account. The
   guard against routing to providers that may train on paid models wasn't
   reported.
+- 2026-11-10: Antti decided that preventing provider training is unnecessary
+  for now. Carl is being tested with team members, and Antti makes sure
+  their conversations contain no sensitive information. No account setting
+  changes are requested. This records the owner's decision and reason;
+  the agent has not inspected the account's current settings. Revisit the
+  decision if testing moves beyond these conditions.

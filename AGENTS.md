@@ -114,6 +114,12 @@ Rules from step 1's cloud session
 
 ## Agent skills
 
+Carl's own workflow skills live in `.agents/skills/` for Codex and Pi;
+`.claude/skills/` has relative directory symlinks to the same files for
+Claude Code. Use [next-step](.agents/skills/next-step/SKILL.md) for session
+handoffs and [verify-before-claiming](.agents/skills/verify-before-claiming/SKILL.md)
+for evidence checks. Keep one maintained copy of each skill.
+
 ### Issue tracker
 
 Issues are tracked as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
